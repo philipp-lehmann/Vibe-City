@@ -14,7 +14,7 @@ export const MAP_SIZES = {
   medium: { w:64,  h:64,  mini:128, label:'MEDIUM', dim:'64×64'  },
   large:  { w:128, h:128, mini:192, label:'LARGE',  dim:'128×128'},
 };
-export const DEFAULT_MAP = 'medium';   // 64×64 default
+export const DEFAULT_MAP = 'small';   // DEFAULT MAP SIZE: 32×32 default
 export const TILE_W = 64;   // base diamond width  (2:1 ratio)
 export const TILE_H = 32;   // base diamond height
 export const ELEV   = 8;    // pixels of "lift" per elevation unit

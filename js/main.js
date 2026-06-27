@@ -9,16 +9,23 @@ import { generateTerrain, TERRAIN } from './terrain.js';   // TERRAIN
 import { propagatePower, propagateWater, monthlyTick, fireStep } from './simulation.js';
 import { resize, render, drawMinimap } from './renderer.js';
 import { initInput } from './input.js';
-import { initUI, syncUI, toast, doAutosave } from './ui.js';
+import { initUI, syncUI, toast, doAutosave, openStartup, setGameStartHandler } from './ui.js';
 
 // --- simulation timer: self-scheduling so speed changes apply live ---
+let simRunning=false;   // STARTUP: don't tick until a city is chosen
 function simLoop(){
   if(!state.paused){
     monthlyTick();
-    // SAVE SYSTEM: autosave every 12 in-game months
-    if(state.month>0 && state.month%12===0) doAutosave();
+    // AUTOSAVE INTERVAL: autosave every 120 in-game months (10 years)
+    if(state.month>0 && state.month%120===0) doAutosave();
   }
   setTimeout(simLoop, state.speeds[state.speedIdx]);
+}
+// STARTUP: begin the simulation once the player loads or starts a city
+function startSim(){
+  if(simRunning) return;
+  simRunning=true;
+  simLoop();
 }
 
 // --- render/frame loop: draw + push state to the DOM (ui.syncUI) ---
@@ -43,11 +50,13 @@ function boot(){
   propagateWater();
 
   // fire spreads on its own fast cadence so the ~5s window feels right
-  setInterval(()=>{ if(!state.paused) fireStep(); }, 100);
+  setInterval(()=>{ if(!state.paused && simRunning) fireStep(); }, 100);
 
-  simLoop();
-  requestAnimationFrame(frame);
-  toast('Welcome to '+state.cityName+'. Build roads, zones & power!');
+  requestAnimationFrame(frame);   // render the map behind the modal
+
+  // STARTUP: show the save/new-game modal first; sim starts only on a choice
+  setGameStartHandler(startSim);
+  openStartup();
 }
 
 boot();

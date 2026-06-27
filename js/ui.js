@@ -235,7 +235,8 @@ function buildSavesModal(){
   $('saves-new').onclick=doNewGame;
 }
 function openSaves(){ if(!modal) buildSavesModal(); renderSlots(); modal.style.display='flex'; }
-function closeSaves(){ if(modal) modal.style.display='none'; }
+// STARTUP: during the launch screen the modal stays open until a city is chosen
+function closeSaves(){ if(startupMode && !gameStarted) return; if(modal) modal.style.display='none'; }
 
 function slotCard(slot, entry){
   const card=document.createElement('div');
@@ -260,7 +261,7 @@ function slotCard(slot, entry){
   const bSave=document.createElement('button'); bSave.textContent='Save'; bSave.style.cssText=btnCss('var(--ink-mid)');
   bSave.onclick=()=>{ saveGame(slot, liveThumb()); renderSlots(); };
   const bLoad=document.createElement('button'); bLoad.textContent='Load'; bLoad.style.cssText=btnCss('var(--gold)');
-  bLoad.onclick=()=>{ if(loadGame(slot)){ syncMinimapSize(); closeSaves(); flashStatus('LOADED '+(entry.cityName||'')); } }; // MAP SIZE
+  bLoad.onclick=()=>{ if(loadGame(slot)){ syncMinimapSize(); startGame(); closeSaves(); flashStatus('LOADED '+(entry.cityName||'')); } }; // MAP SIZE + STARTUP
   const bDel=document.createElement('button'); bDel.textContent='Del'; bDel.style.cssText=btnCss('var(--warn)');
   bDel.onclick=()=>{ if(confirm('Delete save "'+(entry.cityName||slot)+'"?')){ deleteSave(slot); renderSlots(); } };
   row.appendChild(bSave); row.appendChild(bLoad); row.appendChild(bDel);
@@ -284,7 +285,7 @@ function renderSlots(){
     card.innerHTML=`${a.thumb?`<img src="${a.thumb}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated;background:#05050c;">`:''}
       <div style="flex:1;"><b>AUTOSAVE</b> <span style="color:var(--ink-dim);">${escapeHtml(a.cityName||'')} · ${fmtDate(a.month||0)} · pop ${(a.pop||0).toLocaleString()}</span></div>`;
     const bLoad=document.createElement('button'); bLoad.textContent='Load'; bLoad.style.cssText=btnCss('var(--gold)')+'flex:0 0 60px;';
-    bLoad.onclick=()=>{ if(loadGame('autosave')){ syncMinimapSize(); closeSaves(); flashStatus('LOADED AUTOSAVE'); } }; // MAP SIZE
+    bLoad.onclick=()=>{ if(loadGame('autosave')){ syncMinimapSize(); startGame(); closeSaves(); flashStatus('LOADED AUTOSAVE'); } }; // MAP SIZE + STARTUP
     card.appendChild(bLoad); box.appendChild(card);
   }
 }
@@ -342,6 +343,7 @@ function buildSizeModal(){
     if(name===null) return;                       // cancelled at name step
     newGame(name.trim()||'New Terminus', pickedSize);  // MAP SIZE
     syncMinimapSize();
+    startGame();                                       // STARTUP
     closeSaves();
     flashStatus(`NEW ${MAP_SIZES[pickedSize].label} CITY: ${state.cityName}`);
   };
@@ -362,13 +364,20 @@ function doNewGame(){
   sizeModal.style.display='flex';
 }
 
-// autosave (called by main every 12 in-game months) + status flash
+// AUTOSAVE INTERVAL: autosave silently in the background — no status flash
 export function doAutosave(){
   saveGame('autosave', liveThumb());
-  const el=$('s-flash');
-  el.textContent='AUTOSAVED'; el.style.display='inline'; el.style.color='var(--gold)';
-  clearTimeout(flashTimer);
-  flashTimer=setTimeout(()=>{ el.style.display='none'; el.style.color=''; },1500);
+}
+
+/* STARTUP: gate the sim loop behind a choice (load a city or confirm new game) */
+let startupMode=false, gameStarted=false, onGameStart=null;
+export function setGameStartHandler(fn){ onGameStart=fn; }
+function startGame(){ if(!gameStarted){ gameStarted=true; if(onGameStart) onGameStart(); } }
+// open the saves modal as the launch screen (can't be dismissed without choosing)
+export function openStartup(){
+  startupMode=true;
+  openSaves();
+  const close=$('saves-close'); if(close) close.style.display='none';   // must pick load/new
 }
 
 /* --- init + the single per-frame entry point main calls --- */
