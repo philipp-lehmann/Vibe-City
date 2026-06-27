@@ -8,6 +8,7 @@
    ================================================================ */
 import { TILE_W, TILE_H, ELEV, T, TOOLS, isZone, clamp } from './config.js';   // MAP SIZE: GRID now runtime
 import { state, tileAt, dragTiles } from './state.js';
+import { TERRAIN } from './terrain.js';   // TERRAIN
 
 // --- canvas handles (canvas is the renderer's surface, not panel DOM) ---
 export const view = document.getElementById('view');
@@ -85,13 +86,23 @@ function diamond(sx,sy){
   ctx.closePath();
 }
 
+// TERRAIN: base ground colours by terrain type (drawn beneath zones/buildings)
+const TERR_COL = {
+  [TERRAIN.WETLAND]: '#36492f',
+  [TERRAIN.LOWLAND]: '#1f3a1c',
+  [TERRAIN.HIGHLAND]:'#3b4a24',
+  [TERRAIN.HILL]:    '#5a4a32',
+};
 function groundColor(t){
-  switch(t.type){
-    case T.WATER: return '#15324f';
-    case T.ROAD:  return '#2a2a30';
-    case T.PARK:  return '#15521f';
-    default:      return '#1f3a1c';
+  // TERRAIN: water/shallows shimmer between two tones every 2 seconds
+  if(t.terrain===TERRAIN.WATER || t.terrain===TERRAIN.SHALLOWS){
+    const phase = Math.floor(performance.now()/2000) % 2;
+    if(t.terrain===TERRAIN.WATER)    return phase ? '#13314e' : '#163a5c';
+    return phase ? '#2a6f8f' : '#2f7a9c';
   }
+  if(t.type===T.ROAD) return '#2a2a30';
+  if(t.type===T.PARK) return '#15521f';
+  return TERR_COL[t.terrain] ?? '#1f3a1c';   // land terrain tint
 }
 
 /* --- Main draw: painter's algorithm in rotated order so depth sort
@@ -110,7 +121,9 @@ export function render(){
       if(ry<0||ry>=GH) continue;
       const [gx,gy]=unrotateCoord(rx,ry,state.rot);
       const t=state.grid[gy][gx];
-      const [sx,sy]=isoToScreen(gx,gy,0);
+      const [sx,sy0]=isoToScreen(gx,gy,0);
+      // TERRAIN: HILL tiles sit 4px taller -> raise ground + everything on it
+      const sy = sy0 - (t.terrain===TERRAIN.HILL ? 4*z : 0);
 
       if(sx< -hw*2 || sx> view.width+hw*2 || sy< -hh*4 || sy> view.height+hh*4) continue;
 

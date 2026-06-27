@@ -8,6 +8,7 @@
    drag-geometry selector (shared by renderer preview + input commit).
    ================================================================ */
 import { MAP_SIZES, DEFAULT_MAP, T } from './config.js';
+import { generateTerrain, TERRAIN, isWaterTerrain } from './terrain.js'; // TERRAIN
 
 // --- tile factory: keeps every tile's shape consistent ---
 export function makeTile(type){
@@ -23,7 +24,12 @@ export function makeTile(type){
     onFire: 0,       // >0 == burning, counts down
     elev: 0,         // elevation units for rendering
     pollution: 0,    // DEMAND SYSTEM: industrial pollution at this tile
-    jobsNearby: true // DEMAND SYSTEM: road-reachable C/I within commute radius
+    jobsNearby: true,// DEMAND SYSTEM: road-reachable C/I within commute radius
+    // TERRAIN: procedural base layer (set by applyTerrain on new game)
+    terrain: TERRAIN.LOWLAND,
+    elevation: 0.5,  // 0..1 simplex elevation
+    moisture: 0.5,   // 0..1 simplex moisture
+    bridge: false    // TERRAIN: road tile is a bridge over water
   };
 }
 
@@ -58,21 +64,29 @@ export const state = {
   flash: null,                    // pending status-bar flash (drained by ui)
 };
 
-// --- grid init: grass + a small organic lake (MAP SIZE: runtime dims) ---
+// --- grid init: all grass; TERRAIN: water/relief now come from generateTerrain ---
 export function initGrid(){
   state.grid = [];
-  const lx=Math.round(state.gridWidth*0.22), ly=Math.round(state.gridHeight*0.75);
   for(let y=0;y<state.gridHeight;y++){
     const row=[];
-    for(let x=0;x<state.gridWidth;x++){
-      let tile = makeTile(T.GRASS);
-      const dx=x-lx, dy=y-ly;                 // lake scales with map
-      if(dx*dx+dy*dy < 8) tile = makeTile(T.WATER);
-      row.push(tile);
-    }
+    for(let x=0;x<state.gridWidth;x++) row.push(makeTile(T.GRASS));
     state.grid.push(row);
   }
 }
+
+// TERRAIN: merge a generated terrain array into the (fresh) grid. Water-class
+// terrain becomes tile.type WATER so existing build/zone rules reject it.
+export function applyTerrain(terr){
+  for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
+    const td=terr[y][x], t=state.grid[y][x];
+    t.terrain=td.terrain; t.elevation=td.elevation; t.moisture=td.moisture;
+    t.type = isWaterTerrain(td.terrain) ? T.WATER : T.GRASS;
+  }
+}
+
+// TERRAIN: helpers describing build rules (data; callers enforce)
+export function isBuildableTile(t){ return t && !isWaterTerrain(t.terrain); }
+export function bulldozeCost(t){ return t && t.terrain===TERRAIN.WETLAND ? 2 : 1; } // wetland 2x
 
 // MAP SIZE: set grid dimensions from a preset key ('small'|'medium'|'large')
 export function setMapSize(key){
@@ -193,11 +207,15 @@ export function loadGame(slot){ return applySave(readSave(slot)); }
 export function newGame(name, sizeKey){
   if(sizeKey) setMapSize(sizeKey);
   initGrid();
+  // TERRAIN: generate once per new game from a fresh random seed
+  applyTerrain(generateTerrain(state.gridWidth, state.gridHeight, (Math.random()*1e9)>>>0));
   state.funds=50000; state.pop=0; state.month=0;
   state.taxPct=8; state.taxRate=0.08; state.happiness=70;
   state.cityName = name || 'New Terminus';
   state.demand = { R:0.5, C:0.2, I:0.3 };
-  // seed a coal plant near the centre of whatever map size was chosen
+  // seed a coal plant near the centre on a guaranteed-buildable lowland tile
   const cx=state.gridWidth>>1, cy=state.gridHeight>>1;
-  state.grid[cy][cx] = makeTile(T.POWERPLANT);
+  const plant = makeTile(T.POWERPLANT);
+  plant.terrain=TERRAIN.LOWLAND; plant.elevation=0.5;   // TERRAIN: ensure it's on land
+  state.grid[cy][cx] = plant;
 }
