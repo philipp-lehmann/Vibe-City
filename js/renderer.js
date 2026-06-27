@@ -1,0 +1,816 @@
+/* ================================================================
+   renderer.js — all canvas drawing. Owns the <canvas> elements only;
+   it does NOT update HUD/panel DOM (that is ui.js's job).
+   Dependencies: config.js, state.js
+   Holds: isometric projection + rotation math, painter's-algorithm
+   sort, ground/building/overlay sprites, drag preview, minimap, and
+   the toolbar icon drawer used by ui.
+   ================================================================ */
+import { TILE_W, TILE_H, ELEV, T, TOOLS, isZone, clamp } from './config.js';   // MAP SIZE: GRID now runtime
+import { state, tileAt, dragTiles } from './state.js';
+
+// --- canvas handles (canvas is the renderer's surface, not panel DOM) ---
+export const view = document.getElementById('view');
+const ctx  = view.getContext('2d');
+const mini = document.getElementById('minimap');
+const mctx = mini.getContext('2d');
+let originX=0, originY=0;   // screen origin for grid (0,0)
+
+export function resize(){
+  view.width  = window.innerWidth;
+  view.height = window.innerHeight;
+  ctx.imageSmoothingEnabled=false;
+}
+window.addEventListener('resize', resize);
+
+/* --- View rotation. Logical (gx,gy) -> rotated render coords (rx,ry)
+   before projecting; inverted when picking. rot: 0=N 1=E 2=S 3=W. --- */
+// MAP SIZE: maps are square presets, so a single N drives the rotation math.
+export function rotateCoord(gx,gy,rot){
+  const N=state.gridWidth;
+  switch(rot&3){
+    case 1: return [N-1-gy, gx];          // E
+    case 2: return [N-1-gx, N-1-gy];      // S
+    case 3: return [gy, N-1-gx];          // W
+    default:return [gx,gy];               // N
+  }
+}
+export function unrotateCoord(rx,ry,rot){
+  const N=state.gridWidth;
+  switch(rot&3){
+    case 1: return [ry, N-1-rx];
+    case 2: return [N-1-rx, N-1-ry];
+    case 3: return [N-1-ry, rx];
+    default:return [rx,ry];
+  }
+}
+
+// grid -> screen (top vertex of tile diamond). Rotation/zoom/camera/elev aware.
+export function isoToScreen(gx,gy,elev=0){
+  const [rx,ry]=rotateCoord(gx,gy,state.rot);
+  const z=state.zoom;
+  const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  const sx=originX + (rx-ry)*hw + state.cam.x;
+  const sy=originY + (rx+ry)*hh + state.cam.y - elev*ELEV*z;
+  return [sx,sy];
+}
+// screen -> grid (ground plane), inverting current facing — used by input picking.
+export function screenToIso(px,py){
+  const z=state.zoom;
+  const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  const ax=(px-originX-state.cam.x)/hw;
+  const ay=(py-originY-state.cam.y)/hh;
+  const rx=Math.floor((ax+ay)/2);
+  const ry=Math.floor((ay-ax)/2);
+  return unrotateCoord(rx,ry,state.rot);
+}
+
+// MAP SIZE: centre the isometric viewport on the grid's middle tile for any size
+function recenter(){
+  const hh=(TILE_H/2)*state.zoom;
+  const cSum=((state.gridWidth-1)+(state.gridHeight-1))/2;   // (rx+ry) at grid centre
+  originX = view.width/2;
+  originY = view.height/2 - cSum*hh;
+}
+
+// flat diamond path (ground footprint of a tile)
+function diamond(sx,sy){
+  const z=state.zoom;
+  const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(sx+hw, sy+hh);
+  ctx.lineTo(sx, sy+2*hh);
+  ctx.lineTo(sx-hw, sy+hh);
+  ctx.closePath();
+}
+
+function groundColor(t){
+  switch(t.type){
+    case T.WATER: return '#15324f';
+    case T.ROAD:  return '#2a2a30';
+    case T.PARK:  return '#15521f';
+    default:      return '#1f3a1c';
+  }
+}
+
+/* --- Main draw: painter's algorithm in rotated order so depth sort
+   stays correct at every facing. --- */
+export function render(){
+  ctx.clearRect(0,0,view.width,view.height);
+  recenter();
+
+  const z=state.zoom;
+  const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+
+  const GW=state.gridWidth, GH=state.gridHeight;   // MAP SIZE
+  for(let s=0; s<=(GW-1)+(GH-1); s++){
+    for(let rx=0; rx<GW; rx++){
+      const ry=s-rx;
+      if(ry<0||ry>=GH) continue;
+      const [gx,gy]=unrotateCoord(rx,ry,state.rot);
+      const t=state.grid[gy][gx];
+      const [sx,sy]=isoToScreen(gx,gy,0);
+
+      if(sx< -hw*2 || sx> view.width+hw*2 || sy< -hh*4 || sy> view.height+hh*4) continue;
+
+      drawGroundTile(sx,sy,t);
+
+      // water overlay tint (under buildings, over ground)
+      if(state.waterOverlay && t.water){
+        diamond(sx,sy);
+        ctx.fillStyle='rgba(43,180,221,0.35)';
+        ctx.fill();
+      }
+      // DEMAND SYSTEM: land-value overlay (green = high, red = low)
+      if(state.lvOverlay){
+        const g=clamp((t.land-20)/120,0,1);
+        diamond(sx,sy);
+        ctx.fillStyle=`rgba(${Math.round(235*(1-g))},${Math.round(210*g)},45,0.40)`;
+        ctx.fill();
+      }
+
+      drawTileContent(sx,sy,t,gx,gy);
+
+      // hover highlight
+      if(state.hover.x===gx && state.hover.y===gy){
+        diamond(sx,sy);
+        ctx.fillStyle='rgba(0,255,65,0.18)';
+        ctx.fill();
+        ctx.strokeStyle='#00ff41'; ctx.lineWidth=1.5; ctx.stroke();
+      }
+    }
+  }
+  drawDragPreview();
+}
+
+function drawGroundTile(sx,sy,t){
+  const z=state.zoom;
+  const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  diamond(sx,sy);
+  ctx.fillStyle=groundColor(t);
+  ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.35)';
+  ctx.lineWidth=1; ctx.stroke();
+
+  if(t.type===T.WATER){
+    ctx.strokeStyle='rgba(60,140,200,0.4)';
+    ctx.beginPath();
+    ctx.moveTo(sx-hw*0.4, sy+hh); ctx.lineTo(sx, sy+hh*0.7);
+    ctx.stroke();
+  }
+}
+
+function drawTileContent(sx,sy,t,gx,gy){
+  switch(t.type){
+    case T.ROAD:       drawRoad(sx,sy,gx,gy); break;
+    case T.POWERLINE:  drawPowerLine(sx,sy,t); break;
+    case T.POWERPLANT: drawBox(sx,sy,3,'#3a3a42','#52525c', t.powered); drawSmoke(sx,sy); break;
+    case T.PUMP:       drawBox(sx,sy,2,'#1c6f8a','#2bd', t.powered); break;
+    case T.PARK:       drawPark(sx,sy); break;
+    case T.RES:        drawZoneBuilding(sx,sy,t,gx,gy,'R'); break; // BUILDING SPRITES
+    case T.COM:        drawZoneBuilding(sx,sy,t,gx,gy,'C'); break; // BUILDING SPRITES
+    case T.IND:        drawZoneBuilding(sx,sy,t,gx,gy,'I'); break; // BUILDING SPRITES
+  }
+  if(isZone(t.type) && t.pop===0 && t.level===0 && (!t.powered || !t.water || !t.nearRoad)){
+    drawNeedIcon(sx,sy,t);
+  }
+  if(t.onFire>0) drawFire(sx,sy);
+}
+
+// roads: raised slightly, dashed links to road neighbours (rotation-correct)
+function drawRoad(sx,sy,gx,gy){
+  const z=state.zoom, hh=(TILE_H/2)*z;
+  const lift=1.2*z;
+  diamond(sx,sy-lift);
+  ctx.fillStyle='#33333b'; ctx.fill();
+  ctx.strokeStyle='#15151a'; ctx.stroke();
+  ctx.strokeStyle='#00ff41'; ctx.lineWidth=1; ctx.setLineDash([3*z,3*z]);
+  const c=[sx,sy-lift+hh];
+  const neigh=[[1,0],[-1,0],[0,1],[0,-1]];
+  neigh.forEach(([dx,dy])=>{
+    const n=tileAt(gx+dx,gy+dy);
+    if(n && (n.type===T.ROAD)){
+      const [nsx,nsy]=isoToScreen(gx+dx,gy+dy,0);
+      const ex=(sx+nsx)/2, ey=((sy-lift+hh)+(nsy-lift+hh))/2;
+      ctx.beginPath(); ctx.moveTo(c[0],c[1]); ctx.lineTo(ex,ey); ctx.stroke();
+    }
+  });
+  ctx.setLineDash([]);
+}
+
+function drawPowerLine(sx,sy,t){
+  const z=state.zoom, hh=(TILE_H/2)*z;
+  const cx=sx, cy=sy+hh;
+  ctx.strokeStyle= t.powered? '#ffd23f':'#665';
+  ctx.lineWidth=1.5*z;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy-2); ctx.lineTo(cx, cy-12*z);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx-6*z, cy-10*z); ctx.lineTo(cx+6*z, cy-10*z);
+  ctx.stroke();
+}
+
+// generic extruded box building of given height (units)
+function drawBox(sx,sy,h,topCol,sideCol,powered){
+  const z=state.zoom, hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  const H=h*ELEV*z*1.4;
+  const cx=sx, cyTop=sy;
+  const right=[sx+hw, sy+hh];
+  const left =[sx-hw, sy+hh];
+  const bottom=[sx, sy+2*hh];
+
+  ctx.beginPath();
+  ctx.moveTo(right[0], right[1]-H);
+  ctx.lineTo(bottom[0],bottom[1]-H);
+  ctx.lineTo(bottom[0],bottom[1]);
+  ctx.lineTo(right[0], right[1]);
+  ctx.closePath();
+  ctx.fillStyle=shade(sideCol,-25); ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(left[0], left[1]-H);
+  ctx.lineTo(bottom[0],bottom[1]-H);
+  ctx.lineTo(bottom[0],bottom[1]);
+  ctx.lineTo(left[0], left[1]);
+  ctx.closePath();
+  ctx.fillStyle=shade(sideCol,-5); ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cyTop-H);
+  ctx.lineTo(right[0], right[1]-H);
+  ctx.lineTo(bottom[0], bottom[1]-H);
+  ctx.lineTo(left[0], left[1]-H);
+  ctx.closePath();
+  ctx.fillStyle=topCol; ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.stroke();
+
+  if(powered){
+    ctx.fillStyle='rgba(255,210,63,0.8)';
+    for(let i=0;i<h;i++){
+      ctx.fillRect(cx-2*z, cyTop-H+6*z+i*6*z, 2*z, 2*z);
+    }
+  }
+}
+
+/* ===== BUILDING SPRITES ================================================
+   Procedural, seeded building variety. Each zone+density picks one of
+   several silhouette variants deterministically from grid coords, so a
+   tile always draws the same building. Volumes are stacked isometric
+   boxes via canvas paths; each gets a soft drop shadow. Newly placed
+   zones show a scaffold for the first 2 sim months.
+   Painter's note: the main render loop already draws strictly back-to-
+   front by (rx+ry); building height extends upward (−y), which only
+   overlaps tiles drawn earlier (further back), so tall towers correctly
+   overhang the tiles behind them with no extra sorting needed.
+   ===================================================================== */
+
+// per-zone palettes (R warm brick / C cool glass-grey / I concrete+rust)
+const PAL = {
+  R:{ top:'#c47a52', right:'#a85f3e', left:'#76402a', roof:'#8f3b30', roof2:'#a8534a',
+      win:'#ffe6a8', door:'#4f2c1b', line:'rgba(0,0,0,0.35)', trim:'#caa07a' },
+  C:{ top:'#dde6ee', right:'#aebccb', left:'#7c8a9a', roof:'#c7d2dc', roof2:'#aebccb',
+      win:'#bfe6f5', door:'#5a6a7a', line:'rgba(0,0,0,0.30)', trim:'#ffffff', accent:'#3b9dff' },
+  I:{ top:'#bdbdb4', right:'#9a9a92', left:'#69695f', roof:'#a8a8a0', roof2:'#8a8a82',
+      win:'#cdd2c8', rust:'#9c5a32', rust2:'#b56a3a', metal:'#7d7d74', line:'rgba(0,0,0,0.35)' }
+};
+const DARK_WIN = '#23232b';   // unlit window
+const FRAC = [0.40, 0.65, 0.96];          // tile-height fraction per density level
+const HPX  = [34, 60, 92];                // pixel height per density level (×zoom)
+
+// construction timer: tile object -> sim month first seen (survives leveling,
+// resets when a tile is bulldozed/replaced because that makes a new object).
+const buildAge = new WeakMap();
+
+// unit-square -> screen point on the tile diamond, lifted by h pixels.
+// u,v may exceed [0,1] to let high-density footprints overhang the tile.
+function bp(sx,sy,u,v,h){
+  const z=state.zoom, hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  return [ sx + (u-v)*hw, sy + (u+v)*hh - h ];
+}
+function poly(pts){
+  ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath();
+}
+function lerpP(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
+
+// soft drop shadow under a footprint (offset 2px down-right, 20% black)
+function buildingShadow(sx,sy,u0,v0,u1,v1){
+  ctx.save(); ctx.translate(2,2);
+  poly([bp(sx,sy,u0,v0,0),bp(sx,sy,u1,v0,0),bp(sx,sy,u1,v1,0),bp(sx,sy,u0,v1,0)]);
+  ctx.fillStyle='rgba(0,0,0,0.20)'; ctx.fill();
+  ctx.restore();
+}
+
+// extruded box; returns its 8 corner points (A..D base/top). Front corner is C.
+function box(sx,sy,u0,v0,u1,v1,base,H,pal,stroke=true){
+  const A0=bp(sx,sy,u0,v0,base),B0=bp(sx,sy,u1,v0,base),C0=bp(sx,sy,u1,v1,base),D0=bp(sx,sy,u0,v1,base);
+  const A1=bp(sx,sy,u0,v0,base+H),B1=bp(sx,sy,u1,v0,base+H),C1=bp(sx,sy,u1,v1,base+H),D1=bp(sx,sy,u0,v1,base+H);
+  poly([B0,C0,C1,B1]); ctx.fillStyle=pal.right; ctx.fill(); if(stroke){ctx.strokeStyle=pal.line;ctx.lineWidth=1;ctx.stroke();}
+  poly([D0,C0,C1,D1]); ctx.fillStyle=pal.left;  ctx.fill(); if(stroke){ctx.stroke();}
+  poly([A1,B1,C1,D1]); ctx.fillStyle=pal.top;   ctx.fill(); if(stroke){ctx.stroke();}
+  return {A0,B0,C0,D0,A1,B1,C1,D1};
+}
+
+// grid of small window rects across a quad face (TL,TR,BR,BL screen pts)
+function faceWindows(TL,TR,BR,BL,cols,rows,col,inset=0.20){
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const u0=(c+inset)/cols, u1=(c+1-inset)/cols, v0=(r+inset)/rows, v1=(r+1-inset)/rows;
+    const a=lerpP(lerpP(TL,TR,u0),lerpP(BL,BR,u0),v0);
+    const b=lerpP(lerpP(TL,TR,u1),lerpP(BL,BR,u1),v0);
+    const d=lerpP(lerpP(TL,TR,u1),lerpP(BL,BR,u1),v1);
+    const e=lerpP(lerpP(TL,TR,u0),lerpP(BL,BR,u0),v1);
+    poly([a,b,d,e]); ctx.fillStyle=col; ctx.fill();
+  }
+}
+// windows on both visible faces of a box result `v`
+function boxWindows(v,cols,rows,col){
+  faceWindows(v.B1,v.C1,v.C0,v.B0,cols,rows,col);   // right face
+  faceWindows(v.D1,v.C1,v.C0,v.D0,cols,rows,col);   // left face
+}
+
+// hip roof (4-slope, apex at centre) — only the 2 front slopes are visible
+function hipRoof(sx,sy,u0,v0,u1,v1,base,peak,col1,col2){
+  const apex=bp(sx,sy,(u0+u1)/2,(v0+v1)/2,base+peak);
+  const B=bp(sx,sy,u1,v0,base),C=bp(sx,sy,u1,v1,base),D=bp(sx,sy,u0,v1,base);
+  poly([B,C,apex]); ctx.fillStyle=col2; ctx.fill(); ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.stroke();
+  poly([D,C,apex]); ctx.fillStyle=col1; ctx.fill(); ctx.stroke();
+}
+// gable roof (ridge along u at mid-v): front slope + right gable end
+function gableRoof(sx,sy,u0,v0,u1,v1,base,peak,col1,col2){
+  const vm=(v0+v1)/2;
+  const r0=bp(sx,sy,u0,vm,base+peak), r1=bp(sx,sy,u1,vm,base+peak);
+  const B=bp(sx,sy,u1,v0,base),C=bp(sx,sy,u1,v1,base),D=bp(sx,sy,u0,v1,base);
+  poly([D,C,r1,r0]); ctx.fillStyle=col1; ctx.fill(); ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.stroke();
+  poly([B,C,r1]);    ctx.fillStyle=col2; ctx.fill(); ctx.stroke();
+}
+// small chimney / stack box centred at (u,v)
+function stack(sx,sy,u,v,base,h,col,s=0.06){
+  box(sx,sy,u-s,v-s,u+s,v+s,base,h,{top:col,right:shade(col,-15),left:shade(col,-35),line:'rgba(0,0,0,0.4)'});
+}
+// rooftop antenna with red tip
+function antenna(sx,sy,u,v,base,h){
+  const z=state.zoom, p0=bp(sx,sy,u,v,base), p1=bp(sx,sy,u,v,base+h);
+  ctx.strokeStyle='#bbb'; ctx.lineWidth=1*z;
+  ctx.beginPath(); ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.stroke();
+  ctx.fillStyle='#ff5b3b'; ctx.beginPath(); ctx.arc(p1[0],p1[1],1.6*z,0,Math.PI*2); ctx.fill();
+}
+// shop awning: a short striped sloped band on the front-left face
+function awning(sx,sy,u0,u1,vF,base,col){
+  const z=state.zoom;
+  const a=bp(sx,sy,u0,vF,base), b=bp(sx,sy,u1,vF,base);
+  const a2=bp(sx,sy,u0,vF+0.18,base-5*z), b2=bp(sx,sy,u1,vF+0.18,base-5*z);
+  poly([a,b,b2,a2]); ctx.fillStyle=col; ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1*z;
+  for(let i=1;i<4;i++){ const t=i/4; const p=lerpP(a,b,t),q=lerpP(a2,b2,t);
+    ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke(); }
+}
+
+// ---- dispatcher -------------------------------------------------------
+function drawZoneBuilding(sx,sy,t,gx,gy,kind){
+  if(!buildAge.has(t)) buildAge.set(t, state.month);
+  const elapsed = state.month - buildAge.get(t);
+  if(elapsed < 2){ drawScaffold(sx,sy); return; }        // 2-month construction
+  if(t.pop===0 && t.level===0){ drawVacantLot(sx,sy,kind); return; }
+  const seed = (gx*31 + gy*17);                          // deterministic variant
+  const P = PAL[kind];
+  const lit = t.powered ? P.win : DARK_WIN;
+  if(kind==='R') drawRes(sx,sy,t.level,seed,P,lit);
+  else if(kind==='C') drawCom(sx,sy,t.level,seed,P,lit);
+  else drawInd(sx,sy,t.level,seed,P,lit);
+}
+
+// scaffold: bare frame with diagonal cross-bracing
+function drawScaffold(sx,sy){
+  const z=state.zoom, u0=0.16,v0=0.16,u1=0.84,v1=0.84, H=20*z;
+  const A0=bp(sx,sy,u0,v0,0),B0=bp(sx,sy,u1,v0,0),C0=bp(sx,sy,u1,v1,0),D0=bp(sx,sy,u0,v1,0);
+  const A1=bp(sx,sy,u0,v0,H),B1=bp(sx,sy,u1,v0,H),C1=bp(sx,sy,u1,v1,H),D1=bp(sx,sy,u0,v1,H);
+  const L=(p,q)=>{ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();};
+  ctx.setLineDash([]); ctx.lineWidth=1*z; ctx.strokeStyle='#caa05a';
+  L(A0,B0);L(B0,C0);L(C0,D0);L(D0,A0);                  // base ring
+  L(A0,A1);L(B0,B1);L(C0,C1);L(D0,D1);                  // verticals
+  L(A1,B1);L(B1,C1);L(C1,D1);L(D1,A1);                  // top ring
+  ctx.strokeStyle='rgba(202,160,90,0.65)';
+  L(B0,C1);L(C0,B1);                                     // right-face X brace
+  L(D0,C1);L(C0,D1);                                     // left-face X brace
+}
+
+// vacant (developed lot still empty / unpowered): dashed plot marker
+function drawVacantLot(sx,sy,kind){
+  const z=state.zoom, col = kind==='R'?'#39d353':kind==='C'?'#3b9dff':'#ffd23f';
+  diamond(sx,sy);
+  ctx.fillStyle=hexA(col,0.12); ctx.fill();
+  ctx.setLineDash([3*z,2*z]); ctx.strokeStyle=hexA(col,0.6);
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+// ---- RESIDENTIAL ------------------------------------------------------
+function drawRes(sx,sy,level,seed,P,lit){
+  const z=state.zoom;
+  if(level===0){                                  // low: house / cottage / bungalow
+    const k=seed%3;
+    if(k===0){ // small house, gable roof + door
+      buildingShadow(sx,sy,0.26,0.26,0.78,0.78);
+      const v=box(sx,sy,0.26,0.26,0.78,0.78,0, 22*z, P);
+      faceWindows(v.B1,v.C1,v.C0,v.B0,2,1,lit);
+      faceWindows(v.D1,v.C1,v.C0,v.D0,1,1,P.door,0.34);
+      gableRoof(sx,sy,0.26,0.26,0.78,0.78,22*z,15*z,P.roof,P.roof2);
+    } else if(k===1){ // cottage, hip roof + chimney
+      buildingShadow(sx,sy,0.24,0.24,0.80,0.80);
+      const v=box(sx,sy,0.24,0.24,0.80,0.80,0, 19*z, P);
+      boxWindows(v,2,1,lit);
+      hipRoof(sx,sy,0.24,0.24,0.80,0.80,19*z,16*z,P.roof,P.roof2);
+      stack(sx,sy,0.66,0.34,32*z,9*z,P.left);
+    } else { // wide low bungalow
+      buildingShadow(sx,sy,0.16,0.30,0.86,0.74);
+      const v=box(sx,sy,0.16,0.30,0.86,0.74,0, 16*z, P);
+      faceWindows(v.B1,v.C1,v.C0,v.B0,3,1,lit);
+      faceWindows(v.D1,v.C1,v.C0,v.D0,3,1,lit);
+      gableRoof(sx,sy,0.16,0.30,0.86,0.74,16*z,10*z,P.roof,P.roof2);
+    }
+  } else if(level===1){                           // mid: walkup / townhouse / duplex
+    const k=seed%3, H=HPX[1]*z;
+    if(k===0){ // narrow 3-floor walkup
+      buildingShadow(sx,sy,0.30,0.30,0.72,0.72);
+      const v=box(sx,sy,0.30,0.30,0.72,0.72,0,H,P);
+      boxWindows(v,2,3,lit);
+    } else if(k===1){ // wider townhouse block
+      buildingShadow(sx,sy,0.16,0.18,0.84,0.82);
+      const v=box(sx,sy,0.16,0.18,0.84,0.82,0,H*0.85,P);
+      boxWindows(v,3,3,lit);
+      faceWindows(v.D1,v.C1,v.C0,v.D0,1,1,P.door,0.36);
+    } else { // duplex: two gabled blocks
+      buildingShadow(sx,sy,0.16,0.20,0.84,0.80);
+      const a=box(sx,sy,0.16,0.20,0.50,0.80,0,H*0.7,P); boxWindows(a,1,2,lit);
+      gableRoof(sx,sy,0.16,0.20,0.50,0.80,H*0.7,12*z,P.roof,P.roof2);
+      const b=box(sx,sy,0.50,0.20,0.84,0.80,0,H*0.7,P); boxWindows(b,1,2,lit);
+      gableRoof(sx,sy,0.50,0.20,0.84,0.80,H*0.7,12*z,P.roof,P.roof2);
+    }
+  } else {                                        // high: tower / slab+setback / stepped
+    const k=seed%3, H=HPX[2]*z;
+    if(k===0){ // apartment tower + antenna
+      buildingShadow(sx,sy,0.14,0.14,0.90,0.90);
+      const v=box(sx,sy,0.14,0.14,0.90,0.90,0,H,P);
+      boxWindows(v,3,5,lit);
+      antenna(sx,sy,0.5,0.5,H,12*z);
+    } else if(k===1){ // slab block with setback base
+      buildingShadow(sx,sy,0.10,0.10,0.92,0.92);
+      const base=box(sx,sy,0.10,0.10,0.92,0.92,0,26*z,P); boxWindows(base,4,1,lit);
+      const tow=box(sx,sy,0.22,0.22,0.80,0.80,26*z,H-26*z,P); boxWindows(tow,3,4,lit);
+    } else { // stepped tower
+      buildingShadow(sx,sy,0.16,0.16,0.88,0.88);
+      const a=box(sx,sy,0.16,0.16,0.88,0.88,0,H*0.55,P); boxWindows(a,3,3,lit);
+      const b=box(sx,sy,0.26,0.26,0.78,0.78,H*0.55,H*0.45,P); boxWindows(b,2,2,lit);
+      antenna(sx,sy,0.5,0.5,H,10*z);
+    }
+  }
+}
+
+// ---- COMMERCIAL -------------------------------------------------------
+function drawCom(sx,sy,level,seed,P,lit){
+  const z=state.zoom;
+  if(level===0){                                  // low: corner shop / small office
+    const k=seed%3;
+    if(k===0){ // corner shop with awning + big shopfront
+      buildingShadow(sx,sy,0.22,0.22,0.82,0.82);
+      const v=box(sx,sy,0.22,0.22,0.82,0.82,0,24*z,P);
+      faceWindows(v.B1,v.C1,v.C0,v.B0,1,1,P.accent,0.12);
+      awning(sx,sy,0.22,0.82,0.82,10*z,P.accent);
+    } else if(k===1){ // small office with awning
+      buildingShadow(sx,sy,0.24,0.24,0.80,0.80);
+      const v=box(sx,sy,0.24,0.24,0.80,0.80,0,30*z,P);
+      boxWindows(v,2,2,lit);
+      awning(sx,sy,0.24,0.80,0.80,12*z,'#5a6e82');
+    } else { // kiosk + flat roof box
+      buildingShadow(sx,sy,0.20,0.28,0.84,0.76);
+      const v=box(sx,sy,0.20,0.28,0.84,0.76,0,22*z,P);
+      faceWindows(v.B1,v.C1,v.C0,v.B0,3,1,P.accent,0.14);
+    }
+  } else if(level===1){                           // mid: glass-front / L-retail / plaza
+    const k=seed%3, H=HPX[1]*z;
+    if(k===0){ // glass-front store: large glazed panels
+      buildingShadow(sx,sy,0.16,0.16,0.86,0.86);
+      const v=box(sx,sy,0.16,0.16,0.86,0.86,0,H*0.9,P);
+      faceWindows(v.B1,v.C1,v.C0,v.B0,2,3,P.win,0.08);
+      faceWindows(v.D1,v.C1,v.C0,v.D0,2,3,P.win,0.08);
+    } else if(k===1){ // L-shaped retail block
+      buildingShadow(sx,sy,0.14,0.14,0.88,0.88);
+      const a=box(sx,sy,0.14,0.14,0.88,0.55,0,H*0.8,P); boxWindows(a,3,2,lit);
+      const b=box(sx,sy,0.14,0.55,0.52,0.88,0,H*0.8,P); boxWindows(b,2,2,lit);
+    } else { // mid cube with banded glazing
+      buildingShadow(sx,sy,0.16,0.16,0.86,0.86);
+      const v=box(sx,sy,0.16,0.16,0.86,0.86,0,H,P); boxWindows(v,3,3,P.win);
+    }
+  } else {                                        // high: office tower / dept-store cube
+    const k=seed%3, H=HPX[2]*z;
+    if(k===0){ // office tower with stepped crown + antenna
+      buildingShadow(sx,sy,0.14,0.14,0.90,0.90);
+      const a=box(sx,sy,0.14,0.14,0.90,0.90,0,H*0.7,P); boxWindows(a,3,5,P.win);
+      const b=box(sx,sy,0.24,0.24,0.80,0.80,H*0.7,H*0.18,P); boxWindows(b,2,1,P.win);
+      const c=box(sx,sy,0.34,0.34,0.70,0.70,H*0.88,H*0.12,P);
+      antenna(sx,sy,0.5,0.5,H,12*z);
+    } else if(k===1){ // department store cube (full footprint, banded)
+      buildingShadow(sx,sy,0.08,0.08,0.94,0.94);
+      const v=box(sx,sy,0.08,0.08,0.94,0.94,0,H*0.78,P);
+      boxWindows(v,4,4,P.win);
+    } else { // twin glass slab
+      buildingShadow(sx,sy,0.12,0.12,0.90,0.90);
+      const a=box(sx,sy,0.12,0.16,0.52,0.86,0,H,P); boxWindows(a,2,5,P.win);
+      const b=box(sx,sy,0.54,0.16,0.90,0.86,0,H*0.82,P); boxWindows(b,2,4,P.win);
+    }
+  }
+}
+
+// ---- INDUSTRIAL -------------------------------------------------------
+function drawInd(sx,sy,level,seed,P,lit){
+  const z=state.zoom;
+  if(level===0){                                  // low: warehouse shed / small unit
+    const k=seed%3;
+    if(k===0){ // warehouse shed with gable + big door
+      buildingShadow(sx,sy,0.14,0.22,0.88,0.78);
+      const v=box(sx,sy,0.14,0.22,0.88,0.78,0,24*z,P);
+      faceWindows(v.D1,v.C1,v.C0,v.D0,1,1,P.metal,0.30);
+      gableRoof(sx,sy,0.14,0.22,0.88,0.78,24*z,9*z,P.roof,P.roof2);
+    } else if(k===1){ // small factory unit + short stack
+      buildingShadow(sx,sy,0.20,0.24,0.82,0.80);
+      const v=box(sx,sy,0.20,0.24,0.82,0.80,0,28*z,P);
+      faceWindows(v.B1,v.C1,v.C0,v.B0,3,1,P.win);
+      stack(sx,sy,0.72,0.34,28*z,16*z,P.rust);
+    } else { // flat storage box with vents
+      buildingShadow(sx,sy,0.16,0.20,0.86,0.80);
+      const v=box(sx,sy,0.16,0.20,0.86,0.80,0,22*z,P);
+      stack(sx,sy,0.34,0.34,22*z,7*z,P.metal,0.05);
+      stack(sx,sy,0.60,0.34,22*z,7*z,P.metal,0.05);
+    }
+  } else if(level===1){                           // mid: chimney factory / loading depot
+    const k=seed%3, H=HPX[1]*z;
+    if(k===0){ // factory with tall chimney stack
+      buildingShadow(sx,sy,0.16,0.18,0.84,0.82);
+      const v=box(sx,sy,0.16,0.18,0.84,0.82,0,H*0.7,P);
+      faceWindows(v.B1,v.C1,v.C0,v.B0,4,2,P.win);
+      stack(sx,sy,0.74,0.30,H*0.7,H*0.7,P.rust,0.07);   // rust-banded chimney
+      stack(sx,sy,0.74,0.30,H*0.7+H*0.35,2*z,P.rust2,0.075);
+    } else if(k===1){ // depot with loading bays
+      buildingShadow(sx,sy,0.10,0.26,0.90,0.74);
+      const v=box(sx,sy,0.10,0.26,0.90,0.74,0,H*0.6,P);
+      faceWindows(v.D1,v.C1,v.C0,v.D0,4,1,P.metal,0.16);  // bay doors
+    } else { // dual-roof workshop
+      buildingShadow(sx,sy,0.14,0.20,0.86,0.80);
+      const v=box(sx,sy,0.14,0.20,0.86,0.80,0,H*0.55,P); boxWindows(v,3,2,P.win);
+      gableRoof(sx,sy,0.14,0.20,0.50,0.80,H*0.55,10*z,P.roof,P.roof2);
+      gableRoof(sx,sy,0.50,0.20,0.86,0.80,H*0.55,10*z,P.roof,P.roof2);
+    }
+  } else {                                        // high: large plant / refinery
+    const k=seed%3, H=HPX[2]*z;
+    if(k===0){ // large plant with multiple stacks
+      buildingShadow(sx,sy,0.10,0.12,0.92,0.90);
+      const v=box(sx,sy,0.10,0.12,0.92,0.90,0,H*0.5,P);
+      faceWindows(v.B1,v.C1,v.C0,v.B0,5,2,P.win);
+      stack(sx,sy,0.30,0.30,H*0.5,H*0.5,P.rust,0.07);
+      stack(sx,sy,0.52,0.30,H*0.5,H*0.62,P.metal,0.06);
+      stack(sx,sy,0.72,0.34,H*0.5,H*0.42,P.rust2,0.06);
+    } else if(k===1){ // refinery: tall silos + flare stack
+      buildingShadow(sx,sy,0.10,0.12,0.92,0.90);
+      const v=box(sx,sy,0.10,0.12,0.92,0.90,0,H*0.32,P);
+      stack(sx,sy,0.30,0.36,H*0.32,H*0.55,P.metal,0.10);  // fat silo
+      stack(sx,sy,0.54,0.36,H*0.32,H*0.55,P.metal,0.10);
+      stack(sx,sy,0.76,0.30,H*0.32,H*0.85,P.rust,0.05);   // tall flare stack
+    } else { // big hall + control tower
+      buildingShadow(sx,sy,0.10,0.16,0.92,0.86);
+      const v=box(sx,sy,0.10,0.16,0.92,0.86,0,H*0.5,P);
+      faceWindows(v.D1,v.C1,v.C0,v.D0,5,2,P.win);
+      const tw=box(sx,sy,0.18,0.24,0.40,0.50,H*0.5,H*0.4,P); boxWindows(tw,1,3,P.win);
+      stack(sx,sy,0.74,0.34,H*0.5,H*0.5,P.rust,0.07);
+    }
+  }
+}
+/* ===== end BUILDING SPRITES ========================================== */
+
+function drawPark(sx,sy){
+  const z=state.zoom, hh=(TILE_H/2)*z;
+  ctx.fillStyle='#0c8a2a';
+  ctx.beginPath();
+  ctx.arc(sx, sy+hh*0.9, 6*z, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle='#5a3a1a';
+  ctx.fillRect(sx-1*z, sy+hh*0.9, 2*z, 5*z);
+}
+
+function drawSmoke(sx,sy){
+  ctx.fillStyle='rgba(120,120,130,0.5)';
+  const t=performance.now()/400;
+  for(let i=0;i<3;i++){
+    const o=(t+i)%3;
+    ctx.beginPath();
+    ctx.arc(sx+Math.sin(t+i)*3, sy-30*state.zoom - o*8*state.zoom, (2+o)*state.zoom, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawFire(sx,sy){
+  const z=state.zoom, hh=(TILE_H/2)*z;
+  const t=performance.now()/100;
+  for(let i=0;i<5;i++){
+    const fx=sx+Math.sin(t+i*1.7)*5*z;
+    const fy=sy+hh - (i%3)*6*z - 4*z;
+    ctx.fillStyle=i%2?'#ff5b3b':'#ffd23f';
+    ctx.beginPath();
+    ctx.arc(fx, fy, (3-i*0.3)*z, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawNeedIcon(sx,sy,t){
+  const z=state.zoom, hh=(TILE_H/2)*z;
+  ctx.font=`${10*z}px monospace`;
+  ctx.textAlign='center';
+  let msg = !t.powered?'⚡': !t.water?'💧':'🛣';
+  ctx.fillStyle = !t.powered? '#ffd23f': !t.water?'#2bd':'#ff5b3b';
+  ctx.fillText(msg, sx, sy+hh*0.6);
+  ctx.textAlign='start';
+}
+
+/* --- Drag preview overlay — reads state.drag, never writes the grid. --- */
+function drawDragPreview(){
+  if(!state.drag) return;
+  const tool=state.drag.tool;
+  let fill, stroke;
+  if(tool==='res')      { fill='rgba(57,211,83,0.30)';  stroke='#39d353'; }
+  else if(tool==='com') { fill='rgba(59,157,255,0.30)'; stroke='#3b9dff'; }
+  else if(tool==='ind') { fill='rgba(255,210,63,0.30)'; stroke='#ffd23f'; }
+  else                  { fill='rgba(0,255,65,0.32)';   stroke='#00ff41'; }
+  const tiles=dragTiles();
+  for(const [x,y] of tiles){
+    const [sx,sy]=isoToScreen(x,y,0);
+    diamond(sx,sy);
+    ctx.fillStyle=fill; ctx.fill();
+    ctx.strokeStyle=stroke; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  if(tiles.length){
+    const cost=tiles.filter(([x,y])=>state.grid[y][x].type===T.GRASS).length
+               * TOOLS.find(t2=>t2.id===tool).cost;
+    const [cx,cy]=isoToScreen(state.drag.cx,state.drag.cy,0);
+    ctx.font='11px monospace'; ctx.textAlign='center';
+    ctx.fillStyle='#000'; ctx.fillRect(cx-26, cy-6, 52, 14);
+    ctx.fillStyle = cost<=state.funds ? '#00ff41' : '#ff5b3b';
+    ctx.fillText(tiles.length+'t $'+cost, cx, cy+4);
+    ctx.textAlign='start';
+  }
+}
+
+/* ===== MINIMAP OVERLAYS ===============================================
+   Multiple value-map encodings over the minimap. Each maps 1:1 to a grid
+   tile, recomputes on every redraw (the minimap is redrawn each frame, so
+   sim ticks / placements / overlay switches are all reflected), respects
+   the current view rotation, and stays hard-pixelated. No new simulation:
+   every overlay reads fields already present on tiles/state.
+   ===================================================================== */
+export const MINI_OVERLAYS = [
+  {id:'zones',    label:'ZN'},
+  {id:'power',    label:'PW'},
+  {id:'water',    label:'WT'},
+  {id:'pollution',label:'PO'},
+  {id:'land',     label:'LV'},
+  {id:'density',  label:'DN'},
+  {id:'road',     label:'RD'},
+  {id:'commute',  label:'CM'},
+];
+let miniOverlay='zones';                       // default = current zone view
+export function setMiniOverlay(id){ miniOverlay=id; }
+export function getMiniOverlay(){ return miniOverlay; }
+
+// color helpers (smooth lerps, no banding)
+function _rgb(h){ const c=parseInt(h.slice(1),16); return [c>>16,(c>>8)&255,c&255]; }
+function _mix(a,b,t){ const A=_rgb(a),B=_rgb(b); t=t<0?0:t>1?1:t;
+  return `rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`; }
+function _grad(stops,t){ t=clamp(t,0,1);
+  for(let i=1;i<stops.length;i++){ if(t<=stops[i][0]){ const a=stops[i-1],b=stops[i];
+    const u=(t-a[0])/((b[0]-a[0])||1); return _mix(a[1],b[1],u); } }
+  return stops[stops.length-1][1];
+}
+const MGREY='#3a3a40', MDARK='#14141c';        // neutral grey / neutral dark
+
+// read-only road-proximity for the ROAD ACCESS overlay (visualization only)
+function _roadNear(x,y){
+  for(let dy=-3;dy<=3;dy++) for(let dx=-3;dx<=3;dx++){
+    if(Math.abs(dx)+Math.abs(dy)>3) continue;
+    const n=tileAt(x+dx,y+dy);
+    if(n && n.type===T.ROAD) return true;
+  }
+  return false;
+}
+
+// pick a tile's minimap colour for the active overlay
+function miniColor(t,x,y){
+  const zone = isZone(t.type);
+  switch(miniOverlay){
+    case 'power':
+      if(t.powered) return '#ffe23a';                 // powered: bright yellow
+      if(zone)      return '#5a1414';                 // unpowered zone: dark red
+      return MGREY;
+    case 'water':
+      if(t.water)   return '#23d3dd';                 // connected: bright cyan
+      if(zone)      return '#7a3a10';                 // unconnected zone: dark orange
+      return MGREY;
+    case 'pollution':
+      if(t.pollution<=0) return MDARK;
+      return _grad([[0,'#2a3a1a'],[0.30,'#9acd32'],[0.60,'#ff8c1a'],[1,'#8b1a1a']], t.pollution/100);
+    case 'land':
+      if(!zone && t.type!==T.PARK) return MGREY;       // empty/road neutral grey
+      return _grad([[0,'#8b1a1a'],[0.5,'#ffd23f'],[1,'#2ecf4a']], clamp((t.land-20)/150,0,1));
+    case 'density': {
+      if(!zone || (t.pop===0 && t.level===0)) return MDARK;
+      const hue = t.type===T.RES?'#39d353':t.type===T.COM?'#3b9dff':'#ffd23f';
+      const f=[0.5,0.75,1][t.level]||0.5;             // brightness by density level
+      return _mix('#0a0a10', hue, f);
+    }
+    case 'road':
+      if(t.type===T.ROAD) return MGREY;
+      return _roadNear(x,y) ? '#f0f0f0' : '#5a1414';   // in/out of 3-tile road access
+    case 'commute':
+      if(t.type===T.ROAD) return MGREY;
+      if(t.type===T.COM || t.type===T.IND) return '#f0f0f0';   // job tiles themselves
+      if(t.type===T.RES)  return t.jobsNearby ? '#39e85a' : '#5a1414';
+      return MDARK;
+    case 'zones':
+    default:
+      switch(t.type){
+        case T.WATER: return '#15324f';
+        case T.ROAD:  return '#555';
+        case T.POWERPLANT: return '#fff';
+        case T.POWERLINE:  return '#776';
+        case T.PUMP:  return '#2bd';
+        case T.PARK:  return '#1e8';
+        case T.RES:   return t.pop>0?'#39d353':'#1c3a1c';
+        case T.COM:   return t.pop>0?'#3b9dff':'#16304a';
+        case T.IND:   return t.pop>0?'#ffd23f':'#4a3c10';
+        default: return '#13260f';
+      }
+  }
+}
+
+// Minimap draw — 1:1 tile->pixel, rotation-aware, recomputed every redraw.
+export function drawMinimap(){
+  const GW=state.gridWidth, GH=state.gridHeight;   // MAP SIZE
+  const s=mini.width/GW;
+  mctx.clearRect(0,0,mini.width,mini.height);
+  for(let y=0;y<GH;y++) for(let x=0;x<GW;x++){
+    const t=state.grid[y][x];
+    const [rx,ry]=rotateCoord(x,y,state.rot);    // MINIMAP OVERLAYS: respect view rotation
+    mctx.fillStyle=miniColor(t,x,y);
+    mctx.fillRect(rx*s, ry*s, Math.ceil(s), Math.ceil(s));
+    // keep the fire indicator only in the default zones view
+    if(miniOverlay==='zones' && t.onFire>0){
+      mctx.fillStyle='#ff5b3b'; mctx.fillRect(rx*s,ry*s,Math.ceil(s),Math.ceil(s));
+    }
+  }
+  mctx.strokeStyle='rgba(0,255,65,0.6)';
+  mctx.strokeRect(1,1,mini.width-2,mini.height-2);
+}
+/* ===== end MINIMAP OVERLAYS ========================================== */
+
+/* --- Toolbar icon drawer — draws into a small ctx supplied by ui. --- */
+export function drawToolIcon(c,tool){
+  c.clearRect(0,0,24,24);
+  c.fillStyle=tool.color;
+  switch(tool.id){
+    case 'res': case 'com': case 'ind':
+      c.fillRect(5,9,5,11); c.fillRect(13,5,6,15);
+      c.fillStyle='#000';
+      c.fillRect(6,11,1,1); c.fillRect(8,11,1,1);
+      c.fillRect(14,7,1,1); c.fillRect(17,7,1,1); break;
+    case 'road':
+      c.fillStyle='#444'; c.fillRect(2,9,20,6);
+      c.fillStyle='#00ff41'; c.fillRect(4,11,3,1); c.fillRect(11,11,3,1); c.fillRect(18,11,3,1); break;
+    case 'power':
+      c.strokeStyle=tool.color; c.lineWidth=1;
+      c.beginPath(); c.moveTo(12,4); c.lineTo(12,20); c.moveTo(6,7); c.lineTo(18,7); c.stroke(); break;
+    case 'plant':
+      c.fillStyle='#555'; c.fillRect(4,10,16,10);
+      c.fillStyle='#333'; c.fillRect(7,4,3,7); c.fillRect(13,4,3,7);
+      c.fillStyle='#888'; c.fillRect(6,2,2,2); break;
+    case 'pump':
+      c.fillStyle='#2bd'; c.fillRect(6,8,12,12);
+      c.fillStyle='#fff'; c.fillRect(10,11,4,4); break;
+    case 'park':
+      c.fillStyle='#1e8'; c.beginPath(); c.arc(12,12,7,0,7); c.fill();
+      c.fillStyle='#5a3a1a'; c.fillRect(11,12,2,6); break;
+    case 'bull':
+      c.fillStyle='#c33'; c.fillRect(4,12,12,6);
+      c.fillStyle='#000'; c.beginPath(); c.arc(7,19,2,0,7); c.arc(13,19,2,0,7); c.fill();
+      c.fillStyle='#ffd23f'; c.fillRect(16,8,4,10); break;
+  }
+}
+
+// --- colour utilities (rendering-local) ---
+function shade(hex,amt){
+  const c=parseInt(hex.slice(1),16);
+  let r=(c>>16)+amt, g=((c>>8)&255)+amt, b=(c&255)+amt;
+  r=clamp(r,0,255);g=clamp(g,0,255);b=clamp(b,0,255);
+  return `rgb(${r},${g},${b})`;
+}
+function hexA(hex,a){
+  const c=parseInt(hex.slice(1),16);
+  return `rgba(${c>>16},${(c>>8)&255},${c&255},${a})`;
+}

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MICROPOLIS // CRT City Builder</title>
+<link rel="stylesheet" href="css/ui.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+
+  <!-- ===== STATUS BAR ===== -->
+  <div id="statusbar">
+    <span class="grp"><span class="lbl">CITY</span> <b id="s-name">New Terminus</b></span>
+    <span class="grp"><span class="lbl">DATE</span> <b id="s-date">January 1900</b></span>
+    <span class="grp"><span class="lbl">FACE</span> <b id="s-face">N</b></span>
+    <span class="grp"><span class="lbl">POP</span> <b id="s-pop">0</b></span>
+    <span class="grp"><span class="lbl">FUNDS</span> <b id="s-funds">$50,000</b></span>
+    <span class="grp"><span class="lbl">HAPPY</span> <b id="s-happy">70</b></span><!-- DEMAND SYSTEM -->
+    <span id="s-flash"></span><!-- insufficient-funds flash -->
+    <span id="paused">RUNNING</span>
+  </div>
+
+  <!-- ===== TOOLBAR (buttons injected by ui.js) ===== -->
+  <div id="toolbar">
+    <div class="ttl">TOOLS</div>
+  </div>
+
+  <!-- ===== DEMAND ===== -->
+  <div id="demand">
+    <div class="ttl">DEMAND (RCI)</div>
+    <div class="drow"><span class="dlab" style="color:#39d353">R</span>
+      <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-R"></div></div></div>
+    <div class="drow"><span class="dlab" style="color:#3b9dff">C</span>
+      <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-C"></div></div></div>
+    <div class="drow"><span class="dlab" style="color:#ffd23f">I</span>
+      <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-I"></div></div></div>
+  </div>
+
+  <!-- ===== CONTROLS ===== -->
+  <div id="controls">
+    <button id="btn-pause">⏸ PAUSE [space]</button>
+    <button id="btn-speed">SPEED: NORMAL</button>
+    <button id="btn-zoom">ZOOM: 1x</button>
+    <div style="display:flex; gap:4px;">
+      <button id="btn-rot-l" style="flex:1;">⟲ [Q]</button>
+      <button id="btn-rot-r" style="flex:1;">⟳ [E]</button>
+    </div>
+    <button id="btn-water">WATER VIEW: OFF</button>
+    <button id="btn-landvalue">LAND VALUE: OFF</button><!-- DEMAND SYSTEM -->
+    <!-- DEMAND SYSTEM: tax rate slider (budget control) -->
+    <div id="taxbox">
+      <label>TAX RATE <b id="tax-val">8%</b></label>
+      <input id="tax-slider" type="range" min="1" max="20" value="8">
+    </div>
+    <button class="disaster" id="btn-fire">🔥 IGNITE FIRE</button>
+    <div class="hint">L-click place · R-click bulldoze<br>drag to paint · wheel zoom · Q/E rotate</div>
+  </div>
+
+  <!-- ===== INSPECTOR ===== -->
+  <div id="inspector">
+    <div class="ttl">TILE INSPECTOR</div>
+    <div id="insp-body">Hover a tile…</div>
+  </div>
+
+  <!-- ===== MINIMAP ===== -->
+  <div id="minimap-wrap">
+    <div class="ttl">MINI-MAP</div>
+    <canvas id="minimap" width="120" height="120"></canvas>
+  </div>
+
+  <div id="toast"></div>
+</div>
+<div id="scanlines"></div>
+
+<!-- ES module entry point; type=module auto-defers until DOM is parsed -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

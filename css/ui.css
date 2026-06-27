@@ -1,0 +1,149 @@
+/* ============================================================
+   ui.css — CRT / PIXEL-RETRO THEME
+   dark charcoal #1a1a2e canvas, lime-green #00ff41 accents,
+   monospace throughout. No modern gradients.
+   ============================================================ */
+:root {
+  --bg:      #1a1a2e;
+  --panel:   #16162a;
+  --panel2:  #0f0f1f;
+  --ink:     #00ff41;     /* lime green accent */
+  --ink-dim: #0a8f28;
+  --ink-mid: #00c233;
+  --warn:    #ff5b3b;
+  --gold:    #ffd23f;
+  --line:    #2a2a44;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%; overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Courier New", "Lucida Console", monospace;
+  -webkit-font-smoothing: none;
+  image-rendering: pixelated;
+  user-select: none;
+}
+/* faint scanline overlay for the CRT feel */
+#scanlines {
+  position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 3px);
+  mix-blend-mode: multiply;
+}
+
+#app { position: relative; width: 100vw; height: 100vh; }
+
+/* --- Canvas viewport --- */
+#view { position: absolute; inset: 0; display: block; cursor: crosshair; }
+
+/* --- Status bar (top) --- */
+#statusbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 30px;
+  background: var(--panel2);
+  border-bottom: 2px solid var(--ink-dim);
+  display: flex; align-items: center; gap: 22px;
+  padding: 0 12px; font-size: 13px; z-index: 50;
+  text-shadow: 0 0 4px rgba(0,255,65,0.5);
+}
+#statusbar .lbl { color: var(--ink-dim); }
+#statusbar b { color: var(--ink); font-weight: normal; }
+#statusbar .grp { white-space: nowrap; }
+#statusbar #paused { color: var(--gold); margin-left: auto; }
+/* insufficient-funds flash */
+#statusbar #s-flash { color: var(--warn); display: none; font-weight: bold;
+                      text-shadow: 0 0 6px rgba(255,91,59,0.8);
+                      animation: flashblink 0.35s steps(2,start) infinite; }
+@keyframes flashblink { 50% { opacity: 0.25; } }
+
+/* --- Toolbar (left) --- */
+#toolbar {
+  position: absolute; top: 36px; left: 6px; width: 96px;
+  background: var(--panel);
+  border: 2px solid var(--ink-dim);
+  padding: 6px; z-index: 50;
+  display: flex; flex-direction: column; gap: 4px;
+}
+#toolbar .ttl { font-size: 10px; color: var(--ink-dim); text-align: center; margin-bottom: 2px; }
+.tool {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--ink-mid); cursor: pointer;
+  padding: 3px 4px; font-size: 10px;
+  font-family: inherit;
+}
+.tool canvas { width: 24px; height: 24px; image-rendering: pixelated; flex: 0 0 auto; }
+.tool span { line-height: 1.1; }
+.tool .cost { display:block; color: var(--gold); font-size: 9px; }
+.tool:hover { border-color: var(--ink-mid); color: var(--ink); }
+.tool.sel { border-color: var(--ink); background: #10301a; color: var(--ink);
+            box-shadow: 0 0 6px rgba(0,255,65,0.4) inset; }
+
+/* --- Demand bars (left, under toolbar) --- */
+#demand {
+  position: absolute; left: 6px; width: 96px;
+  background: var(--panel); border: 2px solid var(--ink-dim);
+  padding: 6px; z-index: 50; font-size: 10px;
+}
+#demand .ttl { color: var(--ink-dim); text-align:center; margin-bottom:4px; }
+.drow { display:flex; align-items:center; gap:5px; margin: 3px 0; }
+.drow .dlab { width: 12px; }
+.dtrack { position: relative; flex: 1; height: 10px; background: var(--panel2);
+          border: 1px solid var(--line); }
+/* demand bar fills from center: positive grows right, negative left */
+.dfill { position:absolute; top:0; height: 100%; }
+.dmid { position:absolute; top:-1px; bottom:-1px; left:50%; width:1px; background: var(--ink-dim); }
+
+/* --- Bottom info / inspector --- */
+#inspector {
+  position: absolute; bottom: 6px; left: 6px; width: 260px;
+  background: var(--panel); border: 2px solid var(--ink-dim);
+  padding: 8px; z-index: 50; font-size: 11px; line-height: 1.5;
+}
+#inspector .ttl { color: var(--ink-dim); border-bottom: 1px solid var(--line);
+                  padding-bottom: 3px; margin-bottom: 5px; }
+#inspector .k { color: var(--ink-dim); }
+#inspector .v { color: var(--ink); }
+#inspector .pwr-ok { color: var(--ink); }
+#inspector .pwr-no { color: var(--warn); }
+
+/* --- Minimap (bottom right) --- */
+#minimap-wrap {
+  position: absolute; bottom: 6px; right: 6px;
+  background: var(--panel); border: 2px solid var(--ink-dim);
+  padding: 6px; z-index: 50;
+}
+#minimap-wrap .ttl { font-size:10px; color: var(--ink-dim); text-align:center; margin-bottom:4px;}
+#minimap { display:block; image-rendering: pixelated; background:#05050c; }
+
+/* --- Speed / control buttons (top-right under status) --- */
+#controls {
+  position:absolute; top:36px; right:6px; z-index:50;
+  display:flex; flex-direction:column; gap:4px; width: 150px;
+}
+#controls button {
+  font-family: inherit; font-size: 11px; cursor: pointer;
+  background: var(--panel2); color: var(--ink-mid);
+  border: 1px solid var(--line); padding: 5px;
+}
+#controls button:hover { color: var(--ink); border-color: var(--ink-mid); }
+#controls .disaster { color: var(--warn); border-color: #5a2018; }
+#controls .disaster:hover { color:#fff; background:#3a120c; }
+
+/* --- Toast messages --- */
+#toast {
+  position:absolute; top: 38px; left: 50%; transform: translateX(-50%);
+  background: var(--panel2); border: 1px solid var(--gold); color: var(--gold);
+  padding: 6px 14px; font-size: 12px; z-index: 80; display: none;
+  text-shadow: 0 0 4px rgba(255,210,63,0.6);
+}
+
+.hint { font-size: 9px; color: var(--ink-dim); margin-top: 6px; text-align:center; }
+
+/* DEMAND SYSTEM: tax slider control */
+#taxbox { background: var(--panel2); border: 1px solid var(--line); padding: 4px 5px; }
+#taxbox label { display:block; font-size: 10px; color: var(--ink-dim); margin-bottom: 2px; }
+#taxbox label b { color: var(--gold); }
+#taxbox input[type=range] { width: 100%; accent-color: var(--ink); height: 12px; }
