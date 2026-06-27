@@ -111,11 +111,13 @@ export function computeCommute(){
   const queue=[];
   // sources: road tiles orthogonally adjacent to a C or I zone
   const N=[[1,0],[-1,0],[0,1],[0,-1]];
+  const onEdge=(x,y)=> x===0||y===0||x===state.gridWidth-1||y===state.gridHeight-1;
   for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
     if(state.grid[y][x].type!==T.ROAD) continue;
     let adjJob=false;
     for(const [dx,dy] of N){ const n=tileAt(x+dx,y+dy); if(n && (n.type===T.COM||n.type===T.IND)) adjJob=true; }
-    if(adjJob){ dist[y][x]=0; queue.push([x,y]); }
+    // ROAD CONNECTORS: an edge road is an off-map endpoint — sims can leave to reach jobs
+    if(adjJob || onEdge(x,y)){ dist[y][x]=0; queue.push([x,y]); }
   }
   // BFS along roads
   for(let h=0; h<queue.length; h++){
@@ -218,7 +220,9 @@ export function monthlyTick(){
     const key = isRes?'R':isCom?'C':'I';
     const dem = state.demand[key];
     const cap = CAPS[t.level];
-    const valid = t.powered && t.water && t.nearRoad && t.onFire===0;
+    // ROAD CONNECTORS: residential can't grow with no outside connection
+    const valid = t.powered && t.water && t.nearRoad && t.onFire===0
+                  && !(isRes && state.outsideConnections===0);
 
     // DEMAND SYSTEM: oversupplied commercial/industrial (negative demand) stagnate
     const oversupplied = (isCom||isInd) && dem < 0;
@@ -309,11 +313,15 @@ export function updateDemand(resPop, resJobPop, comCap, indCap){
   if(state.taxPct>=15) dR -= 0.3;
   if(resPop>0 && resJobPop===0) dR -= 0.2;   // nowhere to work hurts desirability
   if(state.pop < 40) dR = Math.max(dR, 0.55); // gentle early-game kickstart
+  // ROAD CONNECTORS: no off-map link -> R demand forced to 0; extra links -> +10%
+  if(state.outsideConnections===0) dR = 0;
+  else if(state.outsideConnections>1) dR *= 1.1;
 
   const noise=()=> (Math.random()-0.5)*0.08;
   state.demand.R = clamp(lerp(state.demand.R, dR+noise(), 0.4), -1, 1);
   state.demand.C = clamp(lerp(state.demand.C, dC+noise(), 0.4), -1, 1);
   state.demand.I = clamp(lerp(state.demand.I, dI+noise(), 0.4), -1, 1);
+  if(state.outsideConnections===0) state.demand.R = 0;   // ROAD CONNECTORS: hard zero
 }
 
 /* --- Fire disaster: ignite a building; spreads ~5s then burns out. --- */

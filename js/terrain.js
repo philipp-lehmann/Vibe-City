@@ -13,6 +13,8 @@ export const TERRAIN_NAMES = {
 };
 // water-class terrain can't be zoned/built on
 export const isWaterTerrain = tt => tt===TERRAIN.WATER || tt===TERRAIN.SHALLOWS;
+// ROAD CONNECTORS: a road over water terrain must be built as a bridge
+export const needsBridge = tt => isWaterTerrain(tt);
 
 // --- seeded PRNG (mulberry32) ---
 function mulberry32(a){

@@ -20,6 +20,7 @@ export function makeTile(type){
     powered: false,  // receives power this tick
     water: false,    // receives water this tick
     nearRoad: false, // a road is within reach (3-tile rule)
+    roadMask: 0,     // ROAD CONNECTORS: 4-bit neighbor mask (N1 E2 S4 W8)
     grow: 0,         // accumulator toward leveling up
     onFire: 0,       // >0 == burning, counts down
     elev: 0,         // elevation units for rendering
@@ -44,6 +45,7 @@ export const state = {
   taxPct: 8,             // DEMAND SYSTEM: tax rate 1-20% (slider), default 8
   happiness: 70,         // DEMAND SYSTEM: city happiness score 0-100
   lvOverlay: false,      // DEMAND SYSTEM: land-value color overlay toggle
+  outsideConnections: 0, // ROAD CONNECTORS: # of edge road tiles (off-map links)
   pop: 0,
   month: 0,                       // months since start
   cityName: 'New Terminus',
@@ -87,6 +89,43 @@ export function applyTerrain(terr){
 // TERRAIN: helpers describing build rules (data; callers enforce)
 export function isBuildableTile(t){ return t && !isWaterTerrain(t.terrain); }
 export function bulldozeCost(t){ return t && t.terrain===TERRAIN.WETLAND ? 2 : 1; } // wetland 2x
+
+/* ===== ROAD CONNECTORS: topology mask + outside connections ============ */
+// 4-bit neighbour mask: bit0 N, bit1 E, bit2 S, bit3 W
+export function computeRoadMask(x,y){
+  let m=0;
+  if(tileAt(x,  y-1)?.type===T.ROAD) m|=1; // N
+  if(tileAt(x+1,y  )?.type===T.ROAD) m|=2; // E
+  if(tileAt(x,  y+1)?.type===T.ROAD) m|=4; // S
+  if(tileAt(x-1,y  )?.type===T.ROAD) m|=8; // W
+  return m;
+}
+export const isEdge = (x,y)=> x===0 || y===0 || x===state.gridWidth-1 || y===state.gridHeight-1;
+
+function recountOutside(){
+  let n=0;
+  for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++)
+    if(state.grid[y][x].type===T.ROAD && isEdge(x,y)) n++;
+  state.outsideConnections=n;
+}
+
+// recompute a tile and its 4 neighbours (after a single place/bulldoze)
+export function updateRoadsAround(x,y){
+  for(const [dx,dy] of [[0,0],[0,-1],[1,0],[0,1],[-1,0]]){
+    const t=tileAt(x+dx,y+dy); if(!t) continue;
+    t.roadMask = t.type===T.ROAD ? computeRoadMask(x+dx,y+dy) : 0;
+  }
+  recountOutside();
+}
+
+// full pass (map load / init / after a drag)
+export function recomputeAllRoads(){
+  for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
+    const t=state.grid[y][x];
+    t.roadMask = t.type===T.ROAD ? computeRoadMask(x,y) : 0;
+  }
+  recountOutside();
+}
 
 // MAP SIZE: set grid dimensions from a preset key ('small'|'medium'|'large')
 export function setMapSize(key){
@@ -198,6 +237,7 @@ export function applySave(blob){
   state.speedIdx = s.speedIdx ?? state.speedIdx;
   state.cityName = s.cityName || blob.meta?.cityName || 'New Terminus';
   if(s.demand) state.demand = { ...state.demand, ...s.demand };
+  recomputeAllRoads();   // ROAD CONNECTORS: rebuild masks + outside count on load
   return true;
 }
 export function loadGame(slot){ return applySave(readSave(slot)); }
@@ -213,9 +253,6 @@ export function newGame(name, sizeKey){
   state.taxPct=8; state.taxRate=0.08; state.happiness=70;
   state.cityName = name || 'New Terminus';
   state.demand = { R:0.5, C:0.2, I:0.3 };
-  // seed a coal plant near the centre on a guaranteed-buildable lowland tile
-  const cx=state.gridWidth>>1, cy=state.gridHeight>>1;
-  const plant = makeTile(T.POWERPLANT);
-  plant.terrain=TERRAIN.LOWLAND; plant.elevation=0.5;   // TERRAIN: ensure it's on land
-  state.grid[cy][cx] = plant;
+  state.outsideConnections = 0;
+  // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }

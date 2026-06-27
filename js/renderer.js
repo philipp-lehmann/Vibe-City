@@ -21,8 +21,28 @@ export function resize(){
   view.width  = window.innerWidth;
   view.height = window.innerHeight;
   ctx.imageSmoothingEnabled=false;
+  if(zoomLevel===0) applyZoomLevel();   // ZOOM LEVELS: refit fully-zoomed-out view
 }
 window.addEventListener('resize', resize);
+
+/* ===== ZOOM LEVELS ====================================================
+   Three levels: 0 = fully zoomed out ("0.5x" — scales so the whole map
+   fits the viewport, for planning/overlays), 1 = 1x, 2 = 2x. The fit
+   scale is recomputed from viewport + map size. state.zoom holds the
+   actual pixel scale used everywhere; zoomLevel tracks which level.
+   ===================================================================== */
+let zoomLevel = 1;                      // 0=fit, 1=1x, 2=2x
+const ZOOM_LABELS = ['0.5x','1x','2x'];
+function fitScale(){
+  const gw=state.gridWidth, gh=state.gridHeight;
+  const sx = view.width  / ((gw+gh) * (TILE_W/2));
+  const sy = view.height / ((gw+gh) * (TILE_H/2));
+  return Math.max(0.04, Math.min(sx, sy) * 0.94);   // 0.94 = small margin
+}
+export function applyZoomLevel(){ state.zoom = zoomLevel===0 ? fitScale() : (zoomLevel===1?1:2); }
+export function cycleZoom(){ zoomLevel=(zoomLevel+1)%3; applyZoomLevel(); }   // fit->1x->2x
+export function stepZoom(dir){ zoomLevel=Math.max(0,Math.min(2,zoomLevel+dir)); applyZoomLevel(); }
+export function zoomLabel(){ return ZOOM_LABELS[zoomLevel]; }
 
 /* --- View rotation. Logical (gx,gy) -> rotated render coords (rx,ry)
    before projecting; inverted when picking. rot: 0=N 1=E 2=S 3=W. --- */
@@ -176,7 +196,7 @@ function drawGroundTile(sx,sy,t){
 
 function drawTileContent(sx,sy,t,gx,gy){
   switch(t.type){
-    case T.ROAD:       drawRoad(sx,sy,gx,gy); break;
+    case T.ROAD:       drawRoad(sx,sy,gx,gy,t); break; // ROAD CONNECTORS
     case T.POWERLINE:  drawPowerLine(sx,sy,t); break;
     case T.POWERPLANT: drawBox(sx,sy,3,'#3a3a42','#52525c', t.powered); drawSmoke(sx,sy); break;
     case T.PUMP:       drawBox(sx,sy,2,'#1c6f8a','#2bd', t.powered); break;
@@ -191,26 +211,108 @@ function drawTileContent(sx,sy,t,gx,gy){
   if(t.onFire>0) drawFire(sx,sy);
 }
 
-// roads: raised slightly, dashed links to road neighbours (rotation-correct)
-function drawRoad(sx,sy,gx,gy){
-  const z=state.zoom, hh=(TILE_H/2)*z;
-  const lift=1.2*z;
-  diamond(sx,sy-lift);
-  ctx.fillStyle='#33333b'; ctx.fill();
-  ctx.strokeStyle='#15151a'; ctx.stroke();
-  ctx.strokeStyle='#00ff41'; ctx.lineWidth=1; ctx.setLineDash([3*z,3*z]);
-  const c=[sx,sy-lift+hh];
-  const neigh=[[1,0],[-1,0],[0,1],[0,-1]];
-  neigh.forEach(([dx,dy])=>{
-    const n=tileAt(gx+dx,gy+dy);
-    if(n && (n.type===T.ROAD)){
-      const [nsx,nsy]=isoToScreen(gx+dx,gy+dy,0);
-      const ex=(sx+nsx)/2, ey=((sy-lift+hh)+(nsy-lift+hh))/2;
-      ctx.beginPath(); ctx.moveTo(c[0],c[1]); ctx.lineTo(ex,ey); ctx.stroke();
+/* ===== ROAD CONNECTORS ================================================
+   Topology-aware road rendering. tile.roadMask (bits N1 E2 S4 W8) selects
+   which of the 4 arms exist, yielding all 16 connector shapes (isolated
+   pad, dead-ends, straights, corners, T-junctions, 4-way). Open edges drop
+   their curb and gain a dashed centre line; bridges sit on pillars; edge
+   tiles draw a highway "EXIT" apron. Geometry is derived from neighbour
+   screen positions so it stays correct under view rotation.
+   ===================================================================== */
+function popcount(n){ let c=0; while(n){ c+=n&1; n>>=1; } return c; }
+function isEdgeTile(gx,gy){ return gx===0||gy===0||gx===state.gridWidth-1||gy===state.gridHeight-1; }
+
+function drawRoad(sx,sy,gx,gy,t){
+  const z=state.zoom, hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  const mask=t.roadMask||0;
+
+  // ZOOM LEVELS: at 0.5x roads collapse to a flat grey diamond (no detail)
+  if(state.zoom<1){ diamond(sx,sy); ctx.fillStyle='#555'; ctx.fill(); return; }
+
+  // bridge sits elevated on two pillars; flush roads lift a hair off the ground
+  const lift=(t.bridge?9:1.2)*z;
+  const topY=sy-lift;
+  const C=[sx, topY+hh];
+
+  if(t.bridge){
+    ctx.strokeStyle='#3a3a42'; ctx.lineWidth=2*z;
+    for(const px of [sx-hw*0.45, sx+hw*0.45]){
+      ctx.beginPath(); ctx.moveTo(px, topY+hh); ctx.lineTo(px, sy+hh); ctx.stroke();
     }
-  });
+  }
+
+  // road surface = the (raised) tile diamond
+  diamond(sx,topY); ctx.fillStyle='#555'; ctx.fill();
+
+  // four diamond edges (corner pts + midpoint)
+  const edges=[
+    {a:[sx,topY],          b:[sx+hw,topY+hh],   mid:[sx+hw/2, topY+hh/2]},   // TR
+    {a:[sx+hw,topY+hh],    b:[sx,topY+2*hh],    mid:[sx+hw/2, topY+1.5*hh]}, // RB
+    {a:[sx,topY+2*hh],     b:[sx-hw,topY+hh],   mid:[sx-hw/2, topY+1.5*hh]}, // BL
+    {a:[sx-hw,topY+hh],    b:[sx,topY],         mid:[sx-hw/2, topY+hh/2]},   // TL
+  ];
+  // match each connected grid neighbour to the diamond edge facing it
+  const dirs=[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]];
+  const open=[false,false,false,false], arms=[];
+  for(const [dx,dy,bit] of dirs){
+    if(!(mask&bit)) continue;
+    const [nsx,nsy]=isoToScreen(gx+dx,gy+dy,0); const NC=[nsx,nsy+hh];
+    const v=[NC[0]-C[0], NC[1]-C[1]];
+    let best=-Infinity, bi=0;
+    edges.forEach((e,i)=>{ const ed=[e.mid[0]-C[0], e.mid[1]-C[1]];
+      const d=ed[0]*v[0]+ed[1]*v[1]; if(d>best){best=d;bi=i;} });
+    open[bi]=true; arms.push(edges[bi].mid);
+  }
+  // curb (#888) on every closed edge
+  ctx.strokeStyle='#888'; ctx.lineWidth=1.5*z;
+  edges.forEach((e,i)=>{ if(!open[i]){ ctx.beginPath(); ctx.moveTo(e.a[0],e.a[1]); ctx.lineTo(e.b[0],e.b[1]); ctx.stroke(); } });
+  // dashed white centre line toward each arm
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1*z; ctx.setLineDash([3*z,3*z]);
+  arms.forEach(m=>{ ctx.beginPath(); ctx.moveTo(C[0],C[1]); ctx.lineTo(m[0],m[1]); ctx.stroke(); });
   ctx.setLineDash([]);
+  // intersection marker (3/4-way) ; isolated pad (mask 0) gets an inner square
+  if(popcount(mask)>=3){ ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.arc(C[0],C[1],2.2*z,0,Math.PI*2); ctx.fill(); }
+  else if(mask===0){ ctx.strokeStyle='#888'; ctx.lineWidth=1*z; ctx.strokeRect(C[0]-hw*0.28, C[1]-hh*0.28, hw*0.56, hh*0.56); }
+
+  // highway exit apron on map-edge tiles
+  if(isEdgeTile(gx,gy)) drawHighway(sx,topY,gx,gy);
 }
+
+// wider tapering apron + yellow chevrons + green EXIT sign, exiting off-map
+function drawHighway(sx,topY,gx,gy){
+  const z=state.zoom, hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  const C=[sx, topY+hh];
+  let dx=0,dy=0;
+  if(gx===0)dx=-1; else if(gx===state.gridWidth-1)dx=1;
+  if(dx===0){ if(gy===0)dy=-1; else if(gy===state.gridHeight-1)dy=1; }
+  const [nsx,nsy]=isoToScreen(gx+dx,gy+dy,0); const NC=[nsx,nsy+hh];
+  let ux=NC[0]-C[0], uy=NC[1]-C[1]; const len=Math.hypot(ux,uy)||1; ux/=len; uy/=len;
+  const px=-uy, py=ux;                 // perpendicular
+  const wHalf=hw*0.75;                  // 1.5x normal half-width
+  const reach=hw*0.9;
+  const tip=[C[0]+ux*reach, C[1]+uy*reach];
+  ctx.beginPath();
+  ctx.moveTo(C[0]+px*wHalf, C[1]+py*wHalf);
+  ctx.lineTo(tip[0]+px*wHalf*0.6, tip[1]+py*wHalf*0.6);
+  ctx.lineTo(tip[0]-px*wHalf*0.6, tip[1]-py*wHalf*0.6);
+  ctx.lineTo(C[0]-px*wHalf, C[1]-py*wHalf);
+  ctx.closePath(); ctx.fillStyle='#555'; ctx.fill();
+  // yellow chevron stripes on the apron
+  ctx.strokeStyle='#ffd23f'; ctx.lineWidth=2*z;
+  for(let i=0;i<3;i++){ const tt=0.45+i*0.2;
+    ctx.beginPath();
+    ctx.moveTo(C[0]+ux*reach*tt+px*wHalf, C[1]+uy*reach*tt+py*wHalf);
+    ctx.lineTo(C[0]+ux*reach*(tt+0.12)-px*wHalf, C[1]+uy*reach*(tt+0.12)-py*wHalf);
+    ctx.stroke();
+  }
+  // green EXIT sign above the tile
+  const sgW=22*z, sgH=10*z, sgx=C[0]-sgW/2, sgy=topY-16*z;
+  ctx.fillStyle='#0a7a2a'; ctx.fillRect(sgx,sgy,sgW,sgH);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1*z; ctx.strokeRect(sgx,sgy,sgW,sgH);
+  ctx.fillStyle='#fff'; ctx.font=`${6*z}px monospace`; ctx.textAlign='center';
+  ctx.fillText('EXIT', C[0], sgy+7*z); ctx.textAlign='start';
+}
+/* ===== end ROAD CONNECTORS =========================================== */
 
 function drawPowerLine(sx,sy,t){
   const z=state.zoom, hh=(TILE_H/2)*z;
@@ -383,6 +485,13 @@ function awning(sx,sy,u0,u1,vF,base,col){
 
 // ---- dispatcher -------------------------------------------------------
 function drawZoneBuilding(sx,sy,t,gx,gy,kind){
+  // ZOOM LEVELS: at fully-zoomed-out (0.5x) draw only a flat base diamond in zone colour
+  if(state.zoom<1){
+    diamond(sx,sy);
+    ctx.fillStyle = kind==='R'?'#39d353' : kind==='C'?'#3b9dff' : '#ffd23f';
+    ctx.fill();
+    return;
+  }
   if(!buildAge.has(t)) buildAge.set(t, state.month);
   const elapsed = state.month - buildAge.get(t);
   if(elapsed < 2){ drawScaffold(sx,sy); return; }        // 2-month construction
@@ -716,6 +825,8 @@ function _roadNear(x,y){
 
 // pick a tile's minimap colour for the active overlay
 function miniColor(t,x,y){
+  // ROAD CONNECTORS: edge road = outside connection -> bright white in every overlay
+  if(t.type===T.ROAD && (x===0||y===0||x===state.gridWidth-1||y===state.gridHeight-1)) return '#ffffff';
   const zone = isZone(t.type);
   switch(miniOverlay){
     case 'power':

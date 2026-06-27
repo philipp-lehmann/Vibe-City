@@ -9,7 +9,8 @@ import { MAP_SIZES, T, TOOLS, FACES, MONTHS, isZone } from './config.js';   // M
 import { state, tileAt, setTool, togglePause, rotateView,
          listSaves, saveGame, loadGame, deleteSave, newGame } from './state.js'; // SAVE SYSTEM
 import { igniteFire } from './simulation.js';
-import { drawToolIcon, MINI_OVERLAYS, setMiniOverlay, getMiniOverlay } from './renderer.js';
+import { drawToolIcon, MINI_OVERLAYS, setMiniOverlay, getMiniOverlay,
+         cycleZoom, zoomLabel } from './renderer.js';   // ZOOM LEVELS
 
 const $ = id => document.getElementById(id);
 
@@ -39,8 +40,10 @@ const barColor = k => k==='R'?'#39d353':k==='C'?'#3b9dff':'#ffd23f';
 /* --- status bar / budget / population / demand / facing --- */
 export function refreshHUD(){
   $('s-name').textContent = state.cityName;
+  // DATE FORMAT: fixed-width "Mmm YYYY" (3-char month, 4-digit year, single space)
+  const SHORT_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const yr=1900+Math.floor(state.month/12);
-  $('s-date').textContent = `${MONTHS[state.month%12]} ${yr}`;
+  $('s-date').textContent = `${SHORT_MONTHS[state.month%12]} ${yr}`;
   $('s-face').textContent = FACES[state.rot];
   $('s-pop').textContent  = state.pop.toLocaleString();
   const f=$('s-funds');
@@ -113,7 +116,7 @@ function flashStatus(msg){
 export function wireControls(){
   $('btn-pause').onclick = ()=> togglePause();
   $('btn-speed').onclick = ()=>{ state.speedIdx=(state.speedIdx+1)%state.speeds.length; };
-  $('btn-zoom').onclick  = ()=>{ state.zoom = state.zoom===1?2:1; };
+  $('btn-zoom').onclick  = ()=> cycleZoom();   // ZOOM LEVELS: fit -> 1x -> 2x
   $('btn-rot-l').onclick = ()=> rotateView(-1);
   $('btn-rot-r').onclick = ()=> rotateView(1);
   $('btn-water').onclick = ()=>{ state.waterOverlay=!state.waterOverlay; };
@@ -131,7 +134,8 @@ function syncControls(){
   p.textContent = state.paused?'PAUSED':'RUNNING';
   p.style.color = state.paused?'#ff5b3b':'#ffd23f';
   $('btn-speed').textContent = 'SPEED: '+SPEED_NAMES[state.speedIdx];
-  $('btn-zoom').textContent  = 'ZOOM: '+state.zoom+'x';
+  $('btn-zoom').textContent  = 'ZOOM: '+zoomLabel();   // ZOOM LEVELS
+  const zi=$('s-zoom'); if(zi) zi.textContent='Z: '+zoomLabel();
   $('btn-water').textContent = 'WATER VIEW: '+(state.waterOverlay?'ON':'OFF');
   // DEMAND SYSTEM
   $('btn-landvalue').textContent = 'LAND VALUE: '+(state.lvOverlay?'ON':'OFF');
@@ -190,6 +194,19 @@ function buildSaveButtons(){
   const saves=mk('btn-saves','💾 SAVES'); saves.onclick=openSaves;
   const ng=mk('btn-newgame','✦ NEW');     ng.onclick=doNewGame;
   bar.appendChild(saves); bar.appendChild(ng);
+  // ROAD CONNECTORS: persistent "no outside connection" warning
+  const warn=document.createElement('span'); warn.id='s-roadwarn';
+  warn.style.cssText='margin-left:10px;color:var(--warn);font-weight:bold;display:none;'+
+    'text-shadow:0 0 6px rgba(255,91,59,0.7);';
+  bar.appendChild(warn);
+  // NO INITIAL PLANT: gentle startup hint for the first 6 months
+  const hint=document.createElement('span'); hint.id='s-planthint';
+  hint.style.cssText='margin-left:10px;color:var(--ink-dim);display:none;';
+  bar.appendChild(hint);
+  // ZOOM LEVELS: current zoom indicator
+  const zi=document.createElement('span'); zi.id='s-zoom';
+  zi.style.cssText='margin-left:10px;color:var(--ink-dim);';
+  bar.appendChild(zi);
 }
 
 // build the (hidden) modal overlay once
@@ -366,6 +383,18 @@ export function syncUI(){
   syncControls();
   syncTools();
   updateInspector();
+  // ROAD CONNECTORS: persistent outside-connection warning
+  const rw=$('s-roadwarn');
+  if(rw){
+    if(state.outsideConnections===0){ rw.style.display='inline'; rw.textContent='⚠ No outside connection — city cannot grow'; }
+    else rw.style.display='none';
+  }
+  // NO INITIAL PLANT: first-6-months reminder to build power
+  const ph=$('s-planthint');
+  if(ph){
+    if(state.month<6){ ph.style.display='inline'; ph.textContent='⚡ Build a power plant to start growing your city.'; }
+    else ph.style.display='none';
+  }
   while(state.notices.length) toast(state.notices.shift());   // drain sim/input notices
   if(state.flash){ flashStatus(state.flash); state.flash=null; }
 }

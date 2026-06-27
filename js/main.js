@@ -38,10 +38,7 @@ function boot(){
   initInput();
 
   state.tool='road';
-  // seed a coal plant near the centre on a guaranteed-buildable lowland tile — MAP SIZE + TERRAIN
-  const cx=state.gridWidth>>1, cy=state.gridHeight>>1;
-  const plant=makeTile(T.POWERPLANT); plant.terrain=TERRAIN.LOWLAND; plant.elevation=0.5;
-  state.grid[cy][cx]=plant;
+  // NO INITIAL PLANT: grid starts empty (terrain only); player builds their own power
   propagatePower();
   propagateWater();
 
