@@ -29,6 +29,19 @@ export function buildToolbar(){
     btn.onclick=()=>setTool(tool.id);
     bar.appendChild(btn);
   });
+  // WATER TOOL: extra terrain tool (not part of config TOOLS) — drawn inline
+  const wbtn=document.createElement('button');
+  wbtn.className='tool'+(state.tool==='watertile'?' sel':'');
+  wbtn.dataset.tool='watertile';
+  const wcv=document.createElement('canvas'); wcv.width=24; wcv.height=24;
+  const wc=wcv.getContext('2d');
+  wc.fillStyle='#2a6f8f'; wc.beginPath();
+  wc.moveTo(12,4); wc.lineTo(22,12); wc.lineTo(12,20); wc.lineTo(2,12); wc.closePath(); wc.fill();
+  wc.fillStyle='#bfe6f5'; wc.fillRect(7,11,3,2); wc.fillRect(13,13,3,2);
+  const wtx=document.createElement('span'); wtx.innerHTML='Water T<span class="cost">$20</span>';
+  wbtn.appendChild(wcv); wbtn.appendChild(wtx);
+  wbtn.onclick=()=>setTool('watertile');
+  bar.appendChild(wbtn);
   positionDemand();
 }
 function positionDemand(){

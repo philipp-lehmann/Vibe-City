@@ -30,7 +30,8 @@ export function makeTile(type){
     terrain: TERRAIN.LOWLAND,
     elevation: 0.5,  // 0..1 simplex elevation
     moisture: 0.5,   // 0..1 simplex moisture
-    bridge: false    // TERRAIN: road tile is a bridge over water
+    bridge: false,   // TERRAIN: road tile is a bridge over water
+    bridgeId: null   // BRIDGES: id of the bridge entity this tile belongs to
   };
 }
 
@@ -46,6 +47,7 @@ export const state = {
   happiness: 70,         // DEMAND SYSTEM: city happiness score 0-100
   lvOverlay: false,      // DEMAND SYSTEM: land-value color overlay toggle
   outsideConnections: 0, // ROAD CONNECTORS: # of edge road tiles (off-map links)
+  bridges: [],           // BRIDGES: list of bridge entities spanning water
   pop: 0,
   month: 0,                       // months since start
   cityName: 'New Terminus',
@@ -117,6 +119,11 @@ export function updateRoadsAround(x,y){
   }
   recountOutside();
 }
+
+// BRIDGES: unique id generator + lookup
+let _brSeq = 0;
+export function genBridgeId(){ return 'br'+(++_brSeq)+'_'+Math.floor(Math.random()*1e4); }
+export function findBridge(id){ return state.bridges.find(b=>b.id===id) || null; }
 
 // full pass (map load / init / after a drag)
 export function recomputeAllRoads(){
@@ -195,7 +202,8 @@ export function serializeSave(thumb){
       funds: state.funds, pop: state.pop, month: state.month,
       taxPct: state.taxPct, taxRate: state.taxRate, happiness: state.happiness,
       speedIdx: state.speedIdx, demand: { ...state.demand }, cityName: state.cityName,
-      gridWidth: state.gridWidth, gridHeight: state.gridHeight   // MAP SIZE
+      gridWidth: state.gridWidth, gridHeight: state.gridHeight,   // MAP SIZE
+      bridges: state.bridges   // BRIDGES: persist bridge entities
     },
     meta: { cityName: state.cityName, ts: Date.now(), thumb: thumb || null,
             month: state.month, pop: state.pop }
@@ -237,6 +245,7 @@ export function applySave(blob){
   state.speedIdx = s.speedIdx ?? state.speedIdx;
   state.cityName = s.cityName || blob.meta?.cityName || 'New Terminus';
   if(s.demand) state.demand = { ...state.demand, ...s.demand };
+  state.bridges = Array.isArray(s.bridges) ? s.bridges : [];   // BRIDGES: restore entities
   recomputeAllRoads();   // ROAD CONNECTORS: rebuild masks + outside count on load
   return true;
 }
@@ -254,5 +263,6 @@ export function newGame(name, sizeKey){
   state.cityName = name || 'New Terminus';
   state.demand = { R:0.5, C:0.2, I:0.3 };
   state.outsideConnections = 0;
+  state.bridges = [];   // BRIDGES
   // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }

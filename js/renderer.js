@@ -229,17 +229,13 @@ function drawRoad(sx,sy,gx,gy,t){
   // ZOOM LEVELS: at 0.5x roads collapse to a flat grey diamond (no detail)
   if(state.zoom<1){ diamond(sx,sy); ctx.fillStyle='#555'; ctx.fill(); return; }
 
-  // bridge sits elevated on two pillars; flush roads lift a hair off the ground
-  const lift=(t.bridge?9:1.2)*z;
+  // BRIDGE RENDERING: bridge tiles draw their own elevated deck/ramps/rails/pillars
+  if(t.bridge){ drawBridgeTile(sx,sy,gx,gy,t,mask); return; }
+
+  // flush road lifts a hair off the ground
+  const lift=1.2*z;
   const topY=sy-lift;
   const C=[sx, topY+hh];
-
-  if(t.bridge){
-    ctx.strokeStyle='#3a3a42'; ctx.lineWidth=2*z;
-    for(const px of [sx-hw*0.45, sx+hw*0.45]){
-      ctx.beginPath(); ctx.moveTo(px, topY+hh); ctx.lineTo(px, sy+hh); ctx.stroke();
-    }
-  }
 
   // road surface = the (raised) tile diamond
   diamond(sx,topY); ctx.fillStyle='#555'; ctx.fill();
@@ -274,44 +270,105 @@ function drawRoad(sx,sy,gx,gy,t){
   if(popcount(mask)>=3){ ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.arc(C[0],C[1],2.2*z,0,Math.PI*2); ctx.fill(); }
   else if(mask===0){ ctx.strokeStyle='#888'; ctx.lineWidth=1*z; ctx.strokeRect(C[0]-hw*0.28, C[1]-hh*0.28, hw*0.56, hh*0.56); }
 
-  // highway exit apron on map-edge tiles
-  if(isEdgeTile(gx,gy)) drawHighway(sx,topY,gx,gy);
+  // EXIT FIX: edge tiles render as a normal road connector + a small EXIT sign on top
+  if(isEdgeTile(gx,gy)) drawExitSign(sx,topY);
 }
 
-// wider tapering apron + yellow chevrons + green EXIT sign, exiting off-map
-function drawHighway(sx,topY,gx,gy){
-  const z=state.zoom, hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
-  const C=[sx, topY+hh];
-  let dx=0,dy=0;
-  if(gx===0)dx=-1; else if(gx===state.gridWidth-1)dx=1;
-  if(dx===0){ if(gy===0)dy=-1; else if(gy===state.gridHeight-1)dy=1; }
-  const [nsx,nsy]=isoToScreen(gx+dx,gy+dy,0); const NC=[nsx,nsy+hh];
-  let ux=NC[0]-C[0], uy=NC[1]-C[1]; const len=Math.hypot(ux,uy)||1; ux/=len; uy/=len;
-  const px=-uy, py=ux;                 // perpendicular
-  const wHalf=hw*0.75;                  // 1.5x normal half-width
-  const reach=hw*0.9;
-  const tip=[C[0]+ux*reach, C[1]+uy*reach];
-  ctx.beginPath();
-  ctx.moveTo(C[0]+px*wHalf, C[1]+py*wHalf);
-  ctx.lineTo(tip[0]+px*wHalf*0.6, tip[1]+py*wHalf*0.6);
-  ctx.lineTo(tip[0]-px*wHalf*0.6, tip[1]-py*wHalf*0.6);
-  ctx.lineTo(C[0]-px*wHalf, C[1]-py*wHalf);
-  ctx.closePath(); ctx.fillStyle='#555'; ctx.fill();
-  // yellow chevron stripes on the apron
-  ctx.strokeStyle='#ffd23f'; ctx.lineWidth=2*z;
-  for(let i=0;i<3;i++){ const tt=0.45+i*0.2;
-    ctx.beginPath();
-    ctx.moveTo(C[0]+ux*reach*tt+px*wHalf, C[1]+uy*reach*tt+py*wHalf);
-    ctx.lineTo(C[0]+ux*reach*(tt+0.12)-px*wHalf, C[1]+uy*reach*(tt+0.12)-py*wHalf);
-    ctx.stroke();
-  }
-  // green EXIT sign above the tile
-  const sgW=22*z, sgH=10*z, sgx=C[0]-sgW/2, sgy=topY-16*z;
+// EXIT FIX: just a small green "EXIT" sign plate above the edge tile — no apron,
+// no stripes, no special road shape.
+function drawExitSign(sx,topY){
+  const z=state.zoom, hh=(TILE_H/2)*z;
+  const cx=sx, sgW=22*z, sgH=10*z, sgx=cx-sgW/2, sgy=topY-16*z;
   ctx.fillStyle='#0a7a2a'; ctx.fillRect(sgx,sgy,sgW,sgH);
   ctx.strokeStyle='#fff'; ctx.lineWidth=1*z; ctx.strokeRect(sgx,sgy,sgW,sgH);
   ctx.fillStyle='#fff'; ctx.font=`${6*z}px monospace`; ctx.textAlign='center';
-  ctx.fillText('EXIT', C[0], sgy+7*z); ctx.textAlign='start';
+  ctx.fillText('EXIT', cx, sgy+7*z); ctx.textAlign='start';
 }
+
+/* ===== BRIDGE RENDERING ==============================================
+   A bridge tile draws its own elevated deck. Per-corner heights let the
+   two end (ramp) tiles slope symmetrically from ground (land side) up to
+   full deck height (water side); interior tiles sit flat at full height.
+   Pillars: one centred pair per full water tile only, drawn BEFORE the
+   deck so they read as behind it. Railings: a continuous low wall along
+   both side (closed) edges of every span tile, following the ramp slope,
+   drawn AFTER the deck so it sits on top.
+   ==================================================================== */
+const BRIDGE_H = 10;   // deck height above water (px @ zoom 1)
+const RAIL_H   = 4;    // railing wall height (px @ zoom 1)
+function drawBridgeTile(sx,sy,gx,gy,t,mask){
+  const z=state.zoom, hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  const H=BRIDGE_H*z, RAIL=RAIL_H*z;
+
+  // ground corner positions: 0=top 1=right 2=bottom 3=left ; edges join corner pairs
+  const P=[[sx,sy],[sx+hw,sy+hh],[sx,sy+2*hh],[sx-hw,sy+hh]];
+  const Ec=[[0,1],[1,2],[2,3],[3,0]];
+  const centerG=[sx, sy+hh];
+  const EmidG=Ec.map(([a,b])=>[(P[a][0]+P[b][0])/2,(P[a][1]+P[b][1])/2]);
+  const facingEdge=(dx,dy)=>{ const [nsx,nsy]=isoToScreen(gx+dx,gy+dy,0); const NC=[nsx,nsy+hh];
+    const v=[NC[0]-centerG[0],NC[1]-centerG[1]]; let best=-Infinity, bi=0;
+    EmidG.forEach((m,i)=>{ const e=[m[0]-centerG[0],m[1]-centerG[1]]; const d=e[0]*v[0]+e[1]*v[1]; if(d>best){best=d;bi=i;} });
+    return bi; };
+
+  // ramp detection: land approaches along the span axis pull their facing edge to ground
+  const br=(state.bridges||[]).find(b=>b.id===t.bridgeId);
+  const axis = br && br.direction==='EW' ? [[1,0],[-1,0]]
+             : br && br.direction==='NS' ? [[0,-1],[0,1]]
+             : [[1,0],[-1,0],[0,-1],[0,1]];
+  const cornerH=[H,H,H,H];
+  let isRamp=false;
+  for(const [dx,dy] of axis){
+    const n=tileAt(gx+dx,gy+dy);
+    if(!n || n.type===T.WATER || n.bridge) continue;       // land side -> ramp down
+    isRamp=true;
+    const ei=facingEdge(dx,dy);
+    cornerH[Ec[ei][0]]=0; cornerH[Ec[ei][1]]=0;
+  }
+
+  // --- pillars: only full water tiles (not ramps), drawn before the deck ---
+  if(!isRamp){
+    ctx.strokeStyle='#2e2e36'; ctx.lineWidth=2*z;
+    for(const px of [sx-hw*0.4, sx+hw*0.4]){
+      ctx.beginPath(); ctx.moveTo(px, sy+hh - H); ctx.lineTo(px, sy+1.7*hh); ctx.stroke();
+    }
+  }
+
+  // lifted corner / midpoint / centre positions
+  const S=P.map((p,i)=>[p[0], p[1]-cornerH[i]]);
+  const EmidS=Ec.map(([a,b],i)=>[EmidG[i][0], EmidG[i][1]-(cornerH[a]+cornerH[b])/2]);
+  const centerH=(cornerH[0]+cornerH[1]+cornerH[2]+cornerH[3])/4;
+  const centerS=[centerG[0], centerG[1]-centerH];
+
+  // --- road surface (sloped deck) ---
+  ctx.beginPath(); ctx.moveTo(S[0][0],S[0][1]);
+  for(let i=1;i<4;i++) ctx.lineTo(S[i][0],S[i][1]);
+  ctx.closePath(); ctx.fillStyle='#555'; ctx.fill();
+
+  // --- connector mask: dashed centre lines + intersection dot (heights follow slope) ---
+  const dirs=[[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]];
+  const open=[false,false,false,false], arms=[];
+  for(const [dx,dy,bit] of dirs){ if(!(mask&bit)) continue;
+    const ei=facingEdge(dx,dy); open[ei]=true; arms.push(EmidS[ei]); }
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1*z; ctx.setLineDash([3*z,3*z]);
+  arms.forEach(m=>{ ctx.beginPath(); ctx.moveTo(centerS[0],centerS[1]); ctx.lineTo(m[0],m[1]); ctx.stroke(); });
+  ctx.setLineDash([]);
+  if(popcount(mask)>=3){ ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.arc(centerS[0],centerS[1],2.2*z,0,Math.PI*2); ctx.fill(); }
+
+  // --- railings: low wall along each side (closed) edge, on top of the deck ---
+  for(let i=0;i<4;i++){ if(open[i]) continue;
+    const [a,b]=Ec[i]; const at=S[a], bt=S[b];
+    const ar=[at[0], at[1]-RAIL], brp=[bt[0], bt[1]-RAIL];
+    ctx.beginPath(); ctx.moveTo(at[0],at[1]); ctx.lineTo(bt[0],bt[1]);
+    ctx.lineTo(brp[0],brp[1]); ctx.lineTo(ar[0],ar[1]); ctx.closePath();
+    ctx.fillStyle='#b0b0b0'; ctx.fill();
+    ctx.strokeStyle='#888'; ctx.lineWidth=1*z;
+    ctx.beginPath(); ctx.moveTo(ar[0],ar[1]); ctx.lineTo(brp[0],brp[1]); ctx.stroke();   // dark cap line on top
+  }
+
+  // EXIT sign for bridge tiles that reach the map edge
+  if(isEdgeTile(gx,gy)) drawExitSign(sx, sy-H);
+}
+/* ===== end BRIDGE RENDERING ========================================== */
 /* ===== end ROAD CONNECTORS =========================================== */
 
 function drawPowerLine(sx,sy,t){
