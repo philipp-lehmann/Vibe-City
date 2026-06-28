@@ -11,20 +11,29 @@ import { state, makeTile, inBounds, setTool, togglePause, rotateView,
          updateRoadsAround, recomputeAllRoads, isEdge,
          genBridgeId, findBridge } from './state.js';   // ROAD CONNECTORS / EXIT FIX / BRIDGES
 import { view, screenToIso, stepZoom } from './renderer.js';   // ZOOM LEVELS
-import { isWaterTerrain, TERRAIN } from './terrain.js';   // ROAD CONNECTORS / WATER TOOL
+import { isWaterTerrain, TERRAIN, coastPass } from './terrain.js';   // ROAD CONNECTORS / WATER TOOL / TERRAIN TOOLS
 import { propagatePower, propagateWater } from './simulation.js';   // WATER TOOL: live propagation
 
-const WATER_COST = 20;   // WATER TOOL: cost per water tile placed
+// TERRAIN TOOLS: paintable terrain types -> {terrain id, landscaping cost, swatch}
+export const TERRAIN_TOOLS = {
+  tlowland:  { terrain:TERRAIN.LOWLAND,  cost:50,  label:'Lowland',  color:'#1f3a1c' },
+  thighland: { terrain:TERRAIN.HIGHLAND, cost:100, label:'Highland', color:'#3b4a24' },
+  thill:     { terrain:TERRAIN.HILL,     cost:80,  label:'Hill',     color:'#5a4a32' },
+  twetland:  { terrain:TERRAIN.WETLAND,  cost:40,  label:'Wetland',  color:'#36492f' },
+  tshallows: { terrain:TERRAIN.SHALLOWS, cost:60,  label:'Shallows', color:'#2f7a9c' },
+  twater:    { terrain:TERRAIN.WATER,    cost:120, label:'Water',    color:'#163a5c' },
+};
+const isTerrainTool = id => Object.prototype.hasOwnProperty.call(TERRAIN_TOOLS, id);
 
 let dragging=false, dragBtn=0, lastPaint='';
 
 // --- single-tile placement (used by non-drag tools and per-tile paint) ---
 function placeTool(gx,gy){
   if(!inBounds(gx,gy)) return;
-  // WATER TOOL: paint water over land (per-tile brush); propagation runs on mouseup
-  if(state.tool==='watertile'){
-    const key=gx+','+gy+':w'; if(key===lastPaint) return;
-    if(state.grid[gy][gx].type===T.GRASS && spend(WATER_COST)){ placeWaterTile(gx,gy); lastPaint=key; waterDirty=true; }
+  // TERRAIN TOOLS: terrain brushes paint per tile; recompute is flushed on mouseup
+  if(isTerrainTool(state.tool)){
+    const key=gx+','+gy+':'+state.tool; if(key===lastPaint) return;
+    if(paintTerrain(gx,gy,state.tool)) lastPaint=key;
     return;
   }
   const t=state.grid[gy][gx];
@@ -47,7 +56,8 @@ function placeTool(gx,gy){
   if(t.type===T.WATER){ return; }
   const key=gx+','+gy+':'+tool.id;
   if(key===lastPaint) return;
-  if(t.type!==T.GRASS){ return; }
+  // TERRAIN TOOLS: hills (and water) are non-buildable / non-routable
+  if(t.type!==T.GRASS || t.terrain===TERRAIN.HILL){ return; }
 
   if(spend(tool.cost)){
     state.grid[gy][gx]=makeTile(tool.tile); lastPaint=key;
@@ -97,7 +107,8 @@ function commitDrag(){
     const line=dragTiles();
     if(line.some(([x,y])=> state.grid[y][x].type===T.WATER)){ commitBridgeDrag(line); return; }
   }
-  let buildable=dragTiles().filter(([x,y])=> state.grid[y][x].type===T.GRASS);
+  // TERRAIN TOOLS: cannot build on hills (or water)
+  let buildable=dragTiles().filter(([x,y])=> state.grid[y][x].type===T.GRASS && state.grid[y][x].terrain!==TERRAIN.HILL);
   if(!buildable.length) return;
 
   // EXIT FIX: drop edge road tiles that would sit within 4 of an existing exit
@@ -129,7 +140,8 @@ function commitBridgeDrag(line){
   if(line.length<2){ requestFlash('Bridge must start and end on land'); return; }
   const [sx0,sy0]=line[0], [ex0,ey0]=line[line.length-1];
   // start AND end of the full drag must be land of LOWLAND or higher
-  const landOK=(x,y)=>{ const t=state.grid[y][x]; return t.type!==T.WATER && t.terrain>=TERRAIN.LOWLAND; };
+  // TERRAIN TOOLS: bridge ends must be land >= LOWLAND but not a (non-routable) hill
+  const landOK=(x,y)=>{ const t=state.grid[y][x]; return t.type!==T.WATER && t.terrain>=TERRAIN.LOWLAND && t.terrain!==TERRAIN.HILL; };
   if(!landOK(sx0,sy0) || !landOK(ex0,ey0)){ requestFlash('Bridge must start and end on land'); return; }
   // cannot overlap an existing bridge
   if(line.some(([x,y])=> state.grid[y][x].bridge)){ requestFlash('Bridge overlaps existing bridge'); return; }
@@ -197,30 +209,12 @@ function bulldoze(gx,gy){
   }
 }
 
-/* ===== WATER TOOL + RIGHTCLICK DRAG: tile helpers ===================== */
-// turn a land (grass) tile into water, remembering the terrain beneath it
-function placeWaterTile(x,y){
-  const t=state.grid[y][x];
-  if(t.type!==T.GRASS) return false;
-  const nt=makeTile(T.WATER);
-  nt.terrain=TERRAIN.WATER; nt.origTerrain=t.terrain;     // remember base terrain
-  nt.elevation=t.elevation; nt.moisture=t.moisture;
-  state.grid[y][x]=nt; return true;
-}
-// revert a water tile to the terrain beneath it (LOWLAND if none stored)
-function removeWaterTile(x,y){
-  const t=state.grid[y][x];
-  if(t.type!==T.WATER) return false;
-  const base = (t.origTerrain ?? TERRAIN.LOWLAND);
-  const nt=makeTile(T.GRASS);
-  nt.terrain=base; nt.elevation=t.elevation; nt.moisture=t.moisture;
-  state.grid[y][x]=nt; return true;
-}
+/* ===== TERRAIN TOOLS + RIGHTCLICK DRAG: tile helpers ================= */
 // clear a zone tile back to grass, preserving terrain (does not touch roads)
 function revertToGrass(x,y){
   const t=state.grid[y][x];
   const nt=makeTile(T.GRASS);
-  nt.terrain=t.terrain; nt.elevation=t.elevation; nt.moisture=t.moisture; nt.origTerrain=t.origTerrain;
+  nt.terrain=t.terrain; nt.elevation=t.elevation; nt.moisture=t.moisture; nt.coast=t.coast;
   state.grid[y][x]=nt;
 }
 // remove a road tile; BRIDGES: a bridge tile removes its whole span (+refund)
@@ -229,21 +223,71 @@ function removeRoadTile(x,y){
   if(t.bridge && t.bridgeId!=null){ state.funds += removeBridgeSpan(t.bridgeId); return; }
   revertToGrass(x,y);
 }
-// after water changes: recompute road masks + re-run power/water propagation
-function afterWaterChange(){ recomputeAllRoads(); propagatePower(); propagateWater(); }
+
+// TERRAIN TOOLS: defer recompute (roads/power/water/coast) to mouseup
+let terrainDirty=false;
+function afterTerrainChange(){
+  recomputeAllRoads(); propagatePower(); propagateWater(); coastPass(state.grid);
+}
+
+// TERRAIN TOOLS: paint a terrain type onto a tile with full rules + cost.
+function paintTerrain(gx,gy,toolId){
+  const cfg=TERRAIN_TOOLS[toolId]; if(!cfg) return false;
+  const t=state.grid[gy][gx];
+  if(state.funds < cfg.cost){ requestFlash('Insufficient funds'); return false; }
+
+  const water = (cfg.terrain===TERRAIN.WATER || cfg.terrain===TERRAIN.SHALLOWS);
+  const hill  = (cfg.terrain===TERRAIN.HILL);
+
+  // a bridge tile being repainted: drop the whole span first (no refund here)
+  if(t.bridge && t.bridgeId!=null) removeBridgeSpan(t.bridgeId);
+  const cur=state.grid[gy][gx];   // may have changed if bridge removed
+
+  if(water){
+    // Water/Shallows: wipe contents (refund 0%), become water terrain
+    const nt=makeTile(T.WATER);
+    nt.terrain=cfg.terrain; nt.elevation=cur.elevation; nt.moisture=cur.moisture;
+    state.grid[gy][gx]=nt;
+  } else if(hill){
+    // Hill: remove zone/road/building (no refund), non-buildable land
+    const nt=makeTile(T.GRASS);
+    nt.terrain=TERRAIN.HILL; nt.elevation=cur.elevation; nt.moisture=cur.moisture;
+    state.grid[gy][gx]=nt;
+  } else {
+    // Land (Lowland/Highland/Wetland)
+    if(cur.type===T.WATER){
+      // over water -> clear to land
+      const nt=makeTile(T.GRASS);
+      nt.terrain=cfg.terrain; nt.elevation=cur.elevation; nt.moisture=cur.moisture;
+      state.grid[gy][gx]=nt;
+    } else {
+      // over land -> just change the terrain, keep any road/zone/building
+      cur.terrain=cfg.terrain;
+    }
+  }
+  state.funds-=cfg.cost;
+  terrainDirty=true;
+  return true;
+}
 
 // RIGHTCLICK DRAG: tools whose right-drag erases via the drag-preview region
-// (these are all in config TOOLS, so the renderer's preview is safe). The water
-// tool is a per-tile brush instead, handled separately below.
+// (these are all in config TOOLS, so the renderer's preview is safe). Terrain
+// brushes revert per-tile to LOWLAND instead.
 function isEraseDragTool(id){ return id==='road'||id==='res'||id==='com'||id==='ind'; }
 
-// WATER TOOL: defer road recompute + power/water propagation to mouseup
-let waterDirty=false;
-// right-click clearing for non-drag tools: water brush removes water, else bulldoze
+// TERRAIN TOOLS: right-click reverts a tile to LOWLAND; else bulldoze
 function rightClear(gx,gy){
   if(!inBounds(gx,gy)) return;
-  if(state.tool==='watertile'){ if(removeWaterTile(gx,gy)) waterDirty=true; }
-  else bulldoze(gx,gy);
+  if(isTerrainTool(state.tool)){
+    const t=state.grid[gy][gx];
+    if(t.bridge && t.bridgeId!=null) removeBridgeSpan(t.bridgeId);
+    const cur=state.grid[gy][gx];
+    const nt=makeTile(T.GRASS);
+    nt.terrain=TERRAIN.LOWLAND; nt.elevation=cur.elevation; nt.moisture=cur.moisture;
+    state.grid[gy][gx]=nt; terrainDirty=true;
+  } else {
+    bulldoze(gx,gy);
+  }
 }
 
 // context-aware erase over the current drag region (right-click release)
@@ -309,7 +353,7 @@ export function initInput(){
       state.drag=null;
     }
     // WATER TOOL: flush road recompute + power/water propagation once per stroke
-    if(waterDirty){ afterWaterChange(); waterDirty=false; }
+    if(terrainDirty){ afterTerrainChange(); terrainDirty=false; }   // TERRAIN TOOLS
     dragging=false; lastPaint='';
   });
 

@@ -16,6 +16,23 @@ export const isWaterTerrain = tt => tt===TERRAIN.WATER || tt===TERRAIN.SHALLOWS;
 // ROAD CONNECTORS: a road over water terrain must be built as a bridge
 export const needsBridge = tt => isWaterTerrain(tt);
 
+// TERRAIN TOOLS: coast pass — any LOWLAND/SHALLOWS tile orthogonally adjacent to
+// a deep WATER tile gets tile.coast=true (a decorative shoreline flag the renderer
+// uses). Recomputed after every terrain change; never stored as a terrain type.
+export function coastPass(grid){
+  const gh=grid.length, gw=gh?grid[0].length:0;
+  const N=[[1,0],[-1,0],[0,1],[0,-1]];
+  for(let y=0;y<gh;y++) for(let x=0;x<gw;x++){
+    const t=grid[y][x];
+    let coast=false;
+    if(t.terrain===TERRAIN.LOWLAND || t.terrain===TERRAIN.SHALLOWS){
+      for(const [dx,dy] of N){ const nx=x+dx, ny=y+dy;
+        if(nx>=0&&nx<gw&&ny>=0&&ny<gh && grid[ny][nx].terrain===TERRAIN.WATER){ coast=true; break; } }
+    }
+    t.coast=coast;
+  }
+}
+
 // --- seeded PRNG (mulberry32) ---
 function mulberry32(a){
   return function(){

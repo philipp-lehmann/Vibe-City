@@ -8,6 +8,7 @@
    ================================================================ */
 import { T, isZone, conducts, clamp, lerp } from './config.js';   // MAP SIZE: GRID now runtime
 import { state, tileAt, makeTile, pushNotice } from './state.js';
+import { TERRAIN } from './terrain.js';   // TERRAIN TOOLS: terrain land-value effects
 
 /* --- Power propagation: flood fill from every coal plant. --- */
 export function propagatePower(){
@@ -170,11 +171,15 @@ export function computeLandValue(){
       if(n.type===T.PARK)  v+=6*w;
       if(n.type===T.WATER) v+=3*w;
       if(n.type===T.PUMP)  v+=2*w;
+      if(n.terrain===TERRAIN.HILL) v+=4*w;   // TERRAIN TOOLS: hills raise nearby value (2-tile)
     }
     if(t.powered) v+=15;
     if(t.nearRoad) v+=10;
     v += t.level*15;                  // denser = pricier
     v -= t.pollution*5;               // DEMAND SYSTEM: pollution degrades land value
+    // TERRAIN TOOLS: per-tile terrain value
+    if(t.terrain===TERRAIN.HIGHLAND) v+=20;
+    else if(t.terrain===TERRAIN.WETLAND) v-=10;
     t.land = Math.max(5, Math.min(250, v));
   }
 }

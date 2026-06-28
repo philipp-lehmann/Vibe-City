@@ -8,7 +8,7 @@
    drag-geometry selector (shared by renderer preview + input commit).
    ================================================================ */
 import { MAP_SIZES, DEFAULT_MAP, T } from './config.js';
-import { generateTerrain, TERRAIN, isWaterTerrain } from './terrain.js'; // TERRAIN
+import { generateTerrain, TERRAIN, isWaterTerrain, coastPass } from './terrain.js'; // TERRAIN / TERRAIN TOOLS
 
 // --- tile factory: keeps every tile's shape consistent ---
 export function makeTile(type){
@@ -31,7 +31,8 @@ export function makeTile(type){
     elevation: 0.5,  // 0..1 simplex elevation
     moisture: 0.5,   // 0..1 simplex moisture
     bridge: false,   // TERRAIN: road tile is a bridge over water
-    bridgeId: null   // BRIDGES: id of the bridge entity this tile belongs to
+    bridgeId: null,  // BRIDGES: id of the bridge entity this tile belongs to
+    coast: false     // TERRAIN TOOLS: water-adjacent shoreline flag (auto-computed)
   };
 }
 
@@ -86,10 +87,12 @@ export function applyTerrain(terr){
     t.terrain=td.terrain; t.elevation=td.elevation; t.moisture=td.moisture;
     t.type = isWaterTerrain(td.terrain) ? T.WATER : T.GRASS;
   }
+  coastPass(state.grid);   // TERRAIN TOOLS: initial shoreline flags
 }
 
 // TERRAIN: helpers describing build rules (data; callers enforce)
-export function isBuildableTile(t){ return t && !isWaterTerrain(t.terrain); }
+// TERRAIN TOOLS: hills are also non-buildable (and non-routable)
+export function isBuildableTile(t){ return t && !isWaterTerrain(t.terrain) && t.terrain!==TERRAIN.HILL; }
 export function bulldozeCost(t){ return t && t.terrain===TERRAIN.WETLAND ? 2 : 1; } // wetland 2x
 
 /* ===== ROAD CONNECTORS: topology mask + outside connections ============ */
@@ -246,6 +249,7 @@ export function applySave(blob){
   state.cityName = s.cityName || blob.meta?.cityName || 'New Terminus';
   if(s.demand) state.demand = { ...state.demand, ...s.demand };
   state.bridges = Array.isArray(s.bridges) ? s.bridges : [];   // BRIDGES: restore entities
+  coastPass(state.grid);   // TERRAIN TOOLS: recompute shoreline flags after load
   recomputeAllRoads();   // ROAD CONNECTORS: rebuild masks + outside count on load
   return true;
 }

@@ -142,12 +142,12 @@ export function render(){
       const [gx,gy]=unrotateCoord(rx,ry,state.rot);
       const t=state.grid[gy][gx];
       const [sx,sy0]=isoToScreen(gx,gy,0);
-      // TERRAIN: HILL tiles sit 4px taller -> raise ground + everything on it
-      const sy = sy0 - (t.terrain===TERRAIN.HILL ? 4*z : 0);
+      // ELEVATED TERRAIN: raise the top face (and any content) by the terrain's height
+      const sy = sy0 - terrainElev(t)*z;
 
       if(sx< -hw*2 || sx> view.width+hw*2 || sy< -hh*4 || sy> view.height+hh*4) continue;
 
-      drawGroundTile(sx,sy,t);
+      drawGroundTile(sx,sy,t,gx,gy);   // TERRAIN TOOLS: gx,gy for coast fringe
 
       // water overlay tint (under buildings, over ground)
       if(state.waterOverlay && t.water){
@@ -177,14 +177,37 @@ export function render(){
   drawDragPreview();
 }
 
-function drawGroundTile(sx,sy,t){
+// ELEVATED TERRAIN: raised-terrain height in px @ zoom 1 (highland 6, hill 12)
+function terrainElev(t){ return t.terrain===TERRAIN.HILL ? 12 : t.terrain===TERRAIN.HIGHLAND ? 6 : 0; }
+
+function drawGroundTile(sx,sy,t,gx,gy){
   const z=state.zoom;
   const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+
+  // ELEVATED TERRAIN: draw a solid block (left+right walls down to ground) so the
+  // raised top face reads as a grounded mesa rather than a floating diamond.
+  const elev = terrainElev(t)*z;
+  if(elev>0){
+    const top=groundColor(t);
+    const L=[sx-hw, sy+hh], B=[sx, sy+2*hh], R=[sx+hw, sy+hh];   // front-left/-right corners + front corner
+    const Lg=[L[0], L[1]+elev], Bg=[B[0], B[1]+elev], Rg=[R[0], R[1]+elev];
+    // left wall — top colour darkened 25%
+    ctx.beginPath(); ctx.moveTo(L[0],L[1]); ctx.lineTo(B[0],B[1]); ctx.lineTo(Bg[0],Bg[1]); ctx.lineTo(Lg[0],Lg[1]); ctx.closePath();
+    ctx.fillStyle=_mix(top,'#000000',0.25); ctx.fill();
+    // right wall — top colour darkened 40% (shaded)
+    ctx.beginPath(); ctx.moveTo(R[0],R[1]); ctx.lineTo(B[0],B[1]); ctx.lineTo(Bg[0],Bg[1]); ctx.lineTo(Rg[0],Rg[1]); ctx.closePath();
+    ctx.fillStyle=_mix(top,'#000000',0.40); ctx.fill();
+  }
+
   diamond(sx,sy);
   ctx.fillStyle=groundColor(t);
   ctx.fill();
   ctx.strokeStyle='rgba(0,0,0,0.35)';
   ctx.lineWidth=1; ctx.stroke();
+
+  // COAST FIX: sandy fringe only on land (coast-flagged) tiles — never on
+  // shallows or deep water (both are type WATER), which get tint only.
+  if(t.coast && t.type!==T.WATER && gx!==undefined) drawCoastFringe(sx,sy,gx,gy);
 
   if(t.type===T.WATER){
     ctx.strokeStyle='rgba(60,140,200,0.4)';
@@ -194,7 +217,37 @@ function drawGroundTile(sx,sy,t){
   }
 }
 
+// TERRAIN TOOLS: draw a thin sandy fringe (+ wave line) on each diamond edge that
+// faces a deep-water neighbour. Drawn after the ground fill, before zone/buildings.
+function drawCoastFringe(sx,sy,gx,gy){
+  const z=state.zoom, hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+  // diamond edges keyed by the facing direction (corner a -> b)
+  const edges=[
+    {a:[sx,sy],        b:[sx+hw,sy+hh], mid:[sx+hw/2, sy+hh/2]},   // toward +? (use dot)
+    {a:[sx+hw,sy+hh],  b:[sx,sy+2*hh],  mid:[sx+hw/2, sy+1.5*hh]},
+    {a:[sx,sy+2*hh],   b:[sx-hw,sy+hh], mid:[sx-hw/2, sy+1.5*hh]},
+    {a:[sx-hw,sy+hh],  b:[sx,sy],       mid:[sx-hw/2, sy+hh/2]},
+  ];
+  const C=[sx, sy+hh];
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const n=tileAt(gx+dx,gy+dy);
+    if(!n || n.terrain!==TERRAIN.WATER) continue;
+    const [nsx,nsy]=isoToScreen(gx+dx,gy+dy,0); const NC=[nsx,nsy+hh];
+    const v=[NC[0]-C[0], NC[1]-C[1]];
+    let best=-Infinity, be=null;
+    edges.forEach(e=>{ const ed=[e.mid[0]-C[0],e.mid[1]-C[1]]; const d=ed[0]*v[0]+ed[1]*v[1]; if(d>best){best=d; be=e;} });
+    if(!be) continue;
+    ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=2.5*z;        // sandy fringe
+    ctx.beginPath(); ctx.moveTo(be.a[0],be.a[1]); ctx.lineTo(be.b[0],be.b[1]); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1*z;   // wave line just inside
+    const ix=(be.mid[0]-C[0])*0.18, iy=(be.mid[1]-C[1])*0.18;
+    ctx.beginPath(); ctx.moveTo(be.a[0]-ix,be.a[1]-iy); ctx.lineTo(be.b[0]-ix,be.b[1]-iy); ctx.stroke();
+  }
+}
+
 function drawTileContent(sx,sy,t,gx,gy){
+  // TERRAIN TOOLS: never draw a building/zone sprite on a hill tile
+  if(t.terrain===TERRAIN.HILL && isZone(t.type)) return;
   switch(t.type){
     case T.ROAD:       drawRoad(sx,sy,gx,gy,t); break; // ROAD CONNECTORS
     case T.POWERLINE:  drawPowerLine(sx,sy,t); break;

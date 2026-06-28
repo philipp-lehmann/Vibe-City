@@ -11,6 +11,7 @@ import { state, tileAt, setTool, togglePause, rotateView,
 import { igniteFire } from './simulation.js';
 import { drawToolIcon, MINI_OVERLAYS, setMiniOverlay, getMiniOverlay,
          cycleZoom, zoomLabel } from './renderer.js';   // ZOOM LEVELS
+import { TERRAIN_TOOLS } from './input.js';   // TERRAIN TOOLS
 
 const $ = id => document.getElementById(id);
 
@@ -29,19 +30,21 @@ export function buildToolbar(){
     btn.onclick=()=>setTool(tool.id);
     bar.appendChild(btn);
   });
-  // WATER TOOL: extra terrain tool (not part of config TOOLS) — drawn inline
-  const wbtn=document.createElement('button');
-  wbtn.className='tool'+(state.tool==='watertile'?' sel':'');
-  wbtn.dataset.tool='watertile';
-  const wcv=document.createElement('canvas'); wcv.width=24; wcv.height=24;
-  const wc=wcv.getContext('2d');
-  wc.fillStyle='#2a6f8f'; wc.beginPath();
-  wc.moveTo(12,4); wc.lineTo(22,12); wc.lineTo(12,20); wc.lineTo(2,12); wc.closePath(); wc.fill();
-  wc.fillStyle='#bfe6f5'; wc.fillRect(7,11,3,2); wc.fillRect(13,13,3,2);
-  const wtx=document.createElement('span'); wtx.innerHTML='Water T<span class="cost">$20</span>';
-  wbtn.appendChild(wcv); wbtn.appendChild(wtx);
-  wbtn.onclick=()=>setTool('watertile');
-  bar.appendChild(wbtn);
+  // TERRAIN TOOLS: a paintable terrain tool group with colour swatch buttons
+  const ttl=document.createElement('div'); ttl.className='ttl'; ttl.textContent='TERRAIN';
+  bar.appendChild(ttl);
+  for(const [id,cfg] of Object.entries(TERRAIN_TOOLS)){
+    const b=document.createElement('button');
+    b.className='tool'+(state.tool===id?' sel':''); b.dataset.tool=id;
+    const cv=document.createElement('canvas'); cv.width=24; cv.height=24; const c=cv.getContext('2d');
+    c.fillStyle=cfg.color; c.beginPath();
+    c.moveTo(12,4); c.lineTo(22,12); c.lineTo(12,20); c.lineTo(2,12); c.closePath(); c.fill();
+    c.strokeStyle='rgba(0,0,0,0.4)'; c.stroke();
+    const tx=document.createElement('span'); tx.innerHTML=`${cfg.label}<span class="cost">§${cfg.cost}</span>`;
+    b.appendChild(cv); b.appendChild(tx);
+    b.onclick=()=>setTool(id);
+    bar.appendChild(b);
+  }
   positionDemand();
 }
 function positionDemand(){
