@@ -81,9 +81,28 @@ export function screenToIso(px,py){
   const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
   const ax=(px-originX-state.cam.x)/hw;
   const ay=(py-originY-state.cam.y)/hh;
-  const rx=Math.floor((ax+ay)/2);
-  const ry=Math.floor((ay-ax)/2);
-  return unrotateCoord(rx,ry,state.rot);
+  const frx=Math.floor((ax+ay)/2);
+  const fry=Math.floor((ay-ax)/2);
+  const flat=unrotateCoord(frx,fry,state.rot);   // flat-plane pick (ignores elevation)
+
+  // ELEVATION PICK FIX: raised highland/hill tiles are drawn shifted up, so the
+  // true tile under the cursor may be 1-2 tiles "behind" (smaller rx+ry) the flat
+  // result. Test the flat tile + a bounded set of behind candidates against each
+  // tile's *raised* top diamond and return the most-elevated tile that contains the
+  // cursor; otherwise fall back to the flat pick. Bounded (<=6 candidates) so
+  // drag-paint stays cheap even on 128x128 maps.
+  let bx=flat[0], by=flat[1], bestE=-1, found=false;
+  for(let da=0; da<=2; da++) for(let db=0; db<=2-da; db++){
+    const [gx,gy]=unrotateCoord(frx-da, fry-db, state.rot);
+    if(gx<0||gy<0||gx>=state.gridWidth||gy>=state.gridHeight) continue;
+    const e=terrainElev(state.grid[gy][gx]);
+    const [sx,sy]=isoToScreen(gx,gy, e/ELEV);    // raised top vertex (isoToScreen lifts by elev*ELEV*z)
+    const cx=sx, cy=sy+hh;                        // raised diamond centre
+    if(Math.abs(px-cx)/hw + Math.abs(py-cy)/hh <= 1 && e>bestE){
+      bestE=e; bx=gx; by=gy; found=true;
+    }
+  }
+  return found ? [bx,by] : flat;
 }
 
 // MAP SIZE: centre the isometric viewport on the grid's middle tile for any size
@@ -602,7 +621,10 @@ function drawZoneBuilding(sx,sy,t,gx,gy,kind){
     ctx.fill();
     return;
   }
-  if(!buildAge.has(t)) buildAge.set(t, state.month);
+  // LOADED CITY SCAFFOLD FIX: a tile that's already developed (loaded from a save)
+  // registers as built 2 months ago so it skips the construction scaffold; genuinely
+  // new placements (pop 0, level 0) still show the 2-month scaffold.
+  if(!buildAge.has(t)) buildAge.set(t, (t.pop>0||t.level>0) ? state.month-2 : state.month);
   const elapsed = state.month - buildAge.get(t);
   if(elapsed < 2){ drawScaffold(sx,sy); return; }        // 2-month construction
   if(t.pop===0 && t.level===0){ drawVacantLot(sx,sy,kind); return; }
@@ -880,8 +902,18 @@ function drawDragPreview(){
     ctx.strokeStyle=stroke; ctx.lineWidth=1.5; ctx.stroke();
   }
   if(tiles.length){
-    const cost=tiles.filter(([x,y])=>state.grid[y][x].type===T.GRASS).length
-               * TOOLS.find(t2=>t2.id===tool).cost;
+    // BRIDGE PREVIEW COST: a road drag over water is charged 5x per water tile
+    // (matches commitBridgeDrag); other tools keep grass-tiles * toolCost.
+    const toolCost=TOOLS.find(t2=>t2.id===tool).cost;
+    let cost;
+    if(tool==='road' && tiles.some(([x,y])=>state.grid[y][x].type===T.WATER)){
+      let water=0, grass=0;
+      for(const [x,y] of tiles){ const ty=state.grid[y][x].type;
+        if(ty===T.WATER) water++; else if(ty===T.GRASS) grass++; }
+      cost = water*toolCost*5 + grass*toolCost;
+    } else {
+      cost = tiles.filter(([x,y])=>state.grid[y][x].type===T.GRASS).length * toolCost;
+    }
     const [cx,cy]=isoToScreen(state.drag.cx,state.drag.cy,0);
     ctx.font='11px monospace'; ctx.textAlign='center';
     ctx.fillStyle='#000'; ctx.fillRect(cx-26, cy-6, 52, 14);

@@ -76,10 +76,9 @@ export function roadWithin(x,y,dist){
 /* --- Road access: a zone grows if any road is within 3 tiles. --- */
 export function computeRoadAccess(){
   for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
-    const t=state.grid[y][x];
-    t.nearRoad=false;
-    if(!isZone(t.type)) continue;
-    t.nearRoad = roadWithin(x,y,3);
+    // nearRoad LAND VALUE: computed for ALL tiles so non-zone tiles also get the
+    // road-proximity land-value bonus (runs monthly, so the cost is fine).
+    state.grid[y][x].nearRoad = roadWithin(x,y,3);
   }
 }
 

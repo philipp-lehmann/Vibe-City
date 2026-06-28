@@ -9,7 +9,7 @@ import { T, TOOLS } from './config.js';
 import { state, makeTile, inBounds, setTool, togglePause, rotateView,
          pushNotice, requestFlash, dragTiles,
          updateRoadsAround, recomputeAllRoads, isEdge,
-         genBridgeId, findBridge } from './state.js';   // ROAD CONNECTORS / EXIT FIX / BRIDGES
+         genBridgeId, findBridge, bulldozeCost } from './state.js';   // ROAD CONNECTORS / EXIT FIX / BRIDGES
 import { view, screenToIso, stepZoom } from './renderer.js';   // ZOOM LEVELS
 import { isWaterTerrain, TERRAIN, coastPass } from './terrain.js';   // ROAD CONNECTORS / WATER TOOL / TERRAIN TOOLS
 import { propagatePower, propagateWater } from './simulation.js';   // WATER TOOL: live propagation
@@ -42,7 +42,7 @@ function placeTool(gx,gy){
   if(tool.id==='bull'){
     if(t.type!==T.GRASS && t.type!==T.WATER){
       const wasRoad=t.type===T.ROAD;
-      if(spend(1)){ state.grid[gy][gx]=makeTile(T.GRASS);
+      if(spend(bulldozeCost(t))){ state.grid[gy][gx]=makeTile(T.GRASS);   // wetland costs 2x
         if(wasRoad) updateRoadsAround(gx,gy); }   // ROAD CONNECTORS: recompute on bulldoze
     }
     return;
@@ -204,7 +204,7 @@ function bulldoze(gx,gy){
   if(t.bridge && t.bridgeId!=null){ state.funds += removeBridgeSpan(t.bridgeId); return; }
   if(t.type!==T.GRASS && t.type!==T.WATER){
     const wasRoad=t.type===T.ROAD;
-    if(spend(1)){ state.grid[gy][gx]=makeTile(T.GRASS);
+    if(spend(bulldozeCost(t))){ state.grid[gy][gx]=makeTile(T.GRASS);   // wetland costs 2x
       if(wasRoad) updateRoadsAround(gx,gy); }   // ROAD CONNECTORS
   }
 }
