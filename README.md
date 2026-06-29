@@ -29,35 +29,6 @@ Opening `index.html` directly as a `file://` URL will not work due to module COR
 | Q / E | Rotate view |
 | Space | Pause / resume |
 
-## UI Layout
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ statusbar: saves · new · city name · date · pop · funds │
-├──────────┬──────────────────────────────┬───────────────┤
-│ toolbar  │   notification centre        │  admin panel  │
-│ (tools + │   (collapsible, top-center)  │  Admin        │
-│  terrain)│                              │  Events       │
-│          │                              │  Help         │
-│ demand   │                              │               │
-│ bars     │         canvas               │               │
-│          │                              │               │
-│ inspector│                              │               │
-│ (on hover│                              │               │
-│  bottom- │                              │               │
-│  left)   │          ┌──────────┐ ┌────┐│               │
-│          │          │ playback │ │map ││               │
-└──────────┴──────────┴──────────┴─┴────┘┴───────────────┘
-```
-
-**Playback panel** (bottom-right, left of minimap): pause/running toggle, speed (▶▶▶ with inactive dims), zoom, rotate with compass direction.
-
-**Admin panel** (top-right, collapsible sections):
-- *Admin* — tax rate slider
-- *Events* — ignite fire disaster
-- *Help* — keyboard/mouse reference
-
-**Notification centre** (top-center, collapsible): persistent warnings (no outside connection, no power plant) + transient city events (fires, milestones, budget alerts). Auto-opens on new messages; badge shows unread count.
 
 ## Project structure
 
@@ -83,14 +54,14 @@ js/
 | Size | Grid |
 |---|---|
 | Small | 32×32 |
-| Medium | 64×64 |
-| Large | 128×128 |
+| Medium | 48x48 |
+| Large | 64x64 |
 
 ## Features
 
 - Isometric rendering with 4-direction rotation (N/E/S/W) and variable zoom
 - RCI demand system (Residential / Commercial / Industrial) with tax rate control
-- Power grid propagation from coal plants via power lines
+- Power grid propagation from power plants via power lines
 - Water pump coverage with road-access requirement
 - Procedural terrain — elevation, moisture, wetlands, coasts, hills
 - Bridges over water with ramp/span geometry
