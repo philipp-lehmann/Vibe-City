@@ -105,15 +105,16 @@ body {
   border-bottom: var(--border-panel);
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: var(--sp-4);
   padding: 0 var(--sp-4);
-  font-size: var(--font-lg);
+  font-size: var(--font-base);
   z-index: 50;
   text-shadow: 0 0 4px rgba(232, 232, 232, 0.5);
 }
 
 #statusbar .lbl {
   color: var(--ink-dim);
+  padding-left: var(--sp-2);
 }
 
 #statusbar b {
@@ -125,9 +126,11 @@ body {
   white-space: nowrap;
 }
 
-#statusbar #paused {
+#playback #paused {
   color: var(--gold);
-  margin-left: auto;
+  font-size: var(--font-sm);
+  text-align: center;
+  padding: var(--sp-0) 0;
 }
 
 /* --- Toolbar (left) --- */
@@ -268,7 +271,7 @@ body {
 }
 
 #inspector .ttl {
-  color: var(--ink-dim);
+  color: var(--ink);
   border-bottom: var(--border);
   padding-bottom: 3px;
   margin-bottom: 5px;
@@ -293,8 +296,8 @@ body {
 /* --- Minimap (bottom right) --- */
 #minimap-wrap {
   position: absolute;
-  bottom: 6px;
-  right: 6px;
+  bottom: var(--sp-1);
+  right: var(--sp-1);
   background: var(--panel);
   border: var(--border-panel);
   padding: var(--sp-2);
@@ -311,10 +314,33 @@ body {
 #minimap {
   display: block;
   image-rendering: pixelated;
-  background: #05050c;
+  background: var(--panel);
 }
 
-/* --- Speed / control buttons (top-right under status) --- */
+/* --- Playback panel (bottom-right, left of minimap) --- */
+#playback {
+  position: absolute;
+  bottom: var(--sp-1);
+  right: 132px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  width: 150px;
+  background: var(--panel);
+  border: var(--border-panel);
+  border-radius: var(--radius-md);
+  padding: var(--sp-2);
+}
+
+.rot-row {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.rot-row button { flex: 1; }
+
+/* --- Disaster / tax controls (top-right under status) --- */
 #controls {
   position: absolute;
   top: var(--sp-9);

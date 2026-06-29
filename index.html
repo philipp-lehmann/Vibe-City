@@ -15,13 +15,15 @@
 
   <!-- ===== STATUS BAR ===== -->
   <div id="statusbar">
-    <span class="grp"><span class="lbl">Vibe City</span> <b id="s-name">New Terminus</b></span>
+    <button id="btn-saves">Vibe City</button>
+    <button id="btn-newgame">New City</button>
+    |
+    <span id="s-name">New Terminus</span>
     <span class="grp"><span class="lbl">Date</span> <b id="s-date">January 1900</b></span>
-    <span class="grp"><span class="lbl">Face</span> <b id="s-face">N</b></span>
     <span class="grp"><span class="lbl">Population</span> <b id="s-pop">0</b></span>
     <span class="grp"><span class="lbl">Funds</span> <b id="s-funds">$50,000</b></span>
     <span class="grp"><span class="lbl">Happyness</span> <b id="s-happy">70</b></span><!-- DEMAND SYSTEM -->
-    <span id="paused">Running</span>
+    
   </div>
 
   <!-- ===== NOTIFICATION CENTRE ===== -->
@@ -53,17 +55,20 @@
       <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-I"></div></div></div>
   </div>
 
-  <!-- ===== CONTROLS ===== -->
-  <div id="controls">
+  <!-- ===== PLAYBACK PANEL (bottom-right, left of minimap) ===== -->
+  <div id="playback">
+    <div id="paused">Running</div>
     <button id="btn-pause">⏸ Pause [space]</button>
     <button id="btn-speed">Speed: Normal</button>
     <button id="btn-zoom">Zoom: 1x</button>
-    <div style="display:flex; gap:4px;">
-      <button id="btn-rot-l" style="flex:1;">⟲ [Q]</button>
-      <button id="btn-rot-r" style="flex:1;">⟳ [E]</button>
+    <div class="rot-row">
+      <button id="btn-rot-l">⟲ [Q]</button>
+      <button id="btn-rot-r">⟳ [E]</button>
     </div>
-    <button id="btn-water">Water view: OFF</button>
-    <button id="btn-landvalue">LAND VALUE: OFF</button><!-- DEMAND SYSTEM -->
+  </div>
+
+  <!-- ===== CONTROLS ===== -->
+  <div id="controls">
     <!-- DEMAND SYSTEM: tax rate slider (budget control) -->
     <div id="taxbox">
       <label>TAX RATE <b id="tax-val">8%</b></label>
@@ -82,7 +87,8 @@
   <!-- ===== MINIMAP ===== -->
   <div id="minimap-wrap">
     <div class="ttl">Map</div>
-    <canvas id="minimap" width="120" height="120"></canvas>
+    <span id="s-face" class="grp"></span>
+    <canvas id="minimap" width="112" height="112"></canvas>
   </div>
 
 </div>

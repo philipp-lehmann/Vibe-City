@@ -89,14 +89,17 @@ export function refreshHUD() {
 /* --- tile inspector for the hovered tile --- */
 export function updateInspector() {
   const { x, y } = state.hover;
-  const body = $('insp-body');
+  const panel = $('inspector');
   const t = tileAt(x, y);
-  if (!t) { body.textContent = 'Hover a tile…'; return; }
+  if (!t) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const body = $('insp-body');
   const names = {
     [T.GRASS]: 'Grassland', [T.WATER]: 'Water', [T.ROAD]: 'Road',
     [T.POWERLINE]: 'Power Line', [T.POWERPLANT]: 'Coal Plant', [T.PUMP]: 'Water Pump',
     [T.PARK]: 'Park', [T.RES]: 'Residential', [T.COM]: 'Commercial', [T.IND]: 'Industrial'
   };
+  panel.querySelector('.ttl').textContent = names[t.type] || 'Tile';
   const dens = ['Low', 'Medium', 'High'][t.level] || 'Low';
   let rows = `<span class="k">Coords:</span> <span class="v">${x},${y}</span><br>`;
   rows += `<span class="k">Type:</span> <span class="v">${names[t.type]}</span><br>`;
@@ -183,11 +186,10 @@ export function wireControls() {
   $('btn-zoom').onclick = () => cycleZoom();   // ZOOM LEVELS: fit -> 1x -> 2x
   $('btn-rot-l').onclick = () => rotateView(-1);
   $('btn-rot-r').onclick = () => rotateView(1);
-  $('btn-water').onclick = () => { state.waterOverlay = !state.waterOverlay; };
   $('btn-fire').onclick = () => igniteFire();
-  // DEMAND SYSTEM: land-value overlay toggle + tax slider
-  $('btn-landvalue').onclick = () => { state.lvOverlay = !state.lvOverlay; };
   $('tax-slider').addEventListener('input', e => { state.taxPct = parseInt(e.target.value); });
+  $('btn-saves').onclick = openSaves;
+  $('btn-newgame').onclick = doNewGame;
 }
 
 /* --- per-frame DOM sync: control labels, tool highlight, indicators --- */
@@ -200,9 +202,6 @@ function syncControls() {
   $('btn-speed').textContent = 'Speed: ' + SPEED_NAMES[state.speedIdx];
   $('btn-zoom').textContent = 'Zoom: ' + zoomLabel();   // ZOOM LEVELS
   const zi = $('s-zoom'); if (zi) zi.textContent = 'Z: ' + zoomLabel();
-  $('btn-water').textContent = 'Water view: ' + (state.waterOverlay ? 'On' : 'Off');
-  // DEMAND SYSTEM
-  $('btn-landvalue').textContent = 'Land value: ' + (state.lvOverlay ? 'On' : 'Off');
   $('tax-val').textContent = state.taxPct + '%';
 }
 let lastTool = null;
@@ -211,6 +210,7 @@ function syncTools() {
   lastTool = state.tool;
   document.querySelectorAll('.tool').forEach(b =>
     b.classList.toggle('sel', b.dataset.tool === state.tool));
+  state.waterOverlay = (state.tool === 'pump');
 }
 
 /* --- MINIMAP OVERLAYS: selector strip under the minimap (only one active) --- */
@@ -219,7 +219,7 @@ function buildMiniStrip() {
   const wrap = $('minimap-wrap');
   const strip = document.createElement('div');
   strip.id = 'mini-strip';
-  strip.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;width:120px;margin-top:4px;';
+  strip.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;width:112px;margin-top:4px;';
   MINI_OVERLAYS.forEach(o => {
     const b = document.createElement('button');
     b.textContent = o.label; b.dataset.ov = o.id; b.title = o.id;
@@ -246,20 +246,6 @@ function highlightMini() {
 const SAVE_SLOTS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5', 'slot6'];
 const fmtDate = m => `${MONTHS[m % 12]} ${1900 + Math.floor(m / 12)}`;
 const liveThumb = () => { try { return $('minimap').toDataURL(); } catch { return null; } };
-
-// inject SAVES + NEW buttons into the status bar
-function buildSaveButtons() {
-  const bar = $('statusbar');
-  const mk = (id, txt) => {
-    const b = document.createElement('button'); b.id = id; b.textContent = txt;
-
-
-    return b;
-  };
-  const saves = mk('btn-saves', 'Saves'); saves.onclick = openSaves;
-  const ng = mk('btn-newgame', 'New City'); ng.onclick = doNewGame;
-  bar.appendChild(saves); bar.appendChild(ng);
-}
 
 // build the (hidden) modal overlay once
 let modal = null;
@@ -343,13 +329,10 @@ function renderSlots() {
   }
 }
 
-// MAP SIZE: minimap canvas scales to the chosen map (Small64/Med128/Large192)
 export function syncMinimapSize() {
-  const m = Object.values(MAP_SIZES).find(p => p.w === state.gridWidth);
-  const px = m ? m.mini : 128;
   const mini = $('minimap');
-  if (mini.width !== px) { mini.width = px; mini.height = px; }
-  const strip = $('mini-strip'); if (strip) strip.style.width = px + 'px';
+  if (mini.width !== 112) { mini.width = 112; mini.height = 112; }
+  const strip = $('mini-strip'); if (strip) strip.style.width = '112px';
 }
 
 // MAP SIZE: new game flow -> size picker modal -> name prompt -> start
@@ -471,7 +454,7 @@ function buildExportButton() {
 /* --- init + the single per-frame entry point main calls --- */
 export function initUI() {
   buildToolbar(); wireControls(); buildMiniStrip(); /* MINIMAP OVERLAYS */
-  buildSaveButtons(); buildSavesModal();             /* SAVE SYSTEM */
+  buildSavesModal();                                 /* SAVE SYSTEM */
   buildExportButton();                               /* SVG EXPORT */
   syncMinimapSize();                                 /* MAP SIZE: match default map */
   initNotifCenter();                                 /* NOTIFICATION CENTRE */
