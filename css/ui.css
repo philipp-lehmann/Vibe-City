@@ -130,7 +130,7 @@ body {
 #left-panel {
   position: absolute;
   top: var(--sp-9);
-  left: 6px;
+  left: var(--sp-2);
   width: 152px;
   z-index: 50;
   background: var(--panel);
@@ -226,8 +226,8 @@ body {
 /* --- Bottom info / inspector --- */
 #inspector {
   position: absolute;
-  bottom: 6px;
-  left: 6px;
+  bottom: var(--sp-2);
+  left: var(--sp-2);
   width: 260px;
   background: var(--panel);
   border: var(--border-panel);
@@ -264,8 +264,8 @@ body {
 /* --- Minimap (bottom right) --- */
 #minimap-wrap {
   position: absolute;
-  bottom: var(--sp-1);
-  right: var(--sp-1);
+  bottom: var(--sp-2);
+  right: var(--sp-2);
   background: var(--panel);
   border: var(--border-panel);
   padding: var(--sp-2);
@@ -292,13 +292,13 @@ body {
 /* --- Playback panel (bottom-right, left of minimap) --- */
 #playback {
   position: absolute;
-  bottom: var(--sp-1);
+  bottom: var(--sp-2);
   right: 144px;
   z-index: 50;
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  width: 200px;
+  width: 180px;
   background: var(--panel);
   border: var(--border-panel);
   border-radius: var(--radius-md);
@@ -313,6 +313,10 @@ body {
 
 .pb-row button { flex: 1; }
 
+.pb-row button.hug {
+  flex: 0;
+}
+
 #s-face {
   color: var(--ink-dim);
   font-size: var(--font-sm);
@@ -324,7 +328,7 @@ body {
 #admin-panel {
   position: absolute;
   top: var(--sp-9);
-  right: 6px;
+  right: var(--sp-2);
   width: 160px;
   z-index: 50;
   background: var(--panel);
@@ -375,7 +379,7 @@ button {
   color: var(--ink-mid);
   border: var(--border);
   border-radius: var(--radius-sm);
-  padding: var(--sp-0) var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
 }
 
 button.border {
@@ -433,7 +437,7 @@ button:hover {
   font-size: var(--font-xs);
   padding: 0 var(--sp-1);
   border-radius: var(--radius-sm);
-  min-width: 16px;
+  min-width: var(--sp-5);
   text-align: center;
   display: none;
 }

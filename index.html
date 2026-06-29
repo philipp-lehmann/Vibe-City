@@ -1,129 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌃 Vibe City</title>
-<!-- 🌃 🌆 🏙️ 🌉 🌁 -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/ui.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌃 Vibe City</title>
+  <!-- 🌃 🌆 🏙️ 🌉 🌁 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/ui.css">
 </head>
+
 <body>
-<div id="app">
-  <canvas id="view"></canvas>
+  <div id="app">
+    <canvas id="view"></canvas>
 
-  <!-- ===== STATUS BAR ===== -->
-  <div id="statusbar">
-    <button id="btn-saves">Vibe City</button>
-    <button id="btn-newgame">New City</button>
-    |
-    <span id="s-name">New Terminus</span>
-    <span class="grp"><span class="lbl">Date</span> <b id="s-date">January 1900</b></span>
-    <span class="grp"><span class="lbl">Population</span> <b id="s-pop">0</b></span>
-    <span class="grp"><span class="lbl">Funds</span> <b id="s-funds">$50,000</b></span>
-    <span class="grp"><span class="lbl">Happyness</span> <b id="s-happy">70</b></span><!-- DEMAND SYSTEM -->
-    
-  </div>
+    <!-- ===== STATUS BAR ===== -->
+    <div id="statusbar">
+      <button id="btn-saves">Menu</button>
+      <button id="btn-newgame">New City</button>
+      |
+      <span id="s-name">New Terminus</span>
+      <span class="grp"><span class="lbl">Date</span> <b id="s-date">January 1900</b></span>
+      <span class="grp"><span class="lbl">Population</span> <b id="s-pop">0</b></span>
+      <span class="grp"><span class="lbl">Funds</span> <b id="s-funds">$50,000</b></span>
+      <span class="grp"><span class="lbl">Happyness</span> <b id="s-happy">70</b></span><!-- DEMAND SYSTEM -->
 
-  <!-- ===== NOTIFICATION CENTRE ===== -->
-  <div id="notif-center">
-    <div id="notif-header">
-      <span class="ttl">Messages</span>
-      <span id="notif-badge"></span>
-      <span id="notif-arrow">▾</span>
     </div>
-    <div id="notif-body">
-      <div id="notif-persistent"></div>
-      <div id="notif-log"></div>
-    </div>
-  </div>
 
-  <!-- ===== LEFT PANEL ===== -->
-  <div id="left-panel">
-    <div class="ap-section">
-      <div class="ap-header"><span>Tools</span><span class="ap-arrow">▴</span></div>
-      <div class="ap-body open"><div class="ap-inner" id="tool-body"></div></div>
-    </div>
-    <div class="ap-section">
-      <div class="ap-header"><span>Terrain</span><span class="ap-arrow">▴</span></div>
-      <div class="ap-body open"><div class="ap-inner" id="terrain-body"></div></div>
-    </div>
-    <div class="ap-section">
-      <div class="ap-header"><span>Demand</span><span class="ap-arrow">▴</span></div>
-      <div class="ap-body open">
-        <div class="ap-inner">
-          <div class="drow"><span class="dlab" style="color:#7caa6b">R</span>
-            <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-R"></div></div></div>
-          <div class="drow"><span class="dlab" style="color:#8a5cf6">C</span>
-            <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-C"></div></div></div>
-          <div class="drow"><span class="dlab" style="color:#d9a72c">I</span>
-            <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-I"></div></div></div>
-        </div>
+    <!-- ===== NOTIFICATION CENTRE ===== -->
+    <div id="notif-center">
+      <div id="notif-header">
+        <span class="ttl">Messages</span>
+        <span id="notif-badge"></span>
+        <span id="notif-arrow">▾</span>
+      </div>
+      <div id="notif-body">
+        <div id="notif-persistent"></div>
+        <div id="notif-log"></div>
       </div>
     </div>
-  </div>
 
-  <!-- ===== PLAYBACK PANEL (bottom-right, left of minimap) ===== -->
-  <div id="playback">
-    <div class="pb-row">
-      <button id="btn-pause">⏸</button>
-      <button id="btn-speed">▶▶</button>
-    </div>
-    <button id="btn-zoom">Fit</button>
-    <div class="pb-row">
-      <button id="btn-rot-l">⟲</button>
-      <span id="s-face">N</span>
-      <button id="btn-rot-r">⟳</button>
-    </div>
-  </div>
-
-  <!-- ===== ADMIN PANEL ===== -->
-  <div id="admin-panel">
-    <div class="ap-section">
-      <div class="ap-header"><span>Admin</span><span class="ap-arrow">▾</span></div>
-      <div class="ap-body">
-        <div class="ap-inner">
-          <div id="taxbox">
-            <label>TAX RATE <b id="tax-val">8%</b></label>
-            <input id="tax-slider" type="range" min="1" max="20" value="8">
+    <!-- ===== LEFT PANEL ===== -->
+    <div id="left-panel">
+      <div class="ap-section">
+        <div class="ap-header"><span>Tools</span><span class="ap-arrow">▴</span></div>
+        <div class="ap-body open">
+          <div class="ap-inner" id="tool-body"></div>
+        </div>
+      </div>
+      <div class="ap-section">
+        <div class="ap-header"><span>Terrain</span><span class="ap-arrow">▴</span></div>
+        <div class="ap-body open">
+          <div class="ap-inner" id="terrain-body"></div>
+        </div>
+      </div>
+      <div class="ap-section">
+        <div class="ap-header"><span>Demand</span><span class="ap-arrow">▴</span></div>
+        <div class="ap-body open">
+          <div class="ap-inner">
+            <div class="drow"><span class="dlab" style="color:#7caa6b">R</span>
+              <div class="dtrack">
+                <div class="dmid"></div>
+                <div class="dfill" id="dem-R"></div>
+              </div>
+            </div>
+            <div class="drow"><span class="dlab" style="color:#8a5cf6">C</span>
+              <div class="dtrack">
+                <div class="dmid"></div>
+                <div class="dfill" id="dem-C"></div>
+              </div>
+            </div>
+            <div class="drow"><span class="dlab" style="color:#d9a72c">I</span>
+              <div class="dtrack">
+                <div class="dmid"></div>
+                <div class="dfill" id="dem-I"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="ap-section">
-      <div class="ap-header"><span>Events</span><span class="ap-arrow">▾</span></div>
-      <div class="ap-body">
-        <div class="ap-inner">
-          <button class="disaster" id="btn-fire">Ignite Fire</button>
+
+    <!-- ===== PLAYBACK PANEL (bottom-right, left of minimap) ===== -->
+    <div id="playback">
+      <div class="pb-row">
+        <button id="btn-pause">⏸</button>
+        <button id="btn-speed" class="hug">▶▶</button>
+      </div>
+    </div>
+
+    <!-- ===== ADMIN PANEL ===== -->
+    <div id="admin-panel">
+      <div class="ap-section">
+        <div class="ap-header"><span>Admin</span><span class="ap-arrow">▾</span></div>
+        <div class="ap-body">
+          <div class="ap-inner">
+            <div id="taxbox">
+              <label>TAX RATE <b id="tax-val">8%</b></label>
+              <input id="tax-slider" type="range" min="1" max="20" value="8">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ap-section">
+        <div class="ap-header"><span>Events</span><span class="ap-arrow">▾</span></div>
+        <div class="ap-body">
+          <div class="ap-inner">
+            <button class="disaster" id="btn-fire">Ignite Fire</button>
+          </div>
+        </div>
+      </div>
+      <div class="ap-section">
+        <div class="ap-header"><span>Help</span><span class="ap-arrow">▾</span></div>
+        <div class="ap-body">
+          <div class="ap-inner">
+            <div class="hint">L-click place · R-click bulldoze<br>drag to paint · wheel zoom · Q/E rotate</div>
+          </div>
         </div>
       </div>
     </div>
-    <div class="ap-section">
-      <div class="ap-header"><span>Help</span><span class="ap-arrow">▾</span></div>
-      <div class="ap-body">
-        <div class="ap-inner">
-          <div class="hint">L-click place · R-click bulldoze<br>drag to paint · wheel zoom · Q/E rotate</div>
-        </div>
+
+    <!-- ===== INSPECTOR ===== -->
+    <div id="inspector">
+      <div class="ttl">Inspector</div>
+      <div id="insp-body">Hover a tile…</div>
+    </div>
+
+    <!-- ===== MINIMAP ===== -->
+    <div id="minimap-wrap">
+      <canvas id="minimap" width="120" height="120"></canvas>
+      
+      <div class="pb-row">
+        <button id="btn-rot-l">⤷</button>
+        <span id="s-face">N</span>
+        <button id="btn-rot-r">⤶</button>
+      </div>
+      <div class="pb-row">
+        <button id="btn-zoom">Fit</button>
       </div>
     </div>
   </div>
 
-  <!-- ===== INSPECTOR ===== -->
-  <div id="inspector">
-    <div class="ttl">Inspector</div>
-    <div id="insp-body">Hover a tile…</div>
   </div>
 
-  <!-- ===== MINIMAP ===== -->
-  <div id="minimap-wrap">
-    <canvas id="minimap" width="120" height="120"></canvas>
-  </div>
-
-</div>
-
-<!-- ES module entry point; type=module auto-defers until DOM is parsed -->
-<script type="module" src="js/main.js"></script>
+  <!-- ES module entry point; type=module auto-defers until DOM is parsed -->
+  <script type="module" src="js/main.js"></script>
 </body>
+
 </html>
