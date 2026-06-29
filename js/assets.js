@@ -33,7 +33,9 @@ const TERRAIN_KEYS = ['terrain_lowland', 'terrain_highland', 'terrain_hill',
 
 const ROAD_KEYS = [];
 for(let i = 0; i < 16; i++) ROAD_KEYS.push(`road_mask_${String(i).padStart(2, '0')}`);
-ROAD_KEYS.push('road_bridge_span', 'road_bridge_ramp_ns', 'road_bridge_ramp_ew',
+ROAD_KEYS.push('road_bridge_span',
+               'road_bridge_ramp_ns',  'road_bridge_ramp_ns2',
+               'road_bridge_ramp_ew',  'road_bridge_ramp_ew2',
                'road_bridge_pillar', 'road_exit');
 
 // power plant + pump get the same SVG-sprite treatment as zone buildings

@@ -231,14 +231,13 @@ function buildSavesModal(){
     'background:rgba(5,5,12,0.78);align-items:center;justify-content:center;';
   modal.addEventListener('click',e=>{ if(e.target===modal) closeSaves(); });
   const panel=document.createElement('div');
+  panel.classList='modal-panel';
   panel.style.cssText='background:var(--panel);border:1px solid var(--ink-dim);'+
     'padding:14px;width:560px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
-  panel.innerHTML=`<div style="display:flex;align-items:center;margin-bottom:10px;">
+  panel.innerHTML=`<div style="display:flex;align-items:center;margin-bottom:10px;"">
       <b style="color:var(--ink-dim);letter-spacing:1px;">CITY SAVES</b>
-      <button id="saves-new" style="margin-left:auto;font:11px 'JetBrains Mono', monospace;cursor:pointer;
-        background:var(--panel2);color:var(--ink);border:1px solid var(--ink-dim);padding:3px 9px;">NEW CITY</button>
-      <button id="saves-close" style="margin-left:6px;font:11px 'JetBrains Mono', monospace;cursor:pointer;
-        background:var(--panel2);color:var(--warn);border:1px solid #5a2018;padding:3px 9px;">✕ CLOSE</button>
+      <button id="saves-new" class="border" style="margin-left:auto;">NEW CITY</button>
+      <button id="saves-close">✕ CLOSE</button>
     </div>
     <div id="saves-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;"></div>
     <div id="saves-auto" style="margin-top:10px;"></div>`;
@@ -293,7 +292,8 @@ function renderSlots(){
   const a=bySlot['autosave']; const box=$('saves-auto'); box.innerHTML='';
   if(a){
     const card=document.createElement('div');
-    card.style.cssText='background:var(--panel2);border:1px solid var(--ink-dim);padding:6px;display:flex;align-items:center;gap:8px;';
+    card.classList='card';
+    card.style.cssText='display:flex;align-items:center;gap:8px;';
     card.innerHTML=`${a.thumb?`<img src="${a.thumb}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated;background:#05050c;">`:''}
       <div style="flex:1;"><b>AUTOSAVE</b> <span style="color:var(--ink-dim);">${escapeHtml(a.cityName||'')} · ${fmtDate(a.month||0)} · pop ${(a.pop||0).toLocaleString()}</span></div>`;
     const bLoad=document.createElement('button'); bLoad.textContent='Load'; bLoad.style.cssText=btnCss('var(--gold)')+'flex:0 0 60px;';

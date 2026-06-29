@@ -17,15 +17,15 @@
   --line: #161616;
 
   /* Typography */
-  --font-xs: 9px;
+  --font-xs: 10px;
   /* cost labels, hints */
-  --font-sm: 10px;
+  --font-sm: 12px;
   /* section headings, field labels */
-  --font-md: 11px;
+  --font-md: 13px;
   /* inspector, controls, cards */
-  --font-base: 12px;
+  --font-base: 14px;
   /* modal body, buttons, toast */
-  --font-lg: 13px;
+  --font-lg: 16px;
   /* statusbar */
 
   /* Spacing — shared scale for padding, margin, gap */
@@ -338,17 +338,23 @@ body {
   width: 150px;
 }
 
-#controls button {
+button {
   font-family: inherit;
   font-size: var(--font-md);
   cursor: pointer;
   background: var(--panel2);
   color: var(--ink-mid);
   border: var(--border);
+  border-radius: var(--radius-sm);
   padding: 5px;
 }
 
-#controls button:hover {
+button.border {
+  border: var(--border);
+  border-color: var(--ink-dim);
+}
+
+button:hover {
   color: var(--ink);
   border-color: var(--ink-mid);
 }
@@ -407,6 +413,7 @@ body {
   color: var(--ink);
   font-size: var(--font-base);
   font-family: inherit;
+  border-radius: var(--radius-md);
 }
 
 .modal-title {
@@ -440,6 +447,12 @@ body {
   border: var(--border-dim);
   padding: var(--sp-2) var(--sp-3);
   outline: none;
+}
+
+.card {
+  border-radius: var(--radius-sm);
+  border: var(--border-dim);
+  padding: var(--sp-2) var(--sp-3);
 }
 
 .btn-shuffle {

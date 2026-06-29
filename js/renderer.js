@@ -203,9 +203,16 @@ function bridgeAssetKey(t,gx,gy){
     const n = tileAt(gx+dx,gy+dy);
     if(!n || n.type===T.WATER || n.bridge) continue;   // water/bridge/edge = not a ramp side
     if(dir){
-      // a NS bridge reads as EW (and vice-versa) at 90deg/270deg view rotations
-      const eff = (state.rot & 1) ? (dir==='NS' ? 'EW' : 'NS') : dir;
-      return 'road_bridge_ramp_' + eff.toLowerCase();
+      // rotate the neighbor direction into screen space to pick the correct ramp end sprite
+      const rot=state.rot&3;
+      const rdx = rot===0?dx : rot===1?-dy : rot===2?-dx : dy;
+      const rdy = rot===0?dy : rot===1?dx  : rot===2?-dy : -dx;
+      const right = rdx-rdy > 0;   // screen-right half
+      const down  = rdx+rdy > 0;   // screen-lower half
+      if( right && !down) return 'road_bridge_ramp_ns';
+      if(!right &&  down) return 'road_bridge_ramp_ns2';
+      if( right &&  down) return 'road_bridge_ramp_ew';
+      return 'road_bridge_ramp_ew2';
     }
   }
   return 'road_bridge_span';
