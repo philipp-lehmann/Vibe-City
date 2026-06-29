@@ -7,8 +7,14 @@
    via state.pushNotice (drained by ui), never via the DOM.
    ================================================================ */
 import { T, isZone, conducts, clamp, lerp } from './config.js';   // MAP SIZE: GRID now runtime
-import { state, tileAt, makeTile, pushNotice } from './state.js';
+import { state, tileAt, makeTile, pushNotice, requestFlash } from './state.js';
 import { TERRAIN } from './terrain.js';   // TERRAIN TOOLS: terrain land-value effects
+
+const POP_MILESTONES = [
+  [10_000,  '10,000 residents — Village!'],
+  [50_000,  '50,000 residents — Town!'],
+  [100_000, '100,000 residents — City!'],
+];
 
 /* --- Power propagation: flood fill from every coal plant. --- */
 export function propagatePower(){
@@ -276,6 +282,13 @@ export function monthlyTick(){
   }
 
   state.pop = totalPop;
+  for (const [n, msg] of POP_MILESTONES) {
+    if (totalPop >= n && !state.milestones.includes(n)) {
+      state.milestones.push(n);
+      requestFlash(msg);
+    }
+  }
+
   state.funds += Math.round(income - upkeep);
 
   updateDemand(resPop, resJobPop, comCap, indCap);

@@ -68,6 +68,7 @@ export const state = {
   notices: [],                    // pending toast messages (drained by ui)
   flash: null,                    // pending status-bar flash (drained by ui)
   powerPlantCount: 0,             // updated by propagatePower each tick
+  milestones: [],                 // population thresholds already celebrated, e.g. [10000]
 };
 
 // --- grid init: all grass; TERRAIN: water/relief now come from generateTerrain ---
@@ -207,7 +208,8 @@ export function serializeSave(thumb){
       taxPct: state.taxPct, taxRate: state.taxRate, happiness: state.happiness,
       speedIdx: state.speedIdx, demand: { ...state.demand }, cityName: state.cityName,
       gridWidth: state.gridWidth, gridHeight: state.gridHeight,   // MAP SIZE
-      bridges: state.bridges   // BRIDGES: persist bridge entities
+      bridges: state.bridges,   // BRIDGES: persist bridge entities
+      milestones: state.milestones
     },
     meta: { cityName: state.cityName, ts: Date.now(), thumb: thumb || null,
             month: state.month, pop: state.pop }
@@ -249,7 +251,8 @@ export function applySave(blob){
   state.speedIdx = s.speedIdx ?? state.speedIdx;
   state.cityName = s.cityName || blob.meta?.cityName || 'New Terminus';
   if(s.demand) state.demand = { ...state.demand, ...s.demand };
-  state.bridges = Array.isArray(s.bridges) ? s.bridges : [];   // BRIDGES: restore entities
+  state.bridges   = Array.isArray(s.bridges)   ? s.bridges   : [];   // BRIDGES: restore entities
+  state.milestones = Array.isArray(s.milestones) ? s.milestones : [];
   coastPass(state.grid);   // TERRAIN TOOLS: recompute shoreline flags after load
   recomputeAllRoads();   // ROAD CONNECTORS: rebuild masks + outside count on load
   return true;
@@ -268,6 +271,7 @@ export function newGame(name, sizeKey){
   state.cityName = name || 'New Terminus';
   state.demand = { R:0.5, C:0.2, I:0.3 };
   state.outsideConnections = 0;
-  state.bridges = [];   // BRIDGES
+  state.bridges = [];     // BRIDGES
+  state.milestones = [];
   // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }
