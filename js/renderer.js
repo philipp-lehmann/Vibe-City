@@ -371,8 +371,8 @@ function drawTileContent(sx,sy,t,gx,gy){
   switch(t.type){
     case T.ROAD:       drawRoad(sx,sy,gx,gy,t); break; // ROAD CONNECTORS
     case T.POWERLINE:  drawPowerLine(sx,sy,t); break;
-    case T.POWERPLANT: drawBox(sx,sy,3,'#3a3a42','#52525c', t.powered); drawSmoke(sx,sy); break;
-    case T.PUMP:       drawBox(sx,sy,2,'#1c6f8a','#2bd', t.powered); break;
+    case T.POWERPLANT: drawPowerPlantTile(sx,sy,t); drawSmoke(sx,sy,118); break; // ASSET RENDERER
+    case T.PUMP:       drawPumpTile(sx,sy,t); break;                            // ASSET RENDERER
     case T.PARK:       drawPark(sx,sy); break;
     case T.RES:        drawZoneBuilding(sx,sy,t,gx,gy,'R'); break; // BUILDING SPRITES
     case T.COM:        drawZoneBuilding(sx,sy,t,gx,gy,'C'); break; // BUILDING SPRITES
@@ -972,6 +972,71 @@ function drawInd(sx,sy,level,seed,P,lit){
 }
 /* ===== end BUILDING SPRITES ========================================== */
 
+/* ===== UTILITY BUILDINGS ===============================================
+   Power plant + pump get the same asset-first / procedural-fallback
+   treatment as zone buildings: a real silhouette built from the same
+   box()/stack()/faceWindows() helpers, swapped for a preloaded SVG sprite
+   (assets/utilities/) when one is exported, same as the R/C/I sprites.
+   ===================================================================== */
+const UTIL_PAL = {
+  plant: { top:'#3a3a42', right:'rgb(57,57,67)', left:'rgb(77,77,87)',
+           rust:'#6b4a30', rust2:'#7a5638', win:'#ffd23f', line:'rgba(0,0,0,0.4)' },
+  pump:  { top:'#4a5258', right:'#384048', left:'#242a2e',
+           win:'#bdf3ff', line:'rgba(0,0,0,0.4)' },
+};
+
+// power plant: industrial hall + low control block + twin smoke stacks
+// (taller than the hall, each with a banded tip) — stacks feed drawSmoke().
+function drawPowerPlantBuilding(sx,sy,powered){
+  const z=state.zoom;
+  const P=UTIL_PAL.plant;
+  const lit = powered ? P.win : DARK_WIN;
+  buildingShadow(sx,sy,0.08,0.10,0.92,0.90);
+  const hall=box(sx,sy,0.08,0.10,0.92,0.90,0,48*z,P);
+  faceWindows(hall.B1,hall.C1,hall.C0,hall.B0,5,2,lit,0.16);
+  const ctrl=box(sx,sy,0.10,0.58,0.42,0.86,0,16*z,P);
+  faceWindows(ctrl.B1,ctrl.C1,ctrl.C0,ctrl.B0,2,1,lit,0.22);
+  stack(sx,sy,0.30,0.34,48*z,60*z,P.rust,0.075);
+  stack(sx,sy,0.30,0.34,108*z,6*z,P.rust2,0.09);
+  stack(sx,sy,0.60,0.30,48*z,78*z,P.rust,0.07);
+  stack(sx,sy,0.60,0.30,126*z,6*z,P.rust2,0.085);
+}
+
+// pump / water station: small shed + elevated tank with a domed cap
+function drawPumpBuilding(sx,sy,powered){
+  const z=state.zoom;
+  const P=UTIL_PAL.pump;
+  const lit = powered ? P.win : DARK_WIN;
+  buildingShadow(sx,sy,0.20,0.22,0.80,0.80);
+  const shed=box(sx,sy,0.50,0.50,0.84,0.84,0,20*z,P);
+  faceWindows(shed.D1,shed.C1,shed.C0,shed.D0,1,1,lit,0.26);
+  stack(sx,sy,0.30,0.34,6*z,42*z,'#22bbdd',0.16);
+  stack(sx,sy,0.30,0.34,48*z,6*z,'#0d8aca',0.13);
+}
+
+// ---- dispatchers: asset sprite first, procedural silhouette as fallback ----
+function drawPowerPlantTile(sx,sy,t){
+  const aimg=getAsset('powerplant');
+  if(aimg){
+    const hh=(TILE_H/2)*state.zoom;
+    if(!t.powered) blitAsset(aimg, sx, sy+2*hh, POWER_OUT_TINT, 0.45);
+    else           blitAsset(aimg, sx, sy+2*hh);
+    return;
+  }
+  drawPowerPlantBuilding(sx,sy,t.powered);
+}
+function drawPumpTile(sx,sy,t){
+  const aimg=getAsset('pump');
+  if(aimg){
+    const hh=(TILE_H/2)*state.zoom;
+    if(!t.powered) blitAsset(aimg, sx, sy+2*hh, POWER_OUT_TINT, 0.45);
+    else           blitAsset(aimg, sx, sy+2*hh);
+    return;
+  }
+  drawPumpBuilding(sx,sy,t.powered);
+}
+/* ===== end UTILITY BUILDINGS =========================================== */
+
 function drawPark(sx,sy){
   const z=state.zoom, hh=(TILE_H/2)*z;
   ctx.fillStyle='#0c8a2a';
@@ -981,13 +1046,13 @@ function drawPark(sx,sy){
   ctx.fillRect(sx-1*z, sy+hh*0.9, 2*z, 5*z);
 }
 
-function drawSmoke(sx,sy){
+function drawSmoke(sx,sy,riseY=30){
   ctx.fillStyle='rgba(120,120,130,0.5)';
   const t=performance.now()/400;
   for(let i=0;i<3;i++){
     const o=(t+i)%3;
     ctx.beginPath();
-    ctx.arc(sx+Math.sin(t+i)*3, sy-30*state.zoom - o*8*state.zoom, (2+o)*state.zoom, 0, Math.PI*2);
+    ctx.arc(sx+Math.sin(t+i)*3, sy-riseY*state.zoom - o*8*state.zoom, (2+o)*state.zoom, 0, Math.PI*2);
     ctx.fill();
   }
 }
@@ -1227,8 +1292,10 @@ function hexA(hex,a){
 export function __setExportTarget(c){ ctx = c || __screenCtx; }       // SVG EXPORT
 export function __setExportOrigin(x,y){ originX = x; originY = y; }    // SVG EXPORT
 export const __exportDrawers = {                                      // SVG EXPORT
-  ground:   drawGroundTile,   // terrain + coast-free ground diamond / raised mesa
-  road:     drawRoad,         // 16 masks, edge EXIT sign, and bridges (drawBridgeTile)
-  building: drawZoneBuilding, // R/C/I dispatcher (density via t.level, variant via gx,gy)
-  scaffold: drawScaffold,     // construction frame
+  ground:     drawGroundTile,       // terrain + coast-free ground diamond / raised mesa
+  road:       drawRoad,             // 16 masks, edge EXIT sign, and bridges (drawBridgeTile)
+  building:   drawZoneBuilding,     // R/C/I dispatcher (density via t.level, variant via gx,gy)
+  scaffold:   drawScaffold,         // construction frame
+  powerplant: drawPowerPlantBuilding, // hall + control block + twin smoke stacks
+  pump:       drawPumpBuilding,       // shed + elevated water tank
 };

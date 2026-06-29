@@ -36,9 +36,13 @@ for(let i = 0; i < 16; i++) ROAD_KEYS.push(`road_mask_${String(i).padStart(2, '0
 ROAD_KEYS.push('road_bridge_span', 'road_bridge_ramp_ns', 'road_bridge_ramp_ew',
                'road_bridge_pillar', 'road_exit');
 
+// power plant + pump get the same SVG-sprite treatment as zone buildings
+const UTILITY_KEYS = ['powerplant', 'pump'];
+
 // key -> folder, so getAsset callers only ever deal in bare keys
 const MANIFEST = [
   ...BUILDING_KEYS.map(k => ['buildings', k]),
+  ...UTILITY_KEYS.map(k  => ['utilities', k]),
   ...TERRAIN_KEYS.map(k  => ['terrain',   k]),
   ...ROAD_KEYS.map(k     => ['roads',     k]),
 ];

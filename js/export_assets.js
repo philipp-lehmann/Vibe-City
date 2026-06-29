@@ -121,6 +121,19 @@ function buildAssetList(){
     draw: () => __exportDrawers.scaffold(sx, baseSy(H_SCAFFOLD)),
   });
 
+  // ---- Utilities: power plant + pump (2) ----
+  // Bespoke heights (not the BUILDING bucket): the plant's twin smoke stacks
+  // rise well above even the tallest zone building, the pump's tank is short.
+  const H_POWERPLANT = 336, H_PUMP = 176;
+  assets.push({
+    name: 'powerplant.svg', w: CANVAS_W, h: H_POWERPLANT,
+    draw: () => __exportDrawers.powerplant(sx, baseSy(H_POWERPLANT), true),
+  });
+  assets.push({
+    name: 'pump.svg', w: CANVAS_W, h: H_PUMP,
+    draw: () => __exportDrawers.pump(sx, baseSy(H_PUMP), true),
+  });
+
   // ---- Terrain (6) ----
   // terrainElev (renderer): highland 6, hill 12 (px @ 1x) -> raised mesa drops
   // below the diamond; lower sy so the mesa's foot lands on the canvas bottom.
