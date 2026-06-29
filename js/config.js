@@ -27,15 +27,15 @@ export const T = {
 
 // --- tool catalogue: id, tile placed, label, build cost, monthly upkeep, icon colour ---
 export const TOOLS = [
-  { id:'res',   tile:T.RES,        label:'Resid',  cost:100, up:0,  color:'#7caa6b' },
-  { id:'com',   tile:T.COM,        label:'Comm',   cost:100, up:0,  color:'#8a5cf6' },
-  { id:'ind',   tile:T.IND,        label:'Indus',  cost:100, up:0,  color:'#d9a72c' },
-  { id:'road',  tile:T.ROAD,       label:'Road',   cost:10,  up:1,  color:'#777' },
-  { id:'power', tile:T.POWERLINE,  label:'P.Line', cost:5,   up:1,  color:'#caa' },
-  { id:'plant', tile:T.POWERPLANT, label:'Coal',   cost:3000,up:50, color:'#555' },
-  { id:'pump',  tile:T.PUMP,       label:'Water',  cost:500, up:10, color:'#2bd' },
-  { id:'park',  tile:T.PARK,       label:'Park',   cost:50,  up:2,  color:'#1e8' },
-  { id:'bull',  tile:null,         label:'Dozer',  cost:1,   up:0,  color:'#c33' },
+  { id:'res',   tile:T.RES,        label:'Resid',      cost:100, up:0,  color:'#7caa6b' },
+  { id:'com',   tile:T.COM,        label:'Comm',       cost:100, up:0,  color:'#8a5cf6' },
+  { id:'ind',   tile:T.IND,        label:'Indus',      cost:100, up:0,  color:'#d9a72c' },
+  { id:'road',  tile:T.ROAD,       label:'Road',       cost:10,  up:1,  color:'#777' },
+  { id:'power', tile:T.POWERLINE,  label:'P.Line',     cost:5,   up:1,  color:'#caa' },
+  { id:'plant', tile:T.POWERPLANT, label:'Powerplant', cost:3000,up:50, color:'#555' },
+  { id:'pump',  tile:T.PUMP,       label:'Water',      cost:500, up:10, color:'#2bd' },
+  { id:'park',  tile:T.PARK,       label:'Park',       cost:50,  up:2,  color:'#1e8' },
+  { id:'bull',  tile:null,         label:'Dozer',      cost:1,   up:0,  color:'#c33' },
 ];
 
 // --- calendar & facing labels ---

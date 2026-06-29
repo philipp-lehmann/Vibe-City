@@ -22,7 +22,7 @@ const $ = id => document.getElementById(id);
 
 /* --- toolbar: buttons with canvas icons; click selects the tool --- */
 export function buildToolbar() {
-  const bar = $('toolbar');
+  const toolBody = $('tool-body');
   TOOLS.forEach(tool => {
     const btn = document.createElement('button');
     btn.className = 'tool' + (tool.id === state.tool ? ' sel' : '');
@@ -33,11 +33,9 @@ export function buildToolbar() {
     txt.innerHTML = `${tool.label}<span class="cost">$${tool.cost}</span>`;
     btn.appendChild(cv); btn.appendChild(txt);
     btn.onclick = () => setTool(tool.id);
-    bar.appendChild(btn);
+    toolBody.appendChild(btn);
   });
-  // TERRAIN TOOLS: a paintable terrain tool group with colour swatch buttons
-  const ttl = document.createElement('div'); ttl.className = 'ttl'; ttl.textContent = 'Terrain';
-  bar.appendChild(ttl);
+  const terrainBody = $('terrain-body');
   for (const [id, cfg] of Object.entries(TERRAIN_TOOLS)) {
     const b = document.createElement('button');
     b.className = 'tool' + (state.tool === id ? ' sel' : ''); b.dataset.tool = id;
@@ -48,13 +46,8 @@ export function buildToolbar() {
     const tx = document.createElement('span'); tx.innerHTML = `${cfg.label}<span class="cost">§${cfg.cost}</span>`;
     b.appendChild(cv); b.appendChild(tx);
     b.onclick = () => setTool(id);
-    bar.appendChild(b);
+    terrainBody.appendChild(b);
   }
-  positionDemand();
-}
-function positionDemand() {
-  const bar = $('toolbar'), dem = $('demand');
-  dem.style.top = (bar.offsetTop + bar.offsetHeight + 8) + 'px';
 }
 const barColor = k => k === 'R' ? '#7caa6b' : k === 'C' ? '#8a5cf6' : '#d9a72c';
 
@@ -267,7 +260,7 @@ function buildSavesModal() {
   panel.style.cssText = 'background:var(--panel);border:1px solid var(--ink-dim);' +
     'padding:14px;width:560px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
   panel.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:10px;"">
-      <h2 class="modal-title">City Saves</h2>
+      <h2 class="modal-title">Vibe City</h2>
       <button id="saves-new" class="border" style="margin-left:auto;">New City</button>
       <button id="saves-close">✕ CLOSE</button>
     </div>

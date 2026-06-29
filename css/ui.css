@@ -126,26 +126,18 @@ body {
   white-space: nowrap;
 }
 
-/* --- Toolbar (left) --- */
-#toolbar {
+/* --- Left panel (tools + terrain + demand accordion) --- */
+#left-panel {
   position: absolute;
   top: var(--sp-9);
   left: 6px;
-  width: 144px;
+  width: 152px;
+  z-index: 50;
   background: var(--panel);
   border: var(--border-panel);
-  padding: var(--sp-2);
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
   border-radius: var(--radius-md);
-}
-
-#toolbar .ttl {
-  font-size: var(--font-sm);
-  color: var(--ink-dim);
-  margin-bottom: 2px;
+  max-height: calc(100vh - 50px);
+  overflow-y: auto;
 }
 
 .tool {
@@ -177,6 +169,7 @@ body {
   display: none;
   color: var(--gold);
   font-size: var(--font-xs);
+  padding-left: var(--sp-2);
 }
 
 .tool:hover {
@@ -193,24 +186,6 @@ body {
 
 .tool.sel .cost {
   display: inline;
-}
-
-/* --- Demand bars (left, under toolbar) --- */
-#demand {
-  position: absolute;
-  left: 6px;
-  width: 96px;
-  background: var(--panel);
-  border: var(--border-panel);
-  padding: var(--sp-2);
-  z-index: 50;
-  font-size: var(--font-sm);
-  border-radius: var(--radius-md);
-}
-
-#demand .ttl {
-  color: var(--ink-dim);
-  margin-bottom: var(--sp-1);
 }
 
 .drow {
@@ -382,7 +357,8 @@ body {
   transition: max-height 0.2s ease;
 }
 
-.ap-body.open { max-height: 200px; }
+.ap-body.open { max-height: 800px; }
+#left-panel .ap-body.open { max-height: none; }
 
 .ap-inner {
   display: flex;
@@ -443,6 +419,8 @@ button:hover {
   padding: var(--sp-1) var(--sp-3);
   cursor: pointer;
   user-select: none;
+  font-size: var(--font-sm);
+  color: var(--ink-dim);
 }
 
 #notif-header:hover .ttl {

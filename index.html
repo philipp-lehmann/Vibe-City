@@ -40,20 +40,29 @@
     </div>
   </div>
 
-  <!-- ===== TOOLBAR (buttons injected by ui.js) ===== -->
-  <div id="toolbar">
-    <div class="ttl">Tools</div>
-  </div>
-
-  <!-- ===== DEMAND ===== -->
-  <div id="demand">
-    <div class="ttl">Demand</div>
-    <div class="drow"><span class="dlab" style="color:#7caa6b">R</span>
-      <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-R"></div></div></div>
-    <div class="drow"><span class="dlab" style="color:#8a5cf6">C</span>
-      <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-C"></div></div></div>
-    <div class="drow"><span class="dlab" style="color:#d9a72c">I</span>
-      <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-I"></div></div></div>
+  <!-- ===== LEFT PANEL ===== -->
+  <div id="left-panel">
+    <div class="ap-section">
+      <div class="ap-header"><span>Tools</span><span class="ap-arrow">▴</span></div>
+      <div class="ap-body open"><div class="ap-inner" id="tool-body"></div></div>
+    </div>
+    <div class="ap-section">
+      <div class="ap-header"><span>Terrain</span><span class="ap-arrow">▴</span></div>
+      <div class="ap-body open"><div class="ap-inner" id="terrain-body"></div></div>
+    </div>
+    <div class="ap-section">
+      <div class="ap-header"><span>Demand</span><span class="ap-arrow">▴</span></div>
+      <div class="ap-body open">
+        <div class="ap-inner">
+          <div class="drow"><span class="dlab" style="color:#7caa6b">R</span>
+            <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-R"></div></div></div>
+          <div class="drow"><span class="dlab" style="color:#8a5cf6">C</span>
+            <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-C"></div></div></div>
+          <div class="drow"><span class="dlab" style="color:#d9a72c">I</span>
+            <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-I"></div></div></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ===== PLAYBACK PANEL (bottom-right, left of minimap) ===== -->
