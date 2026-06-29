@@ -12,6 +12,7 @@ import { igniteFire } from './simulation.js';
 import { drawToolIcon, MINI_OVERLAYS, setMiniOverlay, getMiniOverlay,
          cycleZoom, zoomLabel } from './renderer.js';   // ZOOM LEVELS
 import { TERRAIN_TOOLS } from './input.js';   // TERRAIN TOOLS
+import { exportAllAssets } from './export_assets.js';   // SVG EXPORT
 
 const $ = id => document.getElementById(id);
 
@@ -396,10 +397,27 @@ export function openStartup(){
   const close=$('saves-close'); if(close) close.style.display='none';   // must pick load/new
 }
 
+// SVG EXPORT: hidden one-time asset-export button — only present with ?export=true
+// (e.g. localhost?export=true). Clicking it runs exportAllAssets(), which
+// downloads every asset variant as an individual .svg.
+function buildExportButton(){
+  if(new URLSearchParams(location.search).get('export') !== 'true') return;
+  const btn=document.createElement('button'); btn.id='btn-export-svg';
+  btn.textContent='Export SVGs';
+  btn.onclick=()=>{
+    btn.disabled=true;
+    exportAllAssets()
+      .catch(err=>{ console.error('[SVG EXPORT]', err); flashStatus('Export failed — see console'); })
+      .finally(()=>{ btn.disabled=false; });
+  };
+  ($('controls') || document.body).appendChild(btn);
+}
+
 /* --- init + the single per-frame entry point main calls --- */
 export function initUI(){
   buildToolbar(); wireControls(); buildMiniStrip(); /* MINIMAP OVERLAYS */
   buildSaveButtons(); buildSavesModal();             /* SAVE SYSTEM */
+  buildExportButton();                               /* SVG EXPORT */
   syncMinimapSize();                                 /* MAP SIZE: match default map */
 }
 

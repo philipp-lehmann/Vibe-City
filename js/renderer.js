@@ -12,7 +12,12 @@ import { TERRAIN } from './terrain.js';   // TERRAIN
 
 // --- canvas handles (canvas is the renderer's surface, not panel DOM) ---
 export const view = document.getElementById('view');
-const ctx  = view.getContext('2d');
+// SVG EXPORT: `ctx` was a const bound to the on-screen 2D context. It is now a
+// swappable `let` so the one-time SVG exporter (js/export_assets.js) can redirect
+// every draw call to a canvas2svg context and then restore. No drawing logic
+// changes — this is the only edit the export feature makes to the renderer's body.
+let ctx  = view.getContext('2d');
+const __screenCtx = ctx;   // SVG EXPORT: the real on-screen context, kept for restore
 const mini = document.getElementById('minimap');
 const mctx = mini.getContext('2d');
 let originX=0, originY=0;   // screen origin for grid (0,0)
@@ -1080,3 +1085,25 @@ function hexA(hex,a){
   const c=parseInt(hex.slice(1),16);
   return `rgba(${c>>16},${(c>>8)&255},${c&255},${a})`;
 }
+
+/* ===== SVG EXPORT =====================================================
+   Minimal, additive seam used ONLY by js/export_assets.js (the one-time
+   asset exporter). It does three things and changes no rendering logic:
+     • __setExportTarget(c) — redirect all draw calls to a supplied
+       canvas2svg context; pass null/undefined to restore the screen ctx.
+     • __setExportOrigin(x,y) — override the iso projection origin so the
+       exporter can place a single tile (and its neighbour lookups, used
+       by the road/bridge connectors) at a known canvas position. The
+       per-frame render() resets the origin via recenter(), so this only
+       holds for the synchronous block in which the exporter draws.
+     • __exportDrawers — the private per-variant draw functions, exposed
+       so the exporter renders through the REAL sprite code (no drift).
+   ===================================================================== */
+export function __setExportTarget(c){ ctx = c || __screenCtx; }       // SVG EXPORT
+export function __setExportOrigin(x,y){ originX = x; originY = y; }    // SVG EXPORT
+export const __exportDrawers = {                                      // SVG EXPORT
+  ground:   drawGroundTile,   // terrain + coast-free ground diamond / raised mesa
+  road:     drawRoad,         // 16 masks, edge EXIT sign, and bridges (drawBridgeTile)
+  building: drawZoneBuilding, // R/C/I dispatcher (density via t.level, variant via gx,gy)
+  scaffold: drawScaffold,     // construction frame
+};
