@@ -6,11 +6,12 @@ Multi-stage contract scenarios with time-based requirements, penalties, and syst
 
 **Scenario = Multi-stage contract with escalating demands, hard deadlines, and cascading penalties.**
 
-- Each scenario has exactly **3 stages**
+- Each scenario works in **stages**
 - Each stage has **requirements** (power, water, zones, happiness, workforce) tied to existing game systems
-- Each stage has a **deadline** (in in-game days)
+- Each stage has a **deadline** (in in-game months)
 - Failure to meet requirements triggers **stage-specific penalties**
 - Declining a contract has **brutal permanent consequences** (blacklist, revenue loss, population loss)
+- The scenario generation has random elements (occurance, revenues, penalties) to make each playthrough unique
 - **Multiple scenarios can be active simultaneously**
 
 ---
@@ -33,7 +34,7 @@ Multi-stage contract scenarios with time-based requirements, penalties, and syst
   completedStages: ["stage_1_setup"],
   
   // Tracking
-  daysRemaining: 45,                               // countdown to deadline
+  monthsRemaining: 45,                               // countdown to deadline
   stageStatus: "IN_PROGRESS",                      // IN_PROGRESS, REQUIREMENTS_MET, FAILED, COMPLETED
   acceptanceHistory: [
     { stage: "stage_1", action: "ACCEPTED", date: "2026-04-01" }
@@ -55,8 +56,8 @@ Multi-stage contract scenarios with time-based requirements, penalties, and syst
   name: "Initial Campus Build",
   
   // Deadline
-  daysUntilDeadline: 180,                          // 6 months
-  daysRemaining: 45,                               // synced each tick
+  monthsUntilDeadline: 120,                          // 10 years
+  monthsRemaining: 12,                               // synced each tick
   
   // What must be fulfilled
   requirements: {
@@ -101,8 +102,8 @@ Multi-stage contract scenarios with time-based requirements, penalties, and syst
       revenue: 2640000,                            // lost (full remaining revenue)
       prestige: -25,
       populationLoss: 3200,
-      contractBlacklist: 1825,                     // days before this contract type can reappear (5 years)
-      message: "They've relocated to New Harbor City."
+      contractBlacklist: 1825,                     // months before this contract type can reappear (5 years)
+      message: "They've relocated to {Random City}"
     }
   }
 }
@@ -128,7 +129,8 @@ validator: (contract, state) => {
 **Notes:**
 - Placement happens via UI (user drags 5×5 zone onto map)
 - Once placed, cannot be moved
-- Placement locks all tiles (can't build over them)
+- Scenario buildings can be build everywhere and bulldoze everything underneath
+- Placement locks all tiles (can't build over or bulldoze them)
 
 ---
 
@@ -167,44 +169,6 @@ validator: (contract, state) => {
 
 ---
 
-### `road` Requirement
-
-**What it checks:** Roads adjacent to contract zone meet quality threshold.
-
-```javascript
-validator: (contract, state) => {
-  const adjacentRoads = state.getTilesAdjacent(contract.tiles)
-                        .filter(t => t.type === T.ROAD);
-  const quality = calculateRoadQuality(adjacentRoads);
-  return quality >= contract.currentStage.requirements.road.quality;
-}
-```
-
-**Quality levels:** `low`, `medium`, `high`, `highway`
-
-**Notes:**
-- Quality depends on: adjacent road density, no gridlock, recent maintenance
-
----
-
-### `labor` Requirement
-
-**What it checks:** Available skilled/unskilled workforce in the city.
-
-```javascript
-validator: (contract, state) => {
-  const available = state.population.skilled - state.population.employed.skilled;
-  return available >= contract.currentStage.requirements.labor.skilled;
-}
-```
-
-**Notes:**
-- Data centres need skilled workers
-- Shipping centres need low-skill workers
-- If unemployment is zero, requirement fails
-
----
-
 ### `happiness` Requirement
 
 **What it checks:** City-wide happiness meets minimum.
@@ -219,6 +183,24 @@ validator: (contract, state) => {
 - High happiness requirement = company is picky about location
 - Pollution, unemployment, poor services lower happiness
 - Can be a catch-22: build the infrastructure, happiness drops from strain
+
+---
+
+### `labor` Requirement (optional)
+
+**What it checks:** Available skilled/unskilled workforce in the city.
+
+```javascript
+validator: (contract, state) => {
+  const available = state.population.skilled - state.population.employed.skilled;
+  return available >= contract.currentStage.requirements.labor.skilled;
+}
+```
+
+**Notes:**
+- Data centres need skilled workers
+- Shipping centres need low-skill workers
+- If unemployment is zero, requirement fails
 
 ---
 
@@ -270,8 +252,8 @@ tick(deltaTime) {
     if (scenario.status !== "ACTIVE") return;
     
     // 1. Decrement deadline
-    scenario.daysRemaining -= (deltaTime / TICKS_PER_DAY);
-    scenario.currentStage.daysRemaining = scenario.daysRemaining;
+    scenario.monthsRemaining -= (deltaTime / TICKS_PER_MONTH);
+    scenario.currentStage.monthsRemaining = scenario.monthsRemaining;
     
     // 2. Check all requirements
     const requirementsMet = checkAllRequirements(
@@ -289,14 +271,14 @@ tick(deltaTime) {
     }
     
     // 4. Deadline alerts
-    if (scenario.daysRemaining < 30 && scenario.daysRemaining > 0) {
-      if (Math.floor(scenario.daysRemaining) % 5 === 0) {
-        requestFlash(`${scenario.id}: ${Math.ceil(scenario.daysRemaining)} days!`);
+    if (scenario.monthsRemaining < 30 && scenario.monthsRemaining > 0) {
+      if (Math.floor(scenario.monthsRemaining) % 5 === 0) {
+        requestFlash(`${scenario.id}: ${Math.ceil(scenario.monthsRemaining)} months!`);
       }
     }
     
     // 5. Deadline passed
-    if (scenario.daysRemaining <= 0) {
+    if (scenario.monthsRemaining <= 0) {
       if (requirementsMet) {
         this.completeStage(scenario);
       } else {
@@ -346,12 +328,12 @@ completeStage(scenario) {
   if (scenario.currentStageIndex < scenario.stages.length) {
     // Move to next stage
     scenario.currentStage = scenario.stages[scenario.currentStageIndex];
-    scenario.daysRemaining = scenario.currentStage.daysUntilDeadline;
+    scenario.monthsRemaining = scenario.currentStage.monthsUntilDeadline;
     scenario.stageStatus = "IN_PROGRESS";
     scenario.status = "ACTIVE";
     
     pushNotice(`✓ ${stage.name} complete!`);
-    pushNotice(`Next: ${scenario.currentStage.name} (${Math.ceil(scenario.daysRemaining)} days)`);
+    pushNotice(`Next: ${scenario.currentStage.name} (${Math.ceil(scenario.monthsRemaining)} months)`);
   } else {
     // All stages complete
     scenario.status = "COMPLETED";
@@ -395,8 +377,8 @@ failStage(scenario) {
   if (penalties.renegotiate) {
     scenario.status = "RENEGOTIATING";
     scenario.renegotiationOffer = {
-      newRevenue: Math.floor(stage.rewards.revenue * 0.7),  // 30% penalty
-      newDeadline: scenario.daysRemaining + 90,
+      newRevenue: Math.floor(stage.rewards.revenue * 0.5),  // 50% penalty
+      newDeadline: scenario.monthsRemaining + 90,
       message: penalties.message
     };
     
@@ -435,7 +417,7 @@ declineStage(scenario) {
   
   // 2. Blacklist contract type
   state.contractBlacklist[scenario.type] = {
-    until: state.gameDay + penalties.contractBlacklist,
+    until: state.gameMonth + penalties.contractBlacklist,
     reason: "You rejected them"
   };
   
@@ -465,9 +447,9 @@ After a stage fails and enters `RENEGOTIATING` status:
 
 ```javascript
 // UI shows modal with offer details:
-// "They'll reduce operations to 70% capacity.
-//  New deadline: 90 days.
-//  New revenue: $84K/month (instead of $120K).
+// "They'll reduce operations to 50% capacity.
+//  New deadline: 24 months.
+//  New revenue: $60K/month (instead of $120K).
 //  Accept?"
 
 acceptRenegotiation(scenario) {
@@ -475,13 +457,13 @@ acceptRenegotiation(scenario) {
   
   // Update scenario with new terms
   scenario.currentStage.rewards.revenue = offer.newRevenue;
-  scenario.daysRemaining = offer.newDeadline;
+  scenario.monthsRemaining = offer.newDeadline;
   scenario.status = "ACTIVE";
   scenario.stageStatus = "IN_PROGRESS";
   
   state.revenue.monthly += offer.newRevenue;
   
-  pushNotice(`Accepted reduced terms. ${offer.newDeadline} days to completion.`);
+  pushNotice(`Accepted reduced terms. ${offer.newDeadline} months to completion.`);
 }
 
 rejectRenegotiation(scenario) {
@@ -517,7 +499,7 @@ class ScenarioManager {
     };
     
     scenario.currentStage = scenario.stages[0];
-    scenario.daysRemaining = scenario.stages[0].daysUntilDeadline;
+    scenario.monthsRemaining = scenario.stages[0].monthsUntilDeadline;
     scenario.stageStatus = "IN_PROGRESS";
     
     this.activeScenarios.push(scenario);
@@ -554,7 +536,7 @@ class ScenarioManager {
       type: s.type,
       stage: s.currentStageIndex + 1,
       stageName: s.currentStage.name,
-      deadlineIn: Math.ceil(s.daysRemaining),
+      deadlineIn: Math.ceil(s.monthsRemaining),
       requirementsMet: checkAllRequirements(s.currentStage, this.state),
       totalRevenue: s.stages
         .slice(0, s.currentStageIndex + 1)
@@ -621,7 +603,7 @@ const SCENARIOS = {
       {
         id: "stage_1_setup",
         name: "Initial Campus Build",
-        daysUntilDeadline: 180,
+        monthsUntilDeadline: 180,
         requirements: {
           tiles: { count: 5, type: "placement", position: null },
           power: { amount: 8, type: "infrastructure" },
@@ -649,7 +631,7 @@ const SCENARIOS = {
       {
         id: "stage_2_expansion",
         name: "Capacity Expansion",
-        daysUntilDeadline: 540,
+        monthsUntilDeadline: 540,
         requirements: {
           tiles: { count: 5, type: "placement", position: "adjacent_to_stage_1" },
           power: { amount: 8, type: "infrastructure" },
@@ -677,7 +659,7 @@ const SCENARIOS = {
       {
         id: "stage_3_consolidation",
         name: "Mega-Campus Consolidation",
-        daysUntilDeadline: 900,
+        monthsUntilDeadline: 900,
         requirements: {
           tiles: { count: 10, type: "placement", position: "merge_both_campuses" },
           power: { amount: 16, type: "infrastructure" },
@@ -718,7 +700,7 @@ SCENARIOS.SHIPPING_CENTRE = {
     {
       id: "stage_1_port",
       name: "Regional Hub Establishment",
-      daysUntilDeadline: 180,
+      monthsUntilDeadline: 180,
       requirements: {
         tiles: { count: 5, type: "placement", position: "waterfront" },
         power: { amount: 2, type: "infrastructure" },
@@ -745,7 +727,7 @@ SCENARIOS.WILDLIFE_RESERVE = {
     {
       id: "stage_1_protected",
       name: "Protected Area Designation",
-      daysUntilDeadline: 120,
+      monthsUntilDeadline: 120,
       requirements: {
         tiles: { count: 5, type: "placement", position: null },
         pollution: { maxValue: 20, type: "city_stat" },
@@ -773,7 +755,7 @@ SCENARIOS.WILDLIFE_RESERVE = {
 ║ AI DATA CENTRE – Alpha                 ║
 ║                                        ║
 ║ STAGE 2/3: Capacity Expansion          ║
-║ ████████░░░░░░ 45 days left            ║
+║ ████████░░░░░░ 45 months left          ║
 ║                                        ║
 ║ REQUIREMENTS:                          ║
 ║ ✓ Placement: 5×5 tiles (adjacent)      ║
@@ -799,15 +781,15 @@ Lists all active scenarios:
 ║────────────────────────────────────────║
 ║                                        ║
 ║ 1. AI DATA CENTRE (Stage 2/3)          ║
-║    ✓✓✗ 45 days left                    ║
+║    ✓✓✗ 45 months left                    ║
 ║    Revenue: $220K/month                ║
 ║                                        ║
 ║ 2. SHIPPING CENTRE (Stage 1/3)         ║
-║    ✓✓✓ ✓✓ 120 days left                ║
+║    ✓✓✓ ✓✓ 120 months left                ║
 ║    Revenue: $45K/month                 ║
 ║                                        ║
 ║ 3. WILDLIFE RESERVE (Stage 1/3)        ║
-║    ✗✓✓ 85 days left                    ║
+║    ✗✓✓ 85 months left                    ║
 ║    Revenue: $25K/month                 ║
 ║                                        ║
 ║ [OPEN FULL DETAIL] [DECLINE]           ║
@@ -846,11 +828,11 @@ Lists all active scenarios:
 ║                                                       ║
 ║ OLD TERMS:                                            ║
 ║ • Revenue: $100K/month                                ║
-║ • Timeline: 540 days                                  ║
+║ • Timeline: 540 months                                  ║
 ║                                                       ║
 ║ NEW TERMS:                                            ║
 ║ • Revenue: $70K/month (30% reduction)                 ║
-║ • Timeline: 630 days (90 extra days)                  ║
+║ • Timeline: 630 months (90 extra months)                  ║
 ║                                                       ║
 ║ [ACCEPT OFFER]  [DECLINE & END CONTRACT]              ║
 ╚═══════════════════════════════════════════════════════╝
@@ -900,7 +882,7 @@ function serializeSave() {
         type: s.type,
         status: s.status,
         currentStageIndex: s.currentStageIndex,
-        daysRemaining: s.daysRemaining,
+        monthsRemaining: s.monthsRemaining,
         tiles: s.tiles,
         acceptanceHistory: s.acceptanceHistory,
         completedStages: s.completedStages
@@ -937,7 +919,7 @@ function monthlyTick() {
     const availableTypes = Object.keys(SCENARIOS)
       .filter(type => {
         const blacklist = state.scenarios.contractBlacklist[type];
-        return !blacklist || blacklist.until < state.gameDay;
+        return !blacklist || blacklist.until < state.gameMonth;
       });
     
     if (availableTypes.length > 0) {
@@ -1009,7 +991,7 @@ function generateRandomContract(type) {
     ...template,
     stages: template.stages.map(stage => ({
       ...stage,
-      daysUntilDeadline: stage.daysUntilDeadline + Math.random() * 60 - 30,
+      monthsUntilDeadline: stage.monthsUntilDeadline + Math.random() * 60 - 30,
       rewards: {
         ...stage.rewards,
         revenue: stage.rewards.revenue * (0.8 + Math.random() * 0.4)
@@ -1025,7 +1007,7 @@ Before accepting, allow counter-offers:
 
 ```javascript
 function counterOffer(scenario, newRevenue, newDeadline) {
-  // Show modal: "They demand 180 days. You offer 240 days at same price?"
+  // Show modal: "They demand 180 months. You offer 240 months at same price?"
   // Company accepts/rejects
   // Updates scenario terms if accepted
 }
