@@ -174,8 +174,17 @@ function terrainAssetKey(t){
   const name = TERRAIN_ASSET[t.terrain];
   return name ? 'terrain_'+name : null;
 }
+// roadMask bits are in GRID space (N1 E2 S4 W8); the sprites were baked at the
+// North view. Rotating the view moves each grid direction clockwise around the
+// screen (N->E->S->W per step, verified against rotateCoord), so rotate the mask
+// bits left by state.rot to pick the sprite that shows the right arms on screen.
+function rotateMask(mask, rot){
+  rot &= 3;
+  return ((mask << rot) | (mask >> (4 - rot))) & 0b1111;
+}
 function roadAssetKey(t){
-  return 'road_mask_' + String(t.roadMask||0).padStart(2,'0');
+  const m = rotateMask(t.roadMask||0, state.rot);
+  return 'road_mask_' + String(m).padStart(2,'0');
 }
 function buildingAssetKey(t,gx,gy,kind){
   const zone = ZONE_ASSET[kind];
@@ -193,7 +202,11 @@ function bridgeAssetKey(t,gx,gy){
   for(const [dx,dy] of axis){
     const n = tileAt(gx+dx,gy+dy);
     if(!n || n.type===T.WATER || n.bridge) continue;   // water/bridge/edge = not a ramp side
-    if(dir) return 'road_bridge_ramp_'+dir.toLowerCase();
+    if(dir){
+      // a NS bridge reads as EW (and vice-versa) at 90deg/270deg view rotations
+      const eff = (state.rot & 1) ? (dir==='NS' ? 'EW' : 'NS') : dir;
+      return 'road_bridge_ramp_' + eff.toLowerCase();
+    }
   }
   return 'road_bridge_span';
 }

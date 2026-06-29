@@ -1,1 +1,12 @@
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" width="128" height="104"><defs/><g><path fill="rgb(68,56,38)" stroke="none" paint-order="stroke fill markers" d=" M 0 48 L 64 80 L 64 104 L 0 72 Z"/><path fill="rgb(54,44,30)" stroke="none" paint-order="stroke fill markers" d=" M 128 48 L 64 80 L 64 104 L 128 72 Z"/><path fill="#5a4a32" stroke="rgb(0,0,0)" paint-order="fill stroke markers" d=" M 64 16 L 128 48 L 64 80 L 0 48 Z" stroke-opacity="0.35" stroke-miterlimit="10"/></g></svg>
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" width="128"
+    height="104">
+    <defs />
+    <g>
+        <path fill="rgb(68,56,38)" stroke="none" paint-order="stroke fill markers"
+            d=" M 0 48 L 64 80 L 64 104 L 0 72 Z" />
+        <path fill="rgb(54,44,30)" stroke="none" paint-order="stroke fill markers"
+            d=" M 128 48 L 64 80 L 64 104 L 128 72 Z" />
+        <path fill="#5a4a32" stroke="rgb(0,0,0)" paint-order="fill stroke markers"
+            d=" M 64 16 L 128 48 L 64 80 L 0 48 Z" stroke-opacity="0.2" stroke-miterlimit="10" />
+    </g>
+</svg>
