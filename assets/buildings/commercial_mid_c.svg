@@ -1,0 +1,55 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" width="128"
+    height="224">
+    <defs />
+    <g>
+        <g transform="translate(2,2)">
+            <path fill="rgb(0,0,0)" stroke="none" paint-order="stroke fill markers"
+                d=" M 64 170.24 L 108.8 192.64 L 64 215.04 L 19.200000000000003 192.64 Z" fill-opacity="0.20" />
+        </g>
+        <path fill="#aebccb" stroke="rgb(0,0,0)" paint-order="fill stroke markers"
+            d=" M 108.8 192.64 L 64 215.04 L 64 95.03999999999999 L 108.8 72.63999999999999 Z" stroke-opacity="0.30"
+            stroke-miterlimit="10" />
+        <path fill="#7c8a9a" stroke="rgb(0,0,0)" paint-order="fill stroke markers"
+            d=" M 19.200000000000003 192.64 L 64 215.04 L 64 95.03999999999999 L 19.200000000000003 72.63999999999999 Z"
+            stroke-opacity="0.30" stroke-miterlimit="10" />
+        <path fill="#dde6ee" stroke="rgb(0,0,0)" paint-order="fill stroke markers"
+            d=" M 64 50.24000000000001 L 108.8 72.63999999999999 L 64 95.03999999999999 L 19.200000000000003 72.63999999999999 Z"
+            stroke-opacity="0.30" stroke-miterlimit="10" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 105.81333333333333 82.13333333333333 L 96.85333333333332 86.61333333333332 L 96.85333333333332 110.61333333333332 L 105.81333333333333 106.13333333333333 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 90.88 89.6 L 81.92 94.07999999999998 L 81.92 118.07999999999998 L 90.88 113.6 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 75.94666666666666 97.06666666666666 L 66.98666666666668 101.54666666666665 L 66.98666666666668 125.54666666666665 L 75.94666666666666 121.06666666666666 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 105.81333333333333 122.13333333333333 L 96.85333333333332 126.61333333333332 L 96.85333333333332 150.61333333333332 L 105.81333333333333 146.13333333333333 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 90.88 129.6 L 81.92 134.07999999999998 L 81.92 158.07999999999998 L 90.88 153.6 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 75.94666666666666 137.06666666666666 L 66.98666666666668 141.54666666666665 L 66.98666666666668 165.54666666666665 L 75.94666666666666 161.06666666666666 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 105.81333333333333 162.13333333333333 L 96.85333333333332 166.61333333333332 L 96.85333333333332 190.6133333333333 L 105.81333333333333 186.13333333333333 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 90.88 169.6 L 81.92 174.07999999999998 L 81.92 198.07999999999998 L 90.88 193.59999999999997 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 75.94666666666666 177.06666666666666 L 66.98666666666668 181.54666666666665 L 66.98666666666668 205.54666666666662 L 75.94666666666666 201.06666666666666 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 22.186666666666667 82.13333333333333 L 31.14666666666667 86.61333333333332 L 31.14666666666667 110.61333333333332 L 22.186666666666667 106.13333333333333 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 37.120000000000005 89.6 L 46.08 94.07999999999998 L 46.08 118.07999999999998 L 37.120000000000005 113.6 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 52.053333333333335 97.06666666666666 L 61.01333333333333 101.54666666666665 L 61.01333333333333 125.54666666666665 L 52.053333333333335 121.06666666666666 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 22.186666666666667 122.13333333333333 L 31.14666666666667 126.61333333333332 L 31.14666666666667 150.61333333333332 L 22.186666666666667 146.13333333333333 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 37.120000000000005 129.6 L 46.08 134.07999999999998 L 46.08 158.07999999999998 L 37.120000000000005 153.6 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 52.053333333333335 137.06666666666666 L 61.01333333333333 141.54666666666665 L 61.01333333333333 165.54666666666665 L 52.053333333333335 161.06666666666666 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 22.186666666666667 162.13333333333333 L 31.14666666666667 166.61333333333332 L 31.14666666666667 190.6133333333333 L 22.186666666666667 186.13333333333333 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 37.120000000000005 169.6 L 46.08 174.07999999999998 L 46.08 198.07999999999998 L 37.120000000000005 193.59999999999997 Z" />
+        <path fill="#bfe6f5" stroke="none" paint-order="stroke fill markers"
+            d=" M 52.053333333333335 177.06666666666666 L 61.01333333333333 181.54666666666665 L 61.01333333333333 205.54666666666662 L 52.053333333333335 201.06666666666666 Z" />
+    </g>
+</svg>

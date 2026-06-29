@@ -10,6 +10,7 @@ import { propagatePower, propagateWater, monthlyTick, fireStep } from './simulat
 import { resize, render, drawMinimap } from './renderer.js';
 import { initInput } from './input.js';
 import { initUI, syncUI, toast, doAutosave, openStartup, setGameStartHandler } from './ui.js';
+import { loadAllAssets, isLoaded } from './assets.js';   // ASSET RENDERER
 
 // --- simulation timer: self-scheduling so speed changes apply live ---
 let simRunning=false;   // STARTUP: don't tick until a city is chosen
@@ -36,6 +37,24 @@ function frame(){
   requestAnimationFrame(frame);
 }
 
+// ASSET RENDERER: full-screen loading bar shown while SVG sprites preload
+function showLoadingBar(){
+  const o=document.createElement('div'); o.id='asset-loading';
+  o.style.cssText='position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;'+
+    'align-items:center;justify-content:center;gap:14px;background:#05050c;color:#00ff41;'+
+    'font:13px monospace;letter-spacing:2px;';
+  o.innerHTML=`<div>LOADING ASSETS</div>
+    <div style="width:300px;height:14px;border:1px solid #00ff41;background:#0a0a14;box-shadow:0 0 8px rgba(0,255,65,0.4);">
+      <div id="asset-bar" style="height:100%;width:0%;background:#00ff41;transition:width .08s linear;"></div></div>
+    <div id="asset-pct" style="color:#7CFC9B;">0%</div>`;
+  document.body.appendChild(o); return o;
+}
+function updateLoadingBar(done,total){
+  const pct = total ? Math.round(done/total*100) : 100;
+  const bar=document.getElementById('asset-bar'); if(bar) bar.style.width=pct+'%';
+  const p=document.getElementById('asset-pct'); if(p) p.textContent=`${pct}%  (${done}/${total})`;
+}
+
 function boot(){
   resize();
   initGrid();
@@ -52,11 +71,16 @@ function boot(){
   // fire spreads on its own fast cadence so the ~5s window feels right
   setInterval(()=>{ if(!state.paused && simRunning) fireStep(); }, 100);
 
-  requestAnimationFrame(frame);   // render the map behind the modal
-
-  // STARTUP: show the save/new-game modal first; sim starts only on a choice
-  setGameStartHandler(startSim);
-  openStartup();
+  // ASSET RENDERER: preload every SVG sprite before the render loop starts, so
+  // tiles never flash unstyled. The sim still waits for a city choice (openStartup).
+  const overlay=showLoadingBar();
+  loadAllAssets(updateLoadingBar).then(()=>{
+    if(overlay) overlay.remove();
+    if(!isLoaded()) console.warn('[ASSET RENDERER] some assets failed; using canvas fallback');
+    requestAnimationFrame(frame);                    // start the render loop once loaded
+    setGameStartHandler(startSim);                   // STARTUP: sim starts on city choice
+    openStartup();                                   // show the save/new-game modal
+  });
 }
 
 boot();

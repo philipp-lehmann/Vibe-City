@@ -9,6 +9,7 @@
 import { TILE_W, TILE_H, ELEV, T, TOOLS, isZone, clamp } from './config.js';   // MAP SIZE: GRID now runtime
 import { state, tileAt, dragTiles } from './state.js';
 import { TERRAIN } from './terrain.js';   // TERRAIN
+import { getAsset } from './assets.js';   // ASSET RENDERER
 
 // --- canvas handles (canvas is the renderer's surface, not panel DOM) ---
 export const view = document.getElementById('view');
@@ -149,6 +150,75 @@ function groundColor(t){
   return TERR_COL[t.terrain] ?? '#1f3a1c';   // land terrain tint
 }
 
+/* ===== ASSET RENDERER ================================================
+   Tiles are blitted from preloaded SVG sprites (assets.js) instead of
+   redrawing canvas paths every frame. Key-selection lives here (not in
+   assets.js). Each sprite is a 2x render of one tile (a tile is TILE_W*2
+   px wide), with its base diamond bottom-aligned in the image; terrain
+   sprites bake their own raised mesa. blitAsset() maps a sprite back to
+   the current zoom (scale = zoom/2) and bottom-aligns it to the tile's
+   ground vertex. Anything getAsset() can't supply falls back to the
+   original path-drawing code, so partial asset sets never blank a tile.
+   ===================================================================== */
+// numeric terrain id -> sprite suffix (spec uses terrainType string; tiles
+// store the numeric TERRAIN enum, so we map it here)
+const TERRAIN_ASSET = {
+  [TERRAIN.WATER]:'water', [TERRAIN.SHALLOWS]:'shallows', [TERRAIN.WETLAND]:'wetland',
+  [TERRAIN.LOWLAND]:'lowland', [TERRAIN.HIGHLAND]:'highland', [TERRAIN.HILL]:'hill',
+};
+const ZONE_ASSET = { R:'residential', C:'commercial', I:'industrial' };
+const DENSITY_ASSET = ['low','mid','high'];
+const POWER_OUT_TINT = '#ff3b30';   // red multiply for unpowered (power-outage) tiles
+
+function terrainAssetKey(t){
+  const name = TERRAIN_ASSET[t.terrain];
+  return name ? 'terrain_'+name : null;
+}
+function roadAssetKey(t){
+  return 'road_mask_' + String(t.roadMask||0).padStart(2,'0');
+}
+function buildingAssetKey(t,gx,gy,kind){
+  const zone = ZONE_ASSET[kind];
+  const dens = DENSITY_ASSET[t.level] || 'low';
+  const variant = String.fromCharCode(97 + (((gx*31+gy*17)%3)+3)%3);   // a/b/c
+  return `${zone}_${dens}_${variant}`;
+}
+// bridge tile -> span vs directional ramp (matches drawBridgeTile's detection)
+function bridgeAssetKey(t,gx,gy){
+  const br = (state.bridges||[]).find(b=>b.id===t.bridgeId);
+  const dir = br && br.direction;
+  const axis = dir==='EW' ? [[1,0],[-1,0]]
+             : dir==='NS' ? [[0,-1],[0,1]]
+             : [[1,0],[-1,0],[0,-1],[0,1]];
+  for(const [dx,dy] of axis){
+    const n = tileAt(gx+dx,gy+dy);
+    if(!n || n.type===T.WATER || n.bridge) continue;   // water/bridge/edge = not a ramp side
+    if(dir) return 'road_bridge_ramp_'+dir.toLowerCase();
+  }
+  return 'road_bridge_span';
+}
+
+// spec-provided tint helper: draw image, then multiply a colour over its box
+function drawTinted(ctx, img, x, y, w, h, color, alpha){
+  ctx.drawImage(img, x, y, w, h);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = color;
+  ctx.globalAlpha = alpha;
+  ctx.fillRect(x, y, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+}
+// place a tile sprite, bottom-aligned to a ground vertex. scale = zoom/2 maps
+// the 2x sprite to the current zoom (img.width 128 -> TILE_W*zoom on screen).
+function blitAsset(img, sx, groundBottomY, tint, alpha){
+  const scale = state.zoom/2;
+  const w = img.width*scale, h = img.height*scale;
+  const x = sx - w/2, y = groundBottomY - h;
+  if(tint) drawTinted(ctx, img, x, y, w, h, tint, alpha);
+  else     ctx.drawImage(img, x, y, w, h);
+}
+/* ===== end ASSET RENDERER ============================================ */
+
 /* --- Main draw: painter's algorithm in rotated order so depth sort
    stays correct at every facing. --- */
 export function render(){
@@ -207,6 +277,19 @@ function terrainElev(t){ return t.terrain===TERRAIN.HILL ? 12 : t.terrain===TERR
 function drawGroundTile(sx,sy,t,gx,gy){
   const z=state.zoom;
   const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
+
+  // ASSET RENDERER: at >=1x draw the terrain sprite (its raised mesa is baked
+  // in, so bottom-align to the FLAT ground vertex); coast fringe stays code-drawn
+  // on top. 0.5x and any missing sprite fall through to the path code below.
+  if(z>=1){
+    const img = getAsset(terrainAssetKey(t));
+    if(img){
+      const groundBottom = sy + terrainElev(t)*z + 2*hh;   // un-raise: elevation is baked in
+      blitAsset(img, sx, groundBottom);
+      if(t.coast && t.type!==T.WATER && gx!==undefined) drawCoastFringe(sx,sy,gx,gy);
+      return;
+    }
+  }
 
   // ELEVATED TERRAIN: draw a solid block (left+right walls down to ground) so the
   // raised top face reads as a grounded mesa rather than a floating diamond.
@@ -306,8 +389,26 @@ function drawRoad(sx,sy,gx,gy,t){
   // ZOOM LEVELS: at 0.5x roads collapse to a flat grey diamond (no detail)
   if(state.zoom<1){ diamond(sx,sy); ctx.fillStyle='#555'; ctx.fill(); return; }
 
-  // BRIDGE RENDERING: bridge tiles draw their own elevated deck/ramps/rails/pillars
-  if(t.bridge){ drawBridgeTile(sx,sy,gx,gy,t,mask); return; }
+  // ASSET RENDERER: bridge tiles -> span/ramp sprite (deck + pillars baked in);
+  // road tiles -> connector sprite. EXIT sign for edge tiles stays code-drawn on
+  // top. Missing sprite -> fall through to the original path code.
+  if(t.bridge){
+    const bimg = getAsset(bridgeAssetKey(t,gx,gy));
+    if(bimg){
+      blitAsset(bimg, sx, sy + 2*hh);
+      if(isEdgeTile(gx,gy)) drawExitSign(sx, sy);
+      return;
+    }
+    drawBridgeTile(sx,sy,gx,gy,t,mask); return;   // fallback
+  }
+  {
+    const rimg = getAsset(roadAssetKey(t));
+    if(rimg){
+      blitAsset(rimg, sx, sy + 2*hh);
+      if(isEdgeTile(gx,gy)) drawExitSign(sx, sy);
+      return;
+    }
+  }
 
   // flush road lifts a hair off the ground
   const lift=1.2*z;
@@ -633,6 +734,15 @@ function drawZoneBuilding(sx,sy,t,gx,gy,kind){
   const elapsed = state.month - buildAge.get(t);
   if(elapsed < 2){ drawScaffold(sx,sy); return; }        // 2-month construction
   if(t.pop===0 && t.level===0){ drawVacantLot(sx,sy,kind); return; }
+  // ASSET RENDERER: finished building -> SVG variant. Unpowered tiles get a red
+  // multiply tint (power-outage overlay state). Missing sprite -> path fallback.
+  const aimg = getAsset(buildingAssetKey(t,gx,gy,kind));
+  if(aimg){
+    const hh=(TILE_H/2)*state.zoom;
+    if(!t.powered) blitAsset(aimg, sx, sy + 2*hh, POWER_OUT_TINT, 0.45);
+    else           blitAsset(aimg, sx, sy + 2*hh);
+    return;
+  }
   const seed = (gx*31 + gy*17);                          // deterministic variant
   const P = PAL[kind];
   const lit = t.powered ? P.win : DARK_WIN;
