@@ -51,7 +51,6 @@ js/
 |---|---|---|
 | Small | 32×32 | Default |
 | Medium | 64×64 | |
-| Large | 128×128 | |
 
 ## Features
 
