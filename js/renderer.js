@@ -632,13 +632,16 @@ function drawBox(sx,sy,h,topCol,sideCol,powered){
 // per-zone palettes — CYBERPUNK ZONING: R weathered green-gray (moss/algae
 // accents) / C neon blue-violet office glass / I yellow-dark industrial
 // (cold gray + rust wear accents)
+// CONTRAST RATIO: base faces are pushed dark (top is a dark-mid plane, right
+// darker, left = near-black shadow face) so the building reads as a dark mass.
+// `win` stays bright — it is the ~15% lit highlight, drawn as thin strokes.
 const PAL = {
-  R:{ top:'#9aa893', right:'#7c8a78', left:'#4f5c4c', roof:'#5c6b58', roof2:'#6f8068',
-      win:'#ffdf9e', door:'#3a4438', line:'rgba(0,12,4,0.35)', trim:'#a8b8a0' },
-  C:{ top:'#d8d2f7', right:'#9d8de0', left:'#5c4d99', roof:'#c3b3f5', roof2:'#a594e8',
-      win:'#c9a8ff', door:'#3f3470', line:'rgba(12,0,40,0.32)', trim:'#ffffff', accent:'#8a5cf6' },
-  I:{ top:'#c9a227', right:'#9c7d1e', left:'#5e4912', roof:'#4a4d4a', roof2:'#5e6260',
-      win:'#ffb238', rust:'#9c5a32', rust2:'#b56a3a', metal:'#6b6e68', line:'rgba(0,0,0,0.40)' }
+  R:{ top:'#3f4a3a', right:'#2e362b', left:'#1b211a', roof:'#262d24', roof2:'#2f382c',
+      win:'#ffe2a6', door:'#181d16', line:'rgba(0,12,4,0.45)', trim:'#43503e' },
+  C:{ top:'#453f6b', right:'#2f2956', left:'#191430', roof:'#352f5a', roof2:'#2b264c',
+      win:'#cda9ff', door:'#161228', line:'rgba(12,0,40,0.42)', trim:'#9a93c0', accent:'#7a4ee0' },
+  I:{ top:'#5a4a16', right:'#403510', left:'#261f0a', roof:'#272927', roof2:'#313431',
+      win:'#ffb84a', rust:'#52301c', rust2:'#633a22', metal:'#363833', line:'rgba(0,0,0,0.50)' }
 };
 const DARK_WIN = '#23232b';   // unlit window
 const FRAC = [0.40, 0.65, 0.96];          // tile-height fraction per density level
@@ -679,21 +682,76 @@ function box(sx,sy,u0,v0,u1,v1,base,H,pal,stroke=true){
   return {A0,B0,C0,D0,A1,B1,C1,D1};
 }
 
-// grid of small window rects across a quad face (TL,TR,BR,BL screen pts)
-function faceWindows(TL,TR,BR,BL,cols,rows,col,inset=0.20){
-  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
-    const u0=(c+inset)/cols, u1=(c+1-inset)/cols, v0=(r+inset)/rows, v1=(r+1-inset)/rows;
-    const a=lerpP(lerpP(TL,TR,u0),lerpP(BL,BR,u0),v0);
-    const b=lerpP(lerpP(TL,TR,u1),lerpP(BL,BR,u1),v0);
-    const d=lerpP(lerpP(TL,TR,u1),lerpP(BL,BR,u1),v1);
-    const e=lerpP(lerpP(TL,TR,u0),lerpP(BL,BR,u0),v1);
-    poly([a,b,d,e]); ctx.fillStyle=col; ctx.fill();
-  }
+/* ===== LIT STRIPES (replaces the old window grid) ====================
+   WINDOW SHAPE: lit windows are no longer filled rect panes — each face
+   gets a set of parallel STROKED lines (constraint 3+4). Direction is
+   chosen per building from the existing variant selector k = seed%3
+   (k===0 -> horizontal bands, else vertical columns) via _stripeSeed,
+   which drawZoneBuilding sets before dispatching. LIGHT VARIATION: every
+   stripe's colour is jittered ±5% hue / ±5% value, and its stroke-width
+   and stroke-dasharray are perturbed — all deterministically from the
+   seed (constraint 2), so renders/exports stay reproducible.
+   ===================================================================== */
+let _stripeSeed = 0;   // set per building by drawZoneBuilding (= gx*31+gy*17)
+
+// deterministic 0..1 hash from an integer (no global RNG -> reproducible)
+function srand(n){ const x=Math.sin((n>>>0)*12.9898+1.0)*43758.5453; return x-Math.floor(x); }
+// horizontal (true) vs vertical stripes, picked by the k=seed%3 variant selector
+function stripeHoriz(seed){ return (((seed%3)+3)%3)===0; }
+
+// hex/rgb -> [h,s,l] (0..1) ; supports '#rgb','#rrggbb','rgb(...)'
+function _toRGB(col){
+  if(col[0]==='#'){ let h=col.slice(1);
+    if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    const c=parseInt(h,16); return [c>>16&255,c>>8&255,c&255]; }
+  const m=col.match(/(\d+(?:\.\d+)?)/g); return m?[+m[0],+m[1],+m[2]]:[255,255,255];
 }
-// windows on both visible faces of a box result `v`
+function _rgb2hsl(r,g,b){ r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn; let h=0,s=0,l=(mx+mn)/2;
+  if(d){ s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+    h = mx===r ? ((g-b)/d+(g<b?6:0)) : mx===g ? ((b-r)/d+2) : ((r-g)/d+4); h/=6; }
+  return [h,s,l];
+}
+function _hsl2str(h,s,l){
+  const hue2=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1;
+    if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+  let r,g,b;
+  if(s===0){ r=g=b=l; }
+  else{ const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+    r=hue2(p,q,h+1/3); g=hue2(p,q,h); b=hue2(p,q,h-1/3); }
+  return `rgb(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)})`;
+}
+// jitter a colour ±5% hue and ±5% lightness, deterministically from seed
+function jitterCol(col,seed){
+  const [r,g,b]=_toRGB(col); let [h,s,l]=_rgb2hsl(r,g,b);
+  h=(h+(srand(seed)*2-1)*0.05+1)%1;
+  l=clamp(l*(1+(srand(seed+97)*2-1)*0.05),0,1);
+  return _hsl2str(h,s,l);
+}
+
+// parallel stroked lit stripes across a quad face (TL,TR,BR,BL screen pts).
+// `cols`/`rows` carry over from the old grid as the across/along stripe counts.
+function faceWindows(TL,TR,BR,BL,cols,rows,col,inset=0.18,faceOff=0){
+  const z=state.zoom;
+  const horiz=stripeHoriz(_stripeSeed);
+  const n=Math.max(1, horiz ? rows : cols);     // stripes run along the chosen axis
+  for(let i=0;i<n;i++){
+    const p=inset+(i+0.5)/n*(1-2*inset);        // position across the face
+    let a,b;
+    if(horiz){ a=lerpP(TL,BL,p); b=lerpP(TR,BR,p); }   // horizontal band L->R at height p
+    else     { a=lerpP(TL,TR,p); b=lerpP(BL,BR,p); }   // vertical column T->B at width p
+    const sd=(_stripeSeed+faceOff+i*7+(horiz?211:101))>>>0;
+    ctx.strokeStyle=jitterCol(col,sd);
+    ctx.lineWidth=(0.7+srand(sd+3)*1.7)*z;             // seeded irregular width
+    ctx.setLineDash([(1.5+srand(sd+5)*3.5)*z, (1.0+srand(sd+9)*2.5)*z]);  // seeded dash
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+// lit stripes on both visible faces of a box result `v` (faces get distinct seeds)
 function boxWindows(v,cols,rows,col){
-  faceWindows(v.B1,v.C1,v.C0,v.B0,cols,rows,col);   // right face
-  faceWindows(v.D1,v.C1,v.C0,v.D0,cols,rows,col);   // left face
+  faceWindows(v.B1,v.C1,v.C0,v.B0,cols,rows,col,0.18,0);    // right face
+  faceWindows(v.D1,v.C1,v.C0,v.D0,cols,rows,col,0.18,37);   // left face
 }
 
 // hip roof (4-slope, apex at centre) — only the 2 front slopes are visible
@@ -759,6 +817,7 @@ function drawZoneBuilding(sx,sy,t,gx,gy,kind){
     return;
   }
   const seed = (gx*31 + gy*17);                          // deterministic variant
+  _stripeSeed = seed;                                    // LIT STRIPES: drives dir + jitter
   const P = PAL[kind];
   const lit = t.powered ? P.win : DARK_WIN;
   if(kind==='R') drawRes(sx,sy,t.level,seed,P,lit);
