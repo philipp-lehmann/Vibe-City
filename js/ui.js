@@ -336,7 +336,7 @@ function buildSizeModal(){
   sizeModal.addEventListener('click',e=>{ if(e.target===sizeModal) sizeModal.style.display='none'; });
   const panel=document.createElement('div');
   panel.className='modal-panel';
-  panel.innerHTML=`<b class="modal-title">NEW CITY — MAP SIZE</b>
+  panel.innerHTML=`<b class="modal-title">NEW CITY</b>
     <div class="modal-field">
       <label>CITY NAME</label>
       <div class="modal-field-row">
@@ -346,7 +346,7 @@ function buildSizeModal(){
     </div>
     <div id="size-row"></div>
     <div class="modal-actions">
-      <button id="size-confirm" class="btn-confirm">CONFIRM →</button>
+      <button id="size-confirm" class="btn-confirm">CONFIRM</button>
       <button id="size-cancel" class="btn-cancel">CANCEL</button>
     </div>`;
   sizeModal.appendChild(panel);
