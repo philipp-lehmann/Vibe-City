@@ -1,6 +1,6 @@
 # MICROPOLIS // CRT City Builder
 
-![Micropolis](docs/image.png)
+![Micropolis](docs/image-2.png)
 
 A browser-based isometric city builder with a retro CRT aesthetic. Built with vanilla JavaScript ES modules — no build step required.
 
