@@ -126,13 +126,6 @@ body {
   white-space: nowrap;
 }
 
-#playback #paused {
-  color: var(--gold);
-  font-size: var(--font-sm);
-  text-align: center;
-  padding: var(--sp-0) 0;
-}
-
 /* --- Toolbar (left) --- */
 #toolbar {
   position: absolute;
@@ -317,39 +310,85 @@ body {
   background: var(--panel);
 }
 
+.ministrip {
+  display: flex;
+}
+
 /* --- Playback panel (bottom-right, left of minimap) --- */
 #playback {
   position: absolute;
   bottom: var(--sp-1);
-  right: 132px;
+  right: 144px;
   z-index: 50;
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  width: 150px;
+  width: 200px;
   background: var(--panel);
   border: var(--border-panel);
   border-radius: var(--radius-md);
   padding: var(--sp-2);
 }
 
-.rot-row {
+.pb-row {
   display: flex;
   gap: var(--sp-1);
+  align-items: center;
 }
 
-.rot-row button { flex: 1; }
+.pb-row button { flex: 1; }
 
-/* --- Disaster / tax controls (top-right under status) --- */
-#controls {
+#s-face {
+  color: var(--ink-dim);
+  font-size: var(--font-sm);
+  text-align: center;
+  min-width: 20px;
+}
+
+/* --- Admin panel (top-right under status) --- */
+#admin-panel {
   position: absolute;
   top: var(--sp-9);
   right: 6px;
+  width: 160px;
   z-index: 50;
+  background: var(--panel);
+  border: var(--border-panel);
+  border-radius: var(--radius-md);
+}
+
+.ap-section:not(:first-child) .ap-header {
+  border-top: var(--border-panel);
+}
+
+.ap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-1) var(--sp-3);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--font-sm);
+  color: var(--ink-dim);
+}
+
+.ap-header:hover { color: var(--ink); }
+
+.ap-arrow { font-size: var(--font-xs); }
+
+.ap-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+}
+
+.ap-body.open { max-height: 200px; }
+
+.ap-inner {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  width: 150px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
 }
 
 button {
@@ -373,12 +412,12 @@ button:hover {
   border-color: var(--ink-mid);
 }
 
-#controls .disaster {
+.disaster {
   color: var(--warn);
   border-color: #5a2018;
 }
 
-#controls .disaster:hover {
+.disaster:hover {
   color: #fff;
   background: #3a120c;
 }
@@ -451,8 +490,8 @@ button:hover {
 .hint {
   font-size: var(--font-xs);
   color: var(--ink-dim);
-  margin-top: var(--sp-2);
   text-align: center;
+  line-height: 1.6;
 }
 
 /* --- Size / new-game modal --- */

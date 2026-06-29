@@ -169,6 +169,16 @@ function syncPersistentWarnings() {
   if (added.length) openNotifPanel();
 }
 
+function initAdminPanel() {
+  document.querySelectorAll('.ap-header').forEach(h => {
+    h.onclick = () => {
+      const body = h.nextElementSibling;
+      const open = body.classList.toggle('open');
+      h.querySelector('.ap-arrow').textContent = open ? '▴' : '▾';
+    };
+  });
+}
+
 function initNotifCenter() {
   $('notif-header').onclick = () => {
     const isOpen = $('notif-body').classList.toggle('open');
@@ -193,15 +203,13 @@ export function wireControls() {
 }
 
 /* --- per-frame DOM sync: control labels, tool highlight, indicators --- */
-const SPEED_NAMES = ['SLOW', 'NORMAL', 'FAST'];
 function syncControls() {
-  $('btn-pause').textContent = state.paused ? '▶ Resume [space]' : '⏸ Pause [space]';
-  const p = $('paused');
-  p.textContent = state.paused ? 'Paused' : 'Running';
-  p.style.color = state.paused ? 'var(--warn)' : 'var(--gold)';
-  $('btn-speed').textContent = 'Speed: ' + SPEED_NAMES[state.speedIdx];
-  $('btn-zoom').textContent = 'Zoom: ' + zoomLabel();   // ZOOM LEVELS
-  const zi = $('s-zoom'); if (zi) zi.textContent = 'Z: ' + zoomLabel();
+  const pb = $('btn-pause');
+  pb.textContent = state.paused ? '▶ Paused' : '⏸ Running';
+  pb.style.color = state.paused ? 'var(--warn)' : 'var(--gold)';
+  $('btn-speed').innerHTML = [0,1,2].map(i =>
+    `<span style="opacity:${i <= state.speedIdx ? 1 : 0.25};pointer-events:none">▶</span>`).join('');
+  $('btn-zoom').textContent = zoomLabel();
   $('tax-val').textContent = state.taxPct + '%';
 }
 let lastTool = null;
@@ -219,12 +227,11 @@ function buildMiniStrip() {
   const wrap = $('minimap-wrap');
   const strip = document.createElement('div');
   strip.id = 'mini-strip';
-  strip.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;width:112px;margin-top:4px;';
+  strip.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;width:120px;margin-top:4px;';
   MINI_OVERLAYS.forEach(o => {
     const b = document.createElement('button');
     b.textContent = o.label; b.dataset.ov = o.id; b.title = o.id;
-    b.style.cssText = 'flex:0 0 auto;width:27px;font:9px \'JetBrains Mono\', monospace;cursor:pointer;' +
-      'padding:2px 0;background:var(--panel2);color:var(--ink-mid);border:1px solid var(--line);';
+    b.style.cssText = 'flex:0 0 calc(50% - 1px);pointer-events:auto;';
     b.onclick = () => { setMiniOverlay(o.id); highlightMini(); };
     strip.appendChild(b); miniBtns.push(b);
   });
@@ -291,7 +298,7 @@ function slotCard(slot, entry) {
     ? `<img src="${entry.thumb}" style="width:100%;height:84px;object-fit:contain;image-rendering:pixelated;background:#05050c;">`
     : `<div style="height:84px;background:#05050c;"></div>`;
   card.innerHTML = `<b style="color:var(--ink);">${escapeHtml(entry.cityName || 'City')}</b>
-    <div style="color:var(--ink-dim);font-size:10px;">${fmtDate(entry.month || 0)} · pop ${(entry.pop || 0).toLocaleString()}</div>
+    <div style="color:var(--ink-dim);font-size:var(--font-sm)">${fmtDate(entry.month || 0)} · pop ${(entry.pop || 0).toLocaleString()}</div>
     ${img}`;
   const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:3px;';
   const bSave = document.createElement('button'); bSave.textContent = 'Save'; bSave.style.cssText = btnCss('var(--ink-mid)');
@@ -305,8 +312,8 @@ function slotCard(slot, entry) {
   return card;
 }
 function btnCss(col) {
-  return `flex:1;font:10px 'JetBrains Mono', monospace;cursor:pointer;background:var(--panel);` +
-    `color:${col};border:1px solid var(--line);padding:3px 0;`;
+  return `flex:1;font-size:var(--font-sm);` +
+    `color:${col};`;
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -331,8 +338,8 @@ function renderSlots() {
 
 export function syncMinimapSize() {
   const mini = $('minimap');
-  if (mini.width !== 112) { mini.width = 112; mini.height = 112; }
-  const strip = $('mini-strip'); if (strip) strip.style.width = '112px';
+  if (mini.width !== 120) { mini.width = 120; mini.height = 120; }
+  const strip = $('mini-strip'); if (strip) strip.style.width = '120px';
 }
 
 // MAP SIZE: new game flow -> size picker modal -> name prompt -> start
@@ -448,7 +455,8 @@ function buildExportButton() {
       .catch(err => { console.error('[SVG EXPORT]', err); flashStatus('Export failed — see console'); })
       .finally(() => { btn.disabled = false; });
   };
-  ($('controls') || document.body).appendChild(btn);
+  const adminFirst = $('admin-panel')?.querySelector('.ap-inner');
+  (adminFirst || document.body).appendChild(btn);
 }
 
 /* --- init + the single per-frame entry point main calls --- */
@@ -457,6 +465,7 @@ export function initUI() {
   buildSavesModal();                                 /* SAVE SYSTEM */
   buildExportButton();                               /* SVG EXPORT */
   syncMinimapSize();                                 /* MAP SIZE: match default map */
+  initAdminPanel();                                  /* ADMIN PANEL */
   initNotifCenter();                                 /* NOTIFICATION CENTRE */
 }
 

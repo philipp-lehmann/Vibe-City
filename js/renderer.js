@@ -1201,14 +1201,14 @@ function drawDragPreview(){
    every overlay reads fields already present on tiles/state.
    ===================================================================== */
 export const MINI_OVERLAYS = [
-  {id:'zones',    label:'ZN'},
-  {id:'power',    label:'PW'},
-  {id:'water',    label:'WT'},
-  {id:'pollution',label:'PO'},
-  {id:'land',     label:'LV'},
-  {id:'density',  label:'DN'},
-  {id:'road',     label:'RD'},
-  {id:'commute',  label:'CM'},
+  {id:'zones',      label:'ZN'},
+  {id:'power',      label:'PW'},
+  {id:'water',      label:'WT'},
+  {id:'pollution',  label:'PO'},
+  {id:'land value', label:'LV'},
+  {id:'density',    label:'DN'},
+  {id:'roads',      label:'RD'},
+  {id:'commute',    label:'CM'},
 ];
 let miniOverlay='zones';                       // default = current zone view
 export function setMiniOverlay(id){ miniOverlay=id; }
