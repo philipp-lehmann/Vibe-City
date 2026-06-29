@@ -36,7 +36,7 @@ export function buildToolbar() {
     bar.appendChild(btn);
   });
   // TERRAIN TOOLS: a paintable terrain tool group with colour swatch buttons
-  const ttl = document.createElement('div'); ttl.className = 'ttl'; ttl.textContent = 'TERRAIN';
+  const ttl = document.createElement('div'); ttl.className = 'ttl'; ttl.textContent = 'Terrain';
   bar.appendChild(ttl);
   for (const [id, cfg] of Object.entries(TERRAIN_TOOLS)) {
     const b = document.createElement('button');
@@ -152,16 +152,16 @@ export function wireControls() {
 /* --- per-frame DOM sync: control labels, tool highlight, indicators --- */
 const SPEED_NAMES = ['SLOW', 'NORMAL', 'FAST'];
 function syncControls() {
-  $('btn-pause').textContent = state.paused ? '▶ RESUME [space]' : '⏸ PAUSE [space]';
+  $('btn-pause').textContent = state.paused ? '▶ Resume [space]' : '⏸ Pause [space]';
   const p = $('paused');
-  p.textContent = state.paused ? 'PAUSED' : 'RUNNING';
-  p.style.color = state.paused ? '#ff5b3b' : '#ffd23f';
-  $('btn-speed').textContent = 'SPEED: ' + SPEED_NAMES[state.speedIdx];
-  $('btn-zoom').textContent = 'ZOOM: ' + zoomLabel();   // ZOOM LEVELS
+  p.textContent = state.paused ? 'Paused' : 'Running';
+  p.style.color = state.paused ? 'var(--warn)' : 'var(--gold)';
+  $('btn-speed').textContent = 'Speed: ' + SPEED_NAMES[state.speedIdx];
+  $('btn-zoom').textContent = 'Zoom: ' + zoomLabel();   // ZOOM LEVELS
   const zi = $('s-zoom'); if (zi) zi.textContent = 'Z: ' + zoomLabel();
-  $('btn-water').textContent = 'WATER VIEW: ' + (state.waterOverlay ? 'ON' : 'OFF');
+  $('btn-water').textContent = 'Water view: ' + (state.waterOverlay ? 'On' : 'Off');
   // DEMAND SYSTEM
-  $('btn-landvalue').textContent = 'LAND VALUE: ' + (state.lvOverlay ? 'ON' : 'OFF');
+  $('btn-landvalue').textContent = 'Land value: ' + (state.lvOverlay ? 'On' : 'Off');
   $('tax-val').textContent = state.taxPct + '%';
 }
 let lastTool = null;
@@ -215,8 +215,8 @@ function buildSaveButtons() {
 
     return b;
   };
-  const saves = mk('btn-saves', 'SAVES'); saves.onclick = openSaves;
-  const ng = mk('btn-newgame', 'NEW CITY'); ng.onclick = doNewGame;
+  const saves = mk('btn-saves', 'Saves'); saves.onclick = openSaves;
+  const ng = mk('btn-newgame', 'New City'); ng.onclick = doNewGame;
   bar.appendChild(saves); bar.appendChild(ng);
   // ROAD CONNECTORS: persistent "no outside connection" warning
   const warn = document.createElement('span'); warn.id = 's-roadwarn';
@@ -242,8 +242,8 @@ function buildSavesModal() {
   panel.style.cssText = 'background:var(--panel);border:1px solid var(--ink-dim);' +
     'padding:14px;width:560px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
   panel.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:10px;"">
-      <b style="color:var(--ink-dim);letter-spacing:1px;">CITY SAVES</b>
-      <button id="saves-new" class="border" style="margin-left:auto;">NEW CITY</button>
+      <h2 class="modal-title">City Saves</h2>
+      <button id="saves-new" class="border" style="margin-left:auto;">New City</button>
       <button id="saves-close">✕ CLOSE</button>
     </div>
     <div id="saves-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;"></div>
@@ -345,9 +345,9 @@ function buildSizeModal() {
   sizeModal.addEventListener('click', e => { if (e.target === sizeModal) sizeModal.style.display = 'none'; });
   const panel = document.createElement('div');
   panel.className = 'modal-panel';
-  panel.innerHTML = `<b class="modal-title">NEW CITY</b>
+  panel.innerHTML = `<h2 class="modal-title">New City</h2>
     <div class="modal-field">
-      <label>CITY NAME</label>
+      <label>City Name</label>
       <div class="modal-field-row">
         <input id="city-name-input" class="modal-input" type="text" maxlength="48">
         <button id="city-name-shuffle" class="btn-shuffle" title="Shuffle name">Random</button>

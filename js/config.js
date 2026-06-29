@@ -10,9 +10,9 @@
 // a runtime value on state (state.gridWidth/gridHeight). These are just the
 // selectable presets and the default chosen at boot / new game.
 export const MAP_SIZES = {
-  small:  { w:32,  h:32,  mini:64,  label:'SMALL',  dim:'32×32'  },
-  medium: { w:48,  h:48,  mini:96, label:'MEDIUM', dim:'48×48'  },
-  large:  { w:64, h:64, mini:128, label:'LARGE',  dim:'64×64'},
+  small:  { w:32,  h:32,  mini:64,  label:'Small',  dim:'32×32'  },
+  medium: { w:48,  h:48,  mini:96, label:'Medium', dim:'48×48'  },
+  large:  { w:64, h:64, mini:128, label:'Large',  dim:'64×64'},
 };
 export const DEFAULT_MAP = 'small';   // DEFAULT MAP SIZE: 32×32 default
 export const TILE_W = 64;   // base diamond width  (2:1 ratio)

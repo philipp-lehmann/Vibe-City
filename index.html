@@ -15,24 +15,24 @@
 
   <!-- ===== STATUS BAR ===== -->
   <div id="statusbar">
-    <span class="grp"><span class="lbl">VIBE CITY</span> <b id="s-name">New Terminus</b></span>
-    <span class="grp"><span class="lbl">DATE</span> <b id="s-date">January 1900</b></span>
-    <span class="grp"><span class="lbl">FACE</span> <b id="s-face">N</b></span>
-    <span class="grp"><span class="lbl">POP</span> <b id="s-pop">0</b></span>
-    <span class="grp"><span class="lbl">FUNDS</span> <b id="s-funds">$50,000</b></span>
-    <span class="grp"><span class="lbl">HAPPYNESS</span> <b id="s-happy">70</b></span><!-- DEMAND SYSTEM -->
+    <span class="grp"><span class="lbl">Vibe City</span> <b id="s-name">New Terminus</b></span>
+    <span class="grp"><span class="lbl">Date</span> <b id="s-date">January 1900</b></span>
+    <span class="grp"><span class="lbl">Face</span> <b id="s-face">N</b></span>
+    <span class="grp"><span class="lbl">Population</span> <b id="s-pop">0</b></span>
+    <span class="grp"><span class="lbl">Funds</span> <b id="s-funds">$50,000</b></span>
+    <span class="grp"><span class="lbl">Happyness</span> <b id="s-happy">70</b></span><!-- DEMAND SYSTEM -->
     <span id="s-flash"></span><!-- insufficient-funds flash -->
-    <span id="paused">RUNNING</span>
+    <span id="paused">Running</span>
   </div>
 
   <!-- ===== TOOLBAR (buttons injected by ui.js) ===== -->
   <div id="toolbar">
-    <div class="ttl">TOOLS</div>
+    <div class="ttl">Tools</div>
   </div>
 
   <!-- ===== DEMAND ===== -->
   <div id="demand">
-    <div class="ttl">DEMAND (RCI)</div>
+    <div class="ttl">Demand</div>
     <div class="drow"><span class="dlab" style="color:#7caa6b">R</span>
       <div class="dtrack"><div class="dmid"></div><div class="dfill" id="dem-R"></div></div></div>
     <div class="drow"><span class="dlab" style="color:#8a5cf6">C</span>
@@ -43,33 +43,33 @@
 
   <!-- ===== CONTROLS ===== -->
   <div id="controls">
-    <button id="btn-pause">⏸ PAUSE [space]</button>
-    <button id="btn-speed">SPEED: NORMAL</button>
-    <button id="btn-zoom">ZOOM: 1x</button>
+    <button id="btn-pause">⏸ Pause [space]</button>
+    <button id="btn-speed">Speed: Normal</button>
+    <button id="btn-zoom">Zoom: 1x</button>
     <div style="display:flex; gap:4px;">
       <button id="btn-rot-l" style="flex:1;">⟲ [Q]</button>
       <button id="btn-rot-r" style="flex:1;">⟳ [E]</button>
     </div>
-    <button id="btn-water">WATER VIEW: OFF</button>
+    <button id="btn-water">Water view: OFF</button>
     <button id="btn-landvalue">LAND VALUE: OFF</button><!-- DEMAND SYSTEM -->
     <!-- DEMAND SYSTEM: tax rate slider (budget control) -->
     <div id="taxbox">
       <label>TAX RATE <b id="tax-val">8%</b></label>
       <input id="tax-slider" type="range" min="1" max="20" value="8">
     </div>
-    <button class="disaster" id="btn-fire">🔥 IGNITE FIRE</button>
+    <button class="disaster" id="btn-fire">Ignite Fire</button>
     <div class="hint">L-click place · R-click bulldoze<br>drag to paint · wheel zoom · Q/E rotate</div>
   </div>
 
   <!-- ===== INSPECTOR ===== -->
   <div id="inspector">
-    <div class="ttl">TILE INSPECTOR</div>
+    <div class="ttl">Inspector</div>
     <div id="insp-body">Hover a tile…</div>
   </div>
 
   <!-- ===== MINIMAP ===== -->
   <div id="minimap-wrap">
-    <div class="ttl">MINI-MAP</div>
+    <div class="ttl">Map</div>
     <canvas id="minimap" width="120" height="120"></canvas>
   </div>
 
