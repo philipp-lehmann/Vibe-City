@@ -15,14 +15,16 @@ export function propagatePower(){
   for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++) state.grid[y][x].powered=false;
 
   const queue=[];
-  let capacity = 0;
+  let capacity = 0; let plants = 0;
   for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
     if(state.grid[y][x].type===T.POWERPLANT){
       state.grid[y][x].powered=true;
       queue.push([x,y]);
       capacity += 300;                       // each coal plant powers ~300 tiles
+      plants++;
     }
   }
+  state.powerPlantCount = plants;
 
   let used = 0;
   const N=[[1,0],[-1,0],[0,1],[0,-1]];

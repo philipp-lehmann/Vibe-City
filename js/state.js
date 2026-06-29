@@ -67,6 +67,7 @@ export const state = {
   fireEnds: 0,
   notices: [],                    // pending toast messages (drained by ui)
   flash: null,                    // pending status-bar flash (drained by ui)
+  powerPlantCount: 0,             // updated by propagatePower each tick
 };
 
 // --- grid init: all grass; TERRAIN: water/relief now come from generateTerrain ---

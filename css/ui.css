@@ -35,6 +35,8 @@
   --sp-3: 8px;
   --sp-4: 12px;
   --sp-5: 16px;
+  --sp-8: 32px;
+  --sp-9: 36px;
 
   /* Border radius */
   --radius-sm: 0.25rem;
@@ -128,25 +130,10 @@ body {
   margin-left: auto;
 }
 
-/* insufficient-funds flash */
-#statusbar #s-flash {
-  color: var(--warn);
-  display: none;
-  font-weight: bold;
-  text-shadow: 0 0 6px rgba(255, 91, 59, 0.8);
-  animation: flashblink 0.35s steps(2, start) infinite;
-}
-
-@keyframes flashblink {
-  50% {
-    opacity: 0.25;
-  }
-}
-
 /* --- Toolbar (left) --- */
 #toolbar {
   position: absolute;
-  top: 36px;
+  top: var(--sp-9);
   left: 6px;
   width: 144px;
   background: var(--panel);
@@ -330,7 +317,7 @@ body {
 /* --- Speed / control buttons (top-right under status) --- */
 #controls {
   position: absolute;
-  top: 36px;
+  top: var(--sp-9);
   right: 6px;
   z-index: 50;
   display: flex;
@@ -370,22 +357,70 @@ button:hover {
   background: #3a120c;
 }
 
-/* --- Toast messages --- */
-#toast {
+/* --- Notification centre --- */
+#notif-center {
   position: absolute;
-  top: 38px;
+  top: var(--sp-9);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--panel2);
-  border: 1px solid var(--gold);
-  color: var(--gold);
-  padding: var(--sp-2) 14px;
-  font-size: var(--font-base);
-  z-index: 80;
-  display: none;
-  text-shadow: 0 0 4px rgba(255, 210, 63, 0.6);
-  border-radius: var(--radius-sm);
+  width: 260px;
+  z-index: 60;
+  background: var(--panel);
+  border: var(--border-panel);
+  border-radius: var(--radius-md);
 }
+
+#notif-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+#notif-header:hover .ttl {
+  color: var(--ink);
+}
+
+#notif-badge {
+  background: var(--warn);
+  color: #fff;
+  font-size: var(--font-xs);
+  padding: 0 var(--sp-1);
+  border-radius: var(--radius-sm);
+  min-width: 16px;
+  text-align: center;
+  display: none;
+}
+
+#notif-arrow {
+  margin-left: auto;
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+}
+
+#notif-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+}
+
+#notif-body.open {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.notif-entry {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--font-sm);
+  border-top: var(--border-panel);
+}
+
+.notif-warn   { color: var(--warn); }
+.notif-action { color: var(--gold); }
+.notif-city   { color: var(--ink-mid); }
 
 .hint {
   font-size: var(--font-xs);
@@ -418,6 +453,7 @@ button:hover {
 }
 
 .modal-title {
+  margin: var(--sp-2);
   color: var(--ink);
   font-size: var(--font-lg);
 }

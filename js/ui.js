@@ -119,21 +119,62 @@ export function updateInspector() {
   body.innerHTML = rows;
 }
 
-/* --- toast + status-bar flash (own their timers) --- */
-let toastTimer = null;
-export function toast(msg) {
-  const el = $('toast');
-  el.textContent = msg; el.style.display = 'block';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.style.display = 'none', 2600);
+/* --- Notification centre --- */
+let _prevPersistentKeys = [];
+
+function syncNotifBadge() {
+  const badge = $('notif-badge');
+  if (!badge) return;
+  const n = ($('notif-log')?.childElementCount ?? 0)
+           + ($('notif-persistent')?.childElementCount ?? 0);
+  badge.textContent = n || '';
+  badge.style.display = n ? 'inline' : 'none';
 }
-let flashTimer = null;
-function flashStatus(msg) {
-  const el = $('s-flash');
-  el.textContent = msg; el.style.display = 'inline';
-  clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => { el.style.display = 'none'; }, 1800);
+
+function openNotifPanel() {
+  const body = $('notif-body'); const arrow = $('notif-arrow');
+  if (body)  body.classList.add('open');
+  if (arrow) arrow.textContent = '▴';
 }
+
+function addTransientNotif(msg, kind = 'city') {
+  const log = $('notif-log');
+  if (!log) return;
+  const el = document.createElement('div');
+  el.className = 'notif-entry notif-' + kind;
+  el.textContent = msg;
+  log.prepend(el);
+  syncNotifBadge();
+  openNotifPanel();
+  setTimeout(() => { el.remove(); syncNotifBadge(); }, 10_000);
+}
+
+function syncPersistentWarnings() {
+  const pers = $('notif-persistent');
+  if (!pers) return;
+  const active = [];
+  if (state.outsideConnections === 0)
+    active.push('⚠ No outside connection — city cannot grow');
+  if (state.powerPlantCount === 0)
+    active.push('⚡ No power plant — city cannot grow');
+  const added = active.filter(w => !_prevPersistentKeys.includes(w));
+  _prevPersistentKeys = active;
+  pers.innerHTML = active
+    .map(w => `<div class="notif-entry notif-warn">${w}</div>`)
+    .join('');
+  syncNotifBadge();
+  if (added.length) openNotifPanel();
+}
+
+function initNotifCenter() {
+  $('notif-header').onclick = () => {
+    const isOpen = $('notif-body').classList.toggle('open');
+    $('notif-arrow').textContent = isOpen ? '▴' : '▾';
+  };
+}
+
+export function toast(msg)     { addTransientNotif(msg, 'city'); }
+function flashStatus(msg)      { addTransientNotif(msg, 'action'); }
 
 /* --- control-button wiring: buttons mutate state; labels synced below --- */
 export function wireControls() {
@@ -218,15 +259,6 @@ function buildSaveButtons() {
   const saves = mk('btn-saves', 'Saves'); saves.onclick = openSaves;
   const ng = mk('btn-newgame', 'New City'); ng.onclick = doNewGame;
   bar.appendChild(saves); bar.appendChild(ng);
-  // ROAD CONNECTORS: persistent "no outside connection" warning
-  const warn = document.createElement('span'); warn.id = 's-roadwarn';
-  warn.style.cssText = 'margin-left:10px;color:var(--warn);font-weight:bold;display:none;' +
-    'text-shadow:0 0 6px rgba(255,91,59,0.7);';
-  bar.appendChild(warn);
-  // NO INITIAL PLANT: gentle startup hint for the first 6 months
-  const hint = document.createElement('span'); hint.id = 's-planthint';
-  hint.style.cssText = 'margin-left:10px;color:var(--ink-dim);display:none;';
-  bar.appendChild(hint);
 }
 
 // build the (hidden) modal overlay once
@@ -355,8 +387,8 @@ function buildSizeModal() {
     </div>
     <div id="size-row"></div>
     <div class="modal-actions">
-      <button id="size-confirm" class="btn-confirm">CONFIRM</button>
-      <button id="size-cancel" class="btn-cancel">CANCEL</button>
+      <button id="size-confirm" class="btn-confirm">Start</button>
+      <button id="size-cancel" class="btn-cancel">Cancel</button>
     </div>`;
   sizeModal.appendChild(panel);
   document.body.appendChild(sizeModal);
@@ -442,6 +474,7 @@ export function initUI() {
   buildSaveButtons(); buildSavesModal();             /* SAVE SYSTEM */
   buildExportButton();                               /* SVG EXPORT */
   syncMinimapSize();                                 /* MAP SIZE: match default map */
+  initNotifCenter();                                 /* NOTIFICATION CENTRE */
 }
 
 export function syncUI() {
@@ -449,18 +482,7 @@ export function syncUI() {
   syncControls();
   syncTools();
   updateInspector();
-  // ROAD CONNECTORS: persistent outside-connection warning
-  const rw = $('s-roadwarn');
-  if (rw) {
-    if (state.outsideConnections === 0) { rw.style.display = 'inline'; rw.textContent = '⚠ No outside connection — city cannot grow'; }
-    else rw.style.display = 'none';
-  }
-  // NO INITIAL PLANT: first-6-months reminder to build power
-  const ph = $('s-planthint');
-  if (ph) {
-    if (state.month < 6) { ph.style.display = 'inline'; ph.textContent = '⚡ Build a power plant to start growing your city.'; }
-    else ph.style.display = 'none';
-  }
+  syncPersistentWarnings();
   while (state.notices.length) toast(state.notices.shift());   // drain sim/input notices
   if (state.flash) { flashStatus(state.flash); state.flash = null; }
 }

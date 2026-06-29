@@ -21,8 +21,20 @@
     <span class="grp"><span class="lbl">Population</span> <b id="s-pop">0</b></span>
     <span class="grp"><span class="lbl">Funds</span> <b id="s-funds">$50,000</b></span>
     <span class="grp"><span class="lbl">Happyness</span> <b id="s-happy">70</b></span><!-- DEMAND SYSTEM -->
-    <span id="s-flash"></span><!-- insufficient-funds flash -->
     <span id="paused">Running</span>
+  </div>
+
+  <!-- ===== NOTIFICATION CENTRE ===== -->
+  <div id="notif-center">
+    <div id="notif-header">
+      <span class="ttl">Messages</span>
+      <span id="notif-badge"></span>
+      <span id="notif-arrow">▾</span>
+    </div>
+    <div id="notif-body">
+      <div id="notif-persistent"></div>
+      <div id="notif-log"></div>
+    </div>
   </div>
 
   <!-- ===== TOOLBAR (buttons injected by ui.js) ===== -->
@@ -73,7 +85,6 @@
     <canvas id="minimap" width="120" height="120"></canvas>
   </div>
 
-  <div id="toast"></div>
 </div>
 
 <!-- ES module entry point; type=module auto-defers until DOM is parsed -->
