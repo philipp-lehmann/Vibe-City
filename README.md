@@ -1,4 +1,5 @@
-# MICROPOLIS // CRT City Builder
+# Vibe city
+## 🌃 🌆 🏙️ 🌉 🌁
 
 ![Micropolis](docs/image-2.png)
 
@@ -28,38 +29,75 @@ Opening `index.html` directly as a `file://` URL will not work due to module COR
 | Q / E | Rotate view |
 | Space | Pause / resume |
 
+## UI Layout
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ statusbar: saves · new · city name · date · pop · funds │
+├──────────┬──────────────────────────────┬───────────────┤
+│ toolbar  │   notification centre        │  admin panel  │
+│ (tools + │   (collapsible, top-center)  │  Admin        │
+│  terrain)│                              │  Events       │
+│          │                              │  Help         │
+│ demand   │                              │               │
+│ bars     │         canvas               │               │
+│          │                              │               │
+│ inspector│                              │               │
+│ (on hover│                              │               │
+│  bottom- │                              │               │
+│  left)   │          ┌──────────┐ ┌────┐│               │
+│          │          │ playback │ │map ││               │
+└──────────┴──────────┴──────────┴─┴────┘┴───────────────┘
+```
+
+**Playback panel** (bottom-right, left of minimap): pause/running toggle, speed (▶▶▶ with inactive dims), zoom, rotate with compass direction.
+
+**Admin panel** (top-right, collapsible sections):
+- *Admin* — tax rate slider
+- *Events* — ignite fire disaster
+- *Help* — keyboard/mouse reference
+
+**Notification centre** (top-center, collapsible): persistent warnings (no outside connection, no power plant) + transient city events (fires, milestones, budget alerts). Auto-opens on new messages; badge shows unread count.
+
 ## Project structure
 
 ```
-index.html          entry point & UI layout
+index.html          entry point & static UI layout
 css/
-  ui.css            all styles (CRT/scanline theme)
+  ui.css            all styles (CRT/scanline theme, design tokens)
 js/
-  config.js         constants, tile IDs, tool catalogue
-  state.js          mutable game state
-  simulation.js     monthly tick — RCI demand, budgets, power/water
-  terrain.js        terrain generation & elevation tools
-  renderer.js       isometric canvas renderer
-  input.js          mouse & keyboard handling
-  ui.js             toolbar, inspector, minimap, status bar
+  config.js         constants, tile IDs, tool catalogue, map sizes
+  state.js          mutable game state, save/load, road mask logic
+  simulation.js     monthly tick — RCI demand, budgets, power/water propagation
+  terrain.js        procedural terrain generation & elevation tools
+  renderer.js       isometric canvas renderer, minimap, bridge geometry
+  input.js          mouse & keyboard handling, drag placement, terrain tools
+  ui.js             toolbar, inspector, minimap strip, HUD sync, panels
   main.js           bootstrap & game loop
+  assets.js         sprite asset registry
+  export_assets.js  SVG asset export utility
 ```
 
 ## Map sizes
 
-| Size | Grid | Notes |
-|---|---|---|
-| Small | 32×32 | Default |
-| Medium | 64×64 | |
+| Size | Grid |
+|---|---|
+| Small | 32×32 |
+| Medium | 64×64 |
+| Large | 128×128 |
 
 ## Features
 
-- Isometric rendering with 4-direction rotation and variable zoom
-- RCI demand system (Residential / Commercial / Industrial)
-- Power grid propagation and water pump coverage
-- Terrain elevation with bridges
-- Tax rate slider and monthly budget simulation
+- Isometric rendering with 4-direction rotation (N/E/S/W) and variable zoom
+- RCI demand system (Residential / Commercial / Industrial) with tax rate control
+- Power grid propagation from coal plants via power lines
+- Water pump coverage with road-access requirement
+- Procedural terrain — elevation, moisture, wetlands, coasts, hills
+- Bridges over water with ramp/span geometry
+- Population milestone notifications (10k / 50k / 100k), persisted per city
+- Collapsible notification centre with persistent warnings and transient events
+- Tile inspector — shows type, power, water, road access, pollution on hover
+- Minimap with overlay modes (normal, power, water, land value, fire)
+- Autosave + 6 manual save slots to `localStorage`
 - Fire disaster tool
-- Land value and water overlay views
-- Minimap
-- Autosave to `localStorage`
+- SVG asset export
