@@ -235,10 +235,10 @@ function buildSavesModal(){
     'background:rgba(5,5,12,0.78);align-items:center;justify-content:center;';
   modal.addEventListener('click',e=>{ if(e.target===modal) closeSaves(); });
   const panel=document.createElement('div');
-  panel.style.cssText='background:var(--panel);border:2px solid var(--ink-dim);'+
+  panel.style.cssText='background:var(--panel);border:1px solid var(--ink-dim);'+
     'padding:14px;width:560px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
   panel.innerHTML=`<div style="display:flex;align-items:center;margin-bottom:10px;">
-      <b style="color:var(--ink-dim);letter-spacing:2px;">CITY SAVES</b>
+      <b style="color:var(--ink-dim);letter-spacing:1px;">CITY SAVES</b>
       <button id="saves-new" style="margin-left:auto;font:11px 'JetBrains Mono', monospace;cursor:pointer;
         background:var(--panel2);color:var(--ink);border:1px solid var(--ink-dim);padding:3px 9px;">✦ NEW CITY</button>
       <button id="saves-close" style="margin-left:6px;font:11px 'JetBrains Mono', monospace;cursor:pointer;
@@ -325,7 +325,7 @@ function buildSizeModal(){
     'background:rgba(5,5,12,0.82);align-items:center;justify-content:center;';
   sizeModal.addEventListener('click',e=>{ if(e.target===sizeModal) sizeModal.style.display='none'; });
   const panel=document.createElement('div');
-  panel.style.cssText='background:var(--panel);border:2px solid var(--ink-dim);padding:16px;'+
+  panel.style.cssText='background:var(--panel);border:1px solid var(--ink-dim);padding:16px;'+
     'width:440px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
   panel.innerHTML=`<b style="color:var(--ink-dim);letter-spacing:2px;">NEW CITY — MAP SIZE</b>
     <div id="size-row" style="display:flex;gap:10px;margin:14px 0;"></div>

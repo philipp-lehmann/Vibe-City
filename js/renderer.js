@@ -1318,8 +1318,7 @@ export function drawToolIcon(c,tool){
       c.fillStyle='#5a3a1a'; c.fillRect(11,12,2,6); break;
     case 'bull':
       c.fillStyle='#c33'; c.fillRect(4,12,12,6);
-      c.fillStyle='#000'; c.beginPath(); c.arc(7,19,2,0,7); c.arc(13,19,2,0,7); c.fill();
-      c.fillStyle='#ffd23f'; c.fillRect(16,8,4,10); break;
+      c.fillStyle='#c33'; c.fillRect(16,8,4,10); break;
   }
 }
 
