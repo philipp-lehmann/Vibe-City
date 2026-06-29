@@ -175,8 +175,7 @@ function buildAssetList(){
     draw: () => drawBridge(sx, roadSy, 0b0101, 'NS', [[0,-1]]) });      // N approach = land
   assets.push({ name:'road_bridge_ramp_ew.svg', w:CANVAS_W, h:H_TILE,
     draw: () => drawBridge(sx, roadSy, 0b1010, 'EW', [[1,0]]) });       // E approach = land
-  assets.push({ name:'road_bridge_pillar.svg',  w:CANVAS_W, h:H_TILE,
-    draw: () => drawBridge(sx, roadSy, 0b0000, 'NS', []) });            // no arms -> pillars + rails
+          // no arms -> pillars + rails
 
   // ---- Road EXIT apron (1): a connector on the map edge -> EXIT sign ----
   assets.push({

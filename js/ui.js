@@ -311,7 +311,7 @@ function slotCard(slot, entry) {
   const bSave = document.createElement('button'); bSave.textContent = 'Save'; bSave.style.cssText = btnCss('var(--ink-mid)');
   bSave.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
   const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)');
-  bLoad.onclick = () => { if (loadGame(slot)) { syncMinimapSize(); startGame(); closeSaves(); flashStatus('LOADED ' + (entry.cityName || '')); } }; // MAP SIZE + STARTUP
+  bLoad.onclick = () => { if (loadGame(slot)) { syncMinimapSize(); startGame(); closeSaves(); flashStatus('Loaded ' + (entry.cityName || '')); } }; // MAP SIZE + STARTUP
   const bDel = document.createElement('button'); bDel.textContent = 'Del'; bDel.style.cssText = btnCss('var(--warn)');
   bDel.onclick = () => { if (confirm('Delete save "' + (entry.cityName || slot) + '"?')) { deleteSave(slot); renderSlots(); } };
   row.appendChild(bSave); row.appendChild(bLoad); row.appendChild(bDel);
@@ -338,7 +338,7 @@ function renderSlots() {
     card.innerHTML = `${a.thumb ? `<img src="${a.thumb}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated;background:#05050c;">` : ''}
       <div style="flex:1;"><b>AUTOSAVE</b> <span style="color:var(--ink-dim);">${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span></div>`;
     const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)') + 'flex:0 0 60px;';
-    bLoad.onclick = () => { if (loadGame('autosave')) { syncMinimapSize(); startGame(); closeSaves(); flashStatus('LOADED AUTOSAVE'); } }; // MAP SIZE + STARTUP
+    bLoad.onclick = () => { if (loadGame('autosave')) { syncMinimapSize(); startGame(); closeSaves(); flashStatus('Loaded autosave'); } }; // MAP SIZE + STARTUP
     card.appendChild(bLoad); box.appendChild(card);
   }
 }
