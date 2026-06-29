@@ -199,23 +199,27 @@ function bridgeAssetKey(t,gx,gy){
   const axis = dir==='EW' ? [[1,0],[-1,0]]
              : dir==='NS' ? [[0,-1],[0,1]]
              : [[1,0],[-1,0],[0,-1],[0,1]];
-  for(const [dx,dy] of axis){
-    const n = tileAt(gx+dx,gy+dy);
-    if(!n || n.type===T.WATER || n.bridge) continue;   // water/bridge/edge = not a ramp side
-    if(dir){
-      // rotate the neighbor direction into screen space to pick the correct ramp end sprite
-      const rot=state.rot&3;
-      const rdx = rot===0?dx : rot===1?-dy : rot===2?-dx : dy;
-      const rdy = rot===0?dy : rot===1?dx  : rot===2?-dy : -dx;
-      const right = rdx-rdy > 0;   // screen-right half
-      const down  = rdx+rdy > 0;   // screen-lower half
-      if( right && !down) return 'road_bridge_ramp_ns';
-      if(!right &&  down) return 'road_bridge_ramp_ns2';
-      if( right &&  down) return 'road_bridge_ramp_ew';
-      return 'road_bridge_ramp_ew2';
-    }
+  const isLand = n => n && n.type!==T.WATER && !n.bridge;
+  const landSides = axis.filter(([dx,dy]) => isLand(tileAt(gx+dx,gy+dy)));
+
+  // 1-tile bridge: land on both ends → skip ramp sprites, use normal road tile
+  if(dir && landSides.length === 2) return roadAssetKey(t);
+
+  // ramp: exactly one land neighbour along the axis
+  if(dir && landSides.length === 1){
+    const [dx,dy] = landSides[0];
+    const rot=state.rot&3;
+    const rdx = rot===0?dx : rot===1?-dy : rot===2?-dx : dy;
+    const rdy = rot===0?dy : rot===1?dx  : rot===2?-dy : -dx;
+    const right = rdx-rdy > 0;
+    const down  = rdx+rdy > 0;
+    if( right && !down) return 'road_bridge_ramp_ns';
+    if(!right &&  down) return 'road_bridge_ramp_ns2';
+    if( right &&  down) return 'road_bridge_ramp_ew';
+    return 'road_bridge_ramp_ew2';
   }
-  // non-ramp (interior span)
+
+  // interior span
   if(dir){
     const eff = (state.rot & 1) ? (dir==='NS' ? 'EW' : 'NS') : dir;
     return 'road_bridge_span_' + eff.toLowerCase();
