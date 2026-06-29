@@ -101,3 +101,64 @@ js/
 - Autosave + 6 manual save slots to `localStorage`
 - Fire disaster tool
 - SVG asset export
+
+## Desktop builds (Tauri)
+
+The game also ships as a native desktop app via [Tauri 2](https://v2.tauri.app/),
+wrapping the same static `index.html` / `css/` / `js/` with no build step —
+`src-tauri/tauri.conf.json` points `frontendDist` straight at the project root.
+
+### Prerequisites
+
+| Tool | macOS | Linux | Windows |
+|---|---|---|---|
+| Rust | `brew install rust` or [rustup.rs](https://rustup.rs) | [rustup.rs](https://rustup.rs) | [rustup.rs](https://rustup.rs) |
+| Tauri CLI v2 | `cargo install tauri-cli --version "^2.0.0"` | same | same |
+| System libs | — | `libwebkit2gtk-4.1-dev`, `libssl-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `patchelf`, `build-essential`, `libxdo-dev`, `pkg-config` (see `.github/workflows/release.yml`) | — |
+| ImageMagick (icons) | `brew install imagemagick` | `sudo apt install imagemagick icnsutils` | `choco install imagemagick` (run icon script via Git Bash/WSL) |
+
+### First-time icon setup
+
+Bundle icons aren't committed yet — `cargo tauri build` will fail until you add them:
+
+```bash
+# 1. Drop a square 1024x1024 PNG at icons/source.png
+# 2. Generate all sizes + icon.ico/icon.icns:
+bash scripts/generate_icons.sh
+```
+
+See `icons/README.md` for details.
+
+### Local development
+
+```bash
+cargo tauri dev      # launches the app with the webview pointed at the live source
+```
+
+### Production build (current platform only)
+
+```bash
+cargo tauri build
+```
+
+Output lands under `src-tauri/target/release/bundle/` (or
+`src-tauri/target/<triple>/release/bundle/` for cross-targeted builds, e.g.
+the macOS universal binary).
+
+### Tag and release (triggers CI)
+
+Pushing a tag matching `v*.*.*` runs `.github/workflows/release.yml`, which
+builds Windows (`.exe` NSIS installer + portable `.zip`), macOS (`.app` +
+universal `.dmg`), and Linux (`.deb` + `.AppImage`) in parallel, then
+publishes everything as a GitHub Release:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Code signing for macOS and Windows is **not configured** — both jobs have
+clearly marked `TODO` placeholders for the required secrets. Unsigned builds
+work fine locally and for distributing to testers, but macOS will show a
+Gatekeeper warning and Windows will show an "unknown publisher" SmartScreen
+prompt until signing is set up.

@@ -1,4 +1,4 @@
-# CLAUDE.md — Sim City Revamped
+# CLAUDE.md — Vibe City
 
 Vanilla JS/HTML/CSS isometric city builder. No build step. ES modules only.
 

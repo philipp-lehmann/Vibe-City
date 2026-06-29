@@ -1,0 +1,24 @@
+[package]
+name = "vibe-city"
+version = "0.1.0"
+description = "Vibe City — a isometric city builder"
+authors = ["Redefine Studio"]
+edition = "2021"
+rust-version = "1.77.2"
+repository = "https://github.com/philipp-lehmann/Vibe-City"
+
+# tauri.conf.json deliberately omits "version" — Tauri reads it from here.
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

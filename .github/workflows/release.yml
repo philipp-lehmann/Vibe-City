@@ -1,0 +1,186 @@
+name: Release
+
+# Builds distributable binaries for Windows, macOS, and Linux and attaches
+# them to a GitHub Release whenever a vX.Y.Z tag is pushed.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: windows-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Install Tauri CLI v2
+        run: cargo install tauri-cli --version "^2.0.0" --locked
+
+      # windows-latest already builds for x86_64-pc-windows-msvc, so no
+      # explicit --target flag is needed here. Passing one would move the
+      # output to target/<triple>/release/ instead of target/release/.
+      - name: Build NSIS installer
+        run: cargo tauri build
+
+      - name: Build portable .zip
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" -File | Select-Object -First 1
+          $zipDir = "src-tauri/target/release/bundle/zip"
+          New-Item -ItemType Directory -Force -Path $zipDir | Out-Null
+          Compress-Archive -Path $exe.FullName -DestinationPath "$zipDir/$($exe.BaseName)-portable.zip"
+          # Note: Tauri's bundler has no native "zip" target, so the portable
+          # build is just the raw signed/unsigned .exe zipped up by hand.
+
+      # TODO: Windows signing requires WINDOWS_CERTIFICATE + WINDOWS_CERTIFICATE_PASSWORD
+      #        as GitHub secrets.
+      # - name: Sign Windows binaries
+      #   env:
+      #     WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      #     WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      #   run: |
+      #     echo "Configure signtool / Tauri's windows.sign settings here once secrets are set."
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundles
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/zip/*.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: macos-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Install Tauri CLI v2
+        run: cargo install tauri-cli --version "^2.0.0" --locked
+
+      - name: Build universal binary (.app + .dmg)
+        run: cargo tauri build --target universal-apple-darwin
+
+      - name: Archive .app bundle
+        run: |
+          cd src-tauri/target/universal-apple-darwin/release/bundle/macos
+          app_path=$(find . -maxdepth 1 -name "*.app" | head -n 1)
+          tar -czf "${app_path}.tar.gz" "$app_path"
+
+      # TODO: macOS signing requires APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
+      #        APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
+      #        as GitHub secrets. See Tauri docs: signing macOS apps.
+      # - name: Import signing certificate & notarize
+      #   env:
+      #     APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      #     APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      #     APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      #     APPLE_ID: ${{ secrets.APPLE_ID }}
+      #     APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      #     APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      #   run: |
+      #     echo "Configure codesign + xcrun notarytool here once secrets are set."
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-bundles
+          if-no-files-found: error
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl wget file pkg-config \
+            libwebkit2gtk-4.1-dev libssl-dev libxdo-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: linux-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Install Tauri CLI v2
+        run: cargo install tauri-cli --version "^2.0.0" --locked
+
+      - name: Build .deb + .AppImage
+        run: cargo tauri build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-bundles
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+
+  release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Vibe City ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          files: artifacts/**/*
