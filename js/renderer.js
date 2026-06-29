@@ -215,6 +215,11 @@ function bridgeAssetKey(t,gx,gy){
       return 'road_bridge_ramp_ew2';
     }
   }
+  // non-ramp (interior span)
+  if(dir){
+    const eff = (state.rot & 1) ? (dir==='NS' ? 'EW' : 'NS') : dir;
+    return 'road_bridge_span_' + eff.toLowerCase();
+  }
   return 'road_bridge_span';
 }
 
