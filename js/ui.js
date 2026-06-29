@@ -208,8 +208,8 @@ function buildSaveButtons(){
       'color:var(--ink-mid);border:1px solid var(--line);padding:2px 7px;margin-left:6px;';
     b.onmouseenter=()=>b.style.color='var(--ink)'; b.onmouseleave=()=>b.style.color='var(--ink-mid)';
     return b; };
-  const saves=mk('btn-saves','💾 SAVES'); saves.onclick=openSaves;
-  const ng=mk('btn-newgame','✦ NEW');     ng.onclick=doNewGame;
+  const saves=mk('btn-saves','SAVES'); saves.onclick=openSaves;
+  const ng=mk('btn-newgame','NEW CITY');     ng.onclick=doNewGame;
   bar.appendChild(saves); bar.appendChild(ng);
   // ROAD CONNECTORS: persistent "no outside connection" warning
   const warn=document.createElement('span'); warn.id='s-roadwarn';
@@ -220,10 +220,6 @@ function buildSaveButtons(){
   const hint=document.createElement('span'); hint.id='s-planthint';
   hint.style.cssText='margin-left:10px;color:var(--ink-dim);display:none;';
   bar.appendChild(hint);
-  // ZOOM LEVELS: current zoom indicator
-  const zi=document.createElement('span'); zi.id='s-zoom';
-  zi.style.cssText='margin-left:10px;color:var(--ink-dim);';
-  bar.appendChild(zi);
 }
 
 // build the (hidden) modal overlay once
@@ -240,7 +236,7 @@ function buildSavesModal(){
   panel.innerHTML=`<div style="display:flex;align-items:center;margin-bottom:10px;">
       <b style="color:var(--ink-dim);letter-spacing:1px;">CITY SAVES</b>
       <button id="saves-new" style="margin-left:auto;font:11px 'JetBrains Mono', monospace;cursor:pointer;
-        background:var(--panel2);color:var(--ink);border:1px solid var(--ink-dim);padding:3px 9px;">✦ NEW CITY</button>
+        background:var(--panel2);color:var(--ink);border:1px solid var(--ink-dim);padding:3px 9px;">NEW CITY</button>
       <button id="saves-close" style="margin-left:6px;font:11px 'JetBrains Mono', monospace;cursor:pointer;
         background:var(--panel2);color:var(--warn);border:1px solid #5a2018;padding:3px 9px;">✕ CLOSE</button>
     </div>
@@ -260,8 +256,7 @@ function slotCard(slot, entry){
   card.style.cssText='background:var(--panel2);border:1px solid var(--line);padding:6px;'+
     'display:flex;flex-direction:column;gap:4px;min-height:150px;';
   if(!entry){
-    card.innerHTML=`<div style="color:var(--ink-dim);text-align:center;flex:1;
-        display:flex;align-items:center;justify-content:center;">— empty —</div>`;
+    card.innerHTML=``;
     const b=document.createElement('button');
     b.textContent='Save Here'; b.style.cssText=btnCss('var(--ink)');
     b.onclick=()=>{ saveGame(slot, liveThumb()); renderSlots(); };
@@ -317,23 +312,42 @@ export function syncMinimapSize(){
 }
 
 // MAP SIZE: new game flow -> size picker modal -> name prompt -> start
+const _CITY_FEATURES=['Amber','Ash','Bay','Boulder','Brook','Cedar','Cinder','Clay','Cliff',
+  'Coal','Cobble','Copper','Crest','Crown','Dell','Dune','Dust','Elm','Ember','Fern',
+  'Flint','Fog','Forge','Frost','Glen','Gold','Granite','Gravel','Harbor','Hazel',
+  'Heath','Hickory','Highland','Hill','Hollow','Iron','Ivy','Jade','Jasper','Lake',
+  'Larch','Lark','Laurel','Lime','Linden','Maple','Marsh','Mesa','Mill','Mist',
+  'Moss','Oak','Obsidian','Ore','Peak','Pine','Quartz','Rail','Reed','Ridge',
+  'River','Rock','Rust','Salt','Sand','Shale','Shore','Silver','Slate','Smoke',
+  'Soot','Spruce','Steel','Stone','Storm','Summit','Thorn','Tide','Timber','Vale'];
+const _CITY_SUFFIXES=['borough','bridge','burg','bury','city','dale','field','ford',
+  'gate','grove','haven','heights','hill','hollow','hurst','junction','landing',
+  'moor','mount','port','ridge','shore','side','stead','ton','vale','view',
+  'ville','ward','wick'];
+function randomCityName(){
+  const f=_CITY_FEATURES[Math.random()*_CITY_FEATURES.length|0];
+  const s=_CITY_SUFFIXES[Math.random()*_CITY_SUFFIXES.length|0];
+  return f+s;
+}
 let sizeModal=null, pickedSize='medium';
 function buildSizeModal(){
   sizeModal=document.createElement('div');
   sizeModal.id='size-modal';
-  sizeModal.style.cssText='position:fixed;inset:0;z-index:210;display:none;'+
-    'background:rgba(5,5,12,0.82);align-items:center;justify-content:center;';
   sizeModal.addEventListener('click',e=>{ if(e.target===sizeModal) sizeModal.style.display='none'; });
   const panel=document.createElement('div');
-  panel.style.cssText='background:var(--panel);border:1px solid var(--ink-dim);padding:16px;'+
-    'width:440px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
-  panel.innerHTML=`<b style="color:var(--ink-dim);letter-spacing:2px;">NEW CITY — MAP SIZE</b>
-    <div id="size-row" style="display:flex;gap:10px;margin:14px 0;"></div>
-    <div style="display:flex;gap:6px;">
-      <button id="size-confirm" style="flex:1;font:12px 'JetBrains Mono', monospace;cursor:pointer;background:#2a2a2a;
-        color:var(--ink);border:1px solid var(--ink);padding:6px;">CONFIRM →</button>
-      <button id="size-cancel" style="font:12px 'JetBrains Mono', monospace;cursor:pointer;background:var(--panel2);
-        color:var(--warn);border:1px solid #5a2018;padding:6px 10px;">CANCEL</button>
+  panel.className='modal-panel';
+  panel.innerHTML=`<b class="modal-title">NEW CITY — MAP SIZE</b>
+    <div class="modal-field">
+      <label>CITY NAME</label>
+      <div class="modal-field-row">
+        <input id="city-name-input" class="modal-input" type="text" maxlength="48">
+        <button id="city-name-shuffle" class="btn-shuffle" title="Shuffle name">Random</button>
+      </div>
+    </div>
+    <div id="size-row"></div>
+    <div class="modal-actions">
+      <button id="size-confirm" class="btn-confirm">CONFIRM →</button>
+      <button id="size-cancel" class="btn-cancel">CANCEL</button>
     </div>`;
   sizeModal.appendChild(panel);
   document.body.appendChild(sizeModal);
@@ -341,24 +355,22 @@ function buildSizeModal(){
   Object.entries(MAP_SIZES).forEach(([key,m])=>{
     const card=document.createElement('button');
     card.dataset.size=key;
-    card.style.cssText='flex:1;cursor:pointer;background:var(--panel2);border:1px solid var(--line);'+
-      'color:var(--ink-mid);padding:8px;display:flex;flex-direction:column;align-items:center;gap:6px;font:11px \'JetBrains Mono\', monospace;';
+    card.className='size-card';
     // rough pixel preview of the grid aspect ratio (square presets)
     const prev=48;
+    const bsz=`${Math.max(3,prev/(m.w/8))}px ${Math.max(3,prev/(m.w/8))}px`;
     card.innerHTML=`<b>${m.label}</b>
-      <div style="width:${prev}px;height:${prev}px;background:#05050c;border:1px solid var(--ink-dim);
-        background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-        background-size:${Math.max(3,prev/(m.w/8))}px ${Math.max(3,prev/(m.w/8))}px;"></div>
-      <span style="color:var(--gold);">${m.dim}</span>`;
+      <div class="size-card-preview" style="width:${prev}px;height:${prev}px;background-size:${bsz};"></div>
+      <span class="size-dim">${m.dim}</span>`;
     card.onclick=()=>{ pickedSize=key; highlightSize(); };
     row.appendChild(card);
   });
+  $('city-name-shuffle').onclick=()=>{ $('city-name-input').value=randomCityName(); };
   $('size-cancel').onclick=()=>{ sizeModal.style.display='none'; };
   $('size-confirm').onclick=()=>{
     sizeModal.style.display='none';
-    const name=prompt('Name your city:', 'New Terminus');
-    if(name===null) return;                       // cancelled at name step
-    newGame(name.trim()||'New Terminus', pickedSize);  // MAP SIZE
+    const name=($('city-name-input').value||'').trim()||randomCityName();
+    newGame(name, pickedSize);  // MAP SIZE
     syncMinimapSize();
     startGame();                                       // STARTUP
     closeSaves();
@@ -378,7 +390,9 @@ function doNewGame(){
   pickedSize = Object.values(MAP_SIZES).find(p=>p.w===state.gridWidth) ?
                Object.keys(MAP_SIZES).find(k=>MAP_SIZES[k].w===state.gridWidth) : 'medium';
   highlightSize();
+  $('city-name-input').value=randomCityName();
   sizeModal.style.display='flex';
+  setTimeout(()=>$('city-name-input').select(),50);
 }
 
 // AUTOSAVE INTERVAL: autosave silently in the background — no status flash

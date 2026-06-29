@@ -150,6 +150,61 @@ html, body {
 
 .hint { font-size: 9px; color: var(--ink-dim); margin-top: 6px; text-align:center; }
 
+/* --- Size / new-game modal --- */
+#size-modal {
+  position: fixed; inset: 0; z-index: 210; display: none;
+  background: rgba(5,5,12,0.82);
+  align-items: center; justify-content: center;
+}
+.modal-panel {
+  background: var(--panel); border: 1px solid var(--ink-dim);
+  padding: 16px; width: 440px; max-width: 94vw;
+  color: var(--ink); font-size: 12px; font-family: inherit;
+}
+.modal-title { color: var(--ink-dim); letter-spacing: 2px; }
+.modal-field { margin: 14px 0 10px; }
+.modal-field > label {
+  display: block; font-size: 10px; color: var(--ink-dim);
+  letter-spacing: 1px; margin-bottom: 4px;
+}
+.modal-field-row { display: flex; gap: 6px; }
+.modal-input {
+  flex: 1; font-family: inherit; font-size: 12px;
+  background: #0a0a14; color: var(--ink);
+  border: 1px solid var(--ink-dim); padding: 6px 8px; outline: none;
+}
+.btn-shuffle {
+  font-family: inherit; font-size: 12px; cursor: pointer;
+  background: var(--panel2); color: var(--ink-dim);
+  border: 1px solid var(--ink-dim); padding: 6px 10px;
+}
+#size-row { display: flex; gap: 10px; margin: 10px 0 14px; }
+.size-card {
+  flex: 1; cursor: pointer; background: var(--panel2);
+  border: 1px solid var(--line); color: var(--ink-mid);
+  padding: 8px; display: flex; flex-direction: column;
+  align-items: center; gap: 6px; font-size: 11px; font-family: inherit;
+}
+.size-card .size-dim { color: var(--gold); }
+.size-card-preview {
+  background: #05050c; border: 1px solid var(--ink-dim);
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  /* background-size set inline — dynamic per map size */
+}
+.modal-actions { display: flex; gap: 6px; }
+.btn-confirm {
+  flex: 1; font-family: inherit; font-size: 12px; cursor: pointer;
+  background: #2a2a2a; color: var(--ink);
+  border: 1px solid var(--ink); padding: 6px;
+}
+.btn-cancel {
+  font-family: inherit; font-size: 12px; cursor: pointer;
+  background: var(--panel2); color: var(--warn);
+  border: 1px solid #5a2018; padding: 6px 10px;
+}
+
 /* DEMAND SYSTEM: tax slider control */
 #taxbox { background: var(--panel2); border: 1px solid var(--line); padding: 4px 5px; }
 #taxbox label { display:block; font-size: 10px; color: var(--ink-dim); margin-bottom: 2px; }
