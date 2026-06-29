@@ -52,7 +52,7 @@ function positionDemand(){
   const bar=$('toolbar'), dem=$('demand');
   dem.style.top=(bar.offsetTop+bar.offsetHeight+8)+'px';
 }
-const barColor = k => k==='R'?'#39d353':k==='C'?'#3b9dff':'#ffd23f';
+const barColor = k => k==='R'?'#7caa6b':k==='C'?'#8a5cf6':'#d9a72c';
 
 /* --- status bar / budget / population / demand / facing --- */
 export function refreshHUD(){
@@ -176,7 +176,7 @@ function buildMiniStrip(){
   MINI_OVERLAYS.forEach(o=>{
     const b=document.createElement('button');
     b.textContent=o.label; b.dataset.ov=o.id; b.title=o.id;
-    b.style.cssText='flex:0 0 auto;width:27px;font:9px monospace;cursor:pointer;'+
+    b.style.cssText='flex:0 0 auto;width:27px;font:9px \'JetBrains Mono\', monospace;cursor:pointer;'+
       'padding:2px 0;background:var(--panel2);color:var(--ink-mid);border:1px solid var(--line);';
     b.onclick=()=>{ setMiniOverlay(o.id); highlightMini(); };
     strip.appendChild(b); miniBtns.push(b);
@@ -190,8 +190,8 @@ function highlightMini(){
     const on=b.dataset.ov===cur;
     b.style.borderColor = on?'var(--ink)':'var(--line)';
     b.style.color       = on?'var(--ink)':'var(--ink-mid)';
-    b.style.background   = on?'#10301a':'var(--panel2)';
-    b.style.boxShadow    = on?'0 0 5px rgba(0,255,65,0.4) inset':'none';
+    b.style.background   = on?'#2a2a2a':'var(--panel2)';
+    b.style.boxShadow    = on?'0 0 5px rgba(232,232,232,0.4) inset':'none';
   });
 }
 
@@ -204,7 +204,7 @@ const liveThumb = () => { try{ return $('minimap').toDataURL(); }catch{ return n
 function buildSaveButtons(){
   const bar=$('statusbar');
   const mk=(id,txt)=>{ const b=document.createElement('button'); b.id=id; b.textContent=txt;
-    b.style.cssText='font:11px monospace;cursor:pointer;background:var(--panel2);'+
+    b.style.cssText='font:11px \'JetBrains Mono\', monospace;cursor:pointer;background:var(--panel2);'+
       'color:var(--ink-mid);border:1px solid var(--line);padding:2px 7px;margin-left:6px;';
     b.onmouseenter=()=>b.style.color='var(--ink)'; b.onmouseleave=()=>b.style.color='var(--ink-mid)';
     return b; };
@@ -236,12 +236,12 @@ function buildSavesModal(){
   modal.addEventListener('click',e=>{ if(e.target===modal) closeSaves(); });
   const panel=document.createElement('div');
   panel.style.cssText='background:var(--panel);border:2px solid var(--ink-dim);'+
-    'padding:14px;width:560px;max-width:94vw;color:var(--ink);font:12px monospace;';
+    'padding:14px;width:560px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
   panel.innerHTML=`<div style="display:flex;align-items:center;margin-bottom:10px;">
       <b style="color:var(--ink-dim);letter-spacing:2px;">CITY SAVES</b>
-      <button id="saves-new" style="margin-left:auto;font:11px monospace;cursor:pointer;
+      <button id="saves-new" style="margin-left:auto;font:11px 'JetBrains Mono', monospace;cursor:pointer;
         background:var(--panel2);color:var(--ink);border:1px solid var(--ink-dim);padding:3px 9px;">✦ NEW CITY</button>
-      <button id="saves-close" style="margin-left:6px;font:11px monospace;cursor:pointer;
+      <button id="saves-close" style="margin-left:6px;font:11px 'JetBrains Mono', monospace;cursor:pointer;
         background:var(--panel2);color:var(--warn);border:1px solid #5a2018;padding:3px 9px;">✕ CLOSE</button>
     </div>
     <div id="saves-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;"></div>
@@ -285,7 +285,7 @@ function slotCard(slot, entry){
   card.appendChild(row);
   return card;
 }
-function btnCss(col){ return `flex:1;font:10px monospace;cursor:pointer;background:var(--panel);`+
+function btnCss(col){ return `flex:1;font:10px 'JetBrains Mono', monospace;cursor:pointer;background:var(--panel);`+
   `color:${col};border:1px solid var(--line);padding:3px 0;`; }
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -326,13 +326,13 @@ function buildSizeModal(){
   sizeModal.addEventListener('click',e=>{ if(e.target===sizeModal) sizeModal.style.display='none'; });
   const panel=document.createElement('div');
   panel.style.cssText='background:var(--panel);border:2px solid var(--ink-dim);padding:16px;'+
-    'width:440px;max-width:94vw;color:var(--ink);font:12px monospace;';
+    'width:440px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
   panel.innerHTML=`<b style="color:var(--ink-dim);letter-spacing:2px;">NEW CITY — MAP SIZE</b>
     <div id="size-row" style="display:flex;gap:10px;margin:14px 0;"></div>
     <div style="display:flex;gap:6px;">
-      <button id="size-confirm" style="flex:1;font:12px monospace;cursor:pointer;background:#10301a;
+      <button id="size-confirm" style="flex:1;font:12px 'JetBrains Mono', monospace;cursor:pointer;background:#2a2a2a;
         color:var(--ink);border:1px solid var(--ink);padding:6px;">CONFIRM →</button>
-      <button id="size-cancel" style="font:12px monospace;cursor:pointer;background:var(--panel2);
+      <button id="size-cancel" style="font:12px 'JetBrains Mono', monospace;cursor:pointer;background:var(--panel2);
         color:var(--warn);border:1px solid #5a2018;padding:6px 10px;">CANCEL</button>
     </div>`;
   sizeModal.appendChild(panel);
@@ -342,7 +342,7 @@ function buildSizeModal(){
     const card=document.createElement('button');
     card.dataset.size=key;
     card.style.cssText='flex:1;cursor:pointer;background:var(--panel2);border:1px solid var(--line);'+
-      'color:var(--ink-mid);padding:8px;display:flex;flex-direction:column;align-items:center;gap:6px;font:11px monospace;';
+      'color:var(--ink-mid);padding:8px;display:flex;flex-direction:column;align-items:center;gap:6px;font:11px \'JetBrains Mono\', monospace;';
     // rough pixel preview of the grid aspect ratio (square presets)
     const prev=48;
     card.innerHTML=`<b>${m.label}</b>
@@ -370,7 +370,7 @@ function highlightSize(){
     const on=c.dataset.size===pickedSize;
     c.style.borderColor=on?'var(--ink)':'var(--line)';
     c.style.color=on?'var(--ink)':'var(--ink-mid)';
-    c.style.background=on?'#10301a':'var(--panel2)';
+    c.style.background=on?'#2a2a2a':'var(--panel2)';
   });
 }
 function doNewGame(){

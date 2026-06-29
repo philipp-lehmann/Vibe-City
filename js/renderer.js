@@ -275,9 +275,9 @@ export function render(){
       // hover highlight
       if(state.hover.x===gx && state.hover.y===gy){
         diamond(sx,sy);
-        ctx.fillStyle='rgba(0,255,65,0.18)';
+        ctx.fillStyle='rgba(232,232,232,0.18)';
         ctx.fill();
-        ctx.strokeStyle='#00ff41'; ctx.lineWidth=1.5; ctx.stroke();
+        ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1.5; ctx.stroke();
       }
     }
   }
@@ -472,7 +472,7 @@ function drawExitSign(sx,topY){
   const cx=sx, sgW=22*z, sgH=10*z, sgx=cx-sgW/2, sgy=topY-16*z;
   ctx.fillStyle='#0a7a2a'; ctx.fillRect(sgx,sgy,sgW,sgH);
   ctx.strokeStyle='#fff'; ctx.lineWidth=1*z; ctx.strokeRect(sgx,sgy,sgW,sgH);
-  ctx.fillStyle='#fff'; ctx.font=`${6*z}px monospace`; ctx.textAlign='center';
+  ctx.fillStyle='#fff'; ctx.font=`${6*z}px 'JetBrains Mono', monospace`; ctx.textAlign='center';
   ctx.fillText('EXIT', cx, sgy+7*z); ctx.textAlign='start';
 }
 
@@ -629,14 +629,16 @@ function drawBox(sx,sy,h,topCol,sideCol,powered){
    overhang the tiles behind them with no extra sorting needed.
    ===================================================================== */
 
-// per-zone palettes (R warm brick / C cool glass-grey / I concrete+rust)
+// per-zone palettes — CYBERPUNK ZONING: R weathered green-gray (moss/algae
+// accents) / C neon blue-violet office glass / I yellow-dark industrial
+// (cold gray + rust wear accents)
 const PAL = {
-  R:{ top:'#c47a52', right:'#a85f3e', left:'#76402a', roof:'#8f3b30', roof2:'#a8534a',
-      win:'#ffe6a8', door:'#4f2c1b', line:'rgba(0,0,0,0.35)', trim:'#caa07a' },
-  C:{ top:'#dde6ee', right:'#aebccb', left:'#7c8a9a', roof:'#c7d2dc', roof2:'#aebccb',
-      win:'#bfe6f5', door:'#5a6a7a', line:'rgba(0,0,0,0.30)', trim:'#ffffff', accent:'#3b9dff' },
-  I:{ top:'#bdbdb4', right:'#9a9a92', left:'#69695f', roof:'#a8a8a0', roof2:'#8a8a82',
-      win:'#cdd2c8', rust:'#9c5a32', rust2:'#b56a3a', metal:'#7d7d74', line:'rgba(0,0,0,0.35)' }
+  R:{ top:'#9aa893', right:'#7c8a78', left:'#4f5c4c', roof:'#5c6b58', roof2:'#6f8068',
+      win:'#ffdf9e', door:'#3a4438', line:'rgba(0,12,4,0.35)', trim:'#a8b8a0' },
+  C:{ top:'#d8d2f7', right:'#9d8de0', left:'#5c4d99', roof:'#c3b3f5', roof2:'#a594e8',
+      win:'#c9a8ff', door:'#3f3470', line:'rgba(12,0,40,0.32)', trim:'#ffffff', accent:'#8a5cf6' },
+  I:{ top:'#c9a227', right:'#9c7d1e', left:'#5e4912', roof:'#4a4d4a', roof2:'#5e6260',
+      win:'#ffb238', rust:'#9c5a32', rust2:'#b56a3a', metal:'#6b6e68', line:'rgba(0,0,0,0.40)' }
 };
 const DARK_WIN = '#23232b';   // unlit window
 const FRAC = [0.40, 0.65, 0.96];          // tile-height fraction per density level
@@ -736,7 +738,7 @@ function drawZoneBuilding(sx,sy,t,gx,gy,kind){
   // ZOOM LEVELS: at fully-zoomed-out (0.5x) draw only a flat base diamond in zone colour
   if(state.zoom<1){
     diamond(sx,sy);
-    ctx.fillStyle = kind==='R'?'#39d353' : kind==='C'?'#3b9dff' : '#ffd23f';
+    ctx.fillStyle = kind==='R'?'#7caa6b' : kind==='C'?'#8a5cf6' : '#d9a72c';
     ctx.fill();
     return;
   }
@@ -781,7 +783,7 @@ function drawScaffold(sx,sy){
 
 // vacant (developed lot still empty / unpowered): dashed plot marker
 function drawVacantLot(sx,sy,kind){
-  const z=state.zoom, col = kind==='R'?'#39d353':kind==='C'?'#3b9dff':'#ffd23f';
+  const z=state.zoom, col = kind==='R'?'#7caa6b':kind==='C'?'#8a5cf6':'#d9a72c';
   diamond(sx,sy);
   ctx.fillStyle=hexA(col,0.12); ctx.fill();
   ctx.setLineDash([3*z,2*z]); ctx.strokeStyle=hexA(col,0.6);
@@ -1005,7 +1007,7 @@ function drawFire(sx,sy){
 
 function drawNeedIcon(sx,sy,t){
   const z=state.zoom, hh=(TILE_H/2)*z;
-  ctx.font=`${10*z}px monospace`;
+  ctx.font=`${10*z}px 'JetBrains Mono', monospace`;
   ctx.textAlign='center';
   let msg = !t.powered?'⚡': !t.water?'💧':'🛣';
   ctx.fillStyle = !t.powered? '#ffd23f': !t.water?'#2bd':'#ff5b3b';
@@ -1018,10 +1020,10 @@ function drawDragPreview(){
   if(!state.drag) return;
   const tool=state.drag.tool;
   let fill, stroke;
-  if(tool==='res')      { fill='rgba(57,211,83,0.30)';  stroke='#39d353'; }
-  else if(tool==='com') { fill='rgba(59,157,255,0.30)'; stroke='#3b9dff'; }
-  else if(tool==='ind') { fill='rgba(255,210,63,0.30)'; stroke='#ffd23f'; }
-  else                  { fill='rgba(0,255,65,0.32)';   stroke='#00ff41'; }
+  if(tool==='res')      { fill='rgba(124,170,107,0.30)'; stroke='#7caa6b'; }
+  else if(tool==='com') { fill='rgba(138,92,246,0.30)';  stroke='#8a5cf6'; }
+  else if(tool==='ind') { fill='rgba(217,167,44,0.30)';  stroke='#d9a72c'; }
+  else                  { fill='rgba(232,232,232,0.32)'; stroke='#e8e8e8'; }
   const tiles=dragTiles();
   for(const [x,y] of tiles){
     const [sx,sy]=isoToScreen(x,y,0);
@@ -1043,9 +1045,9 @@ function drawDragPreview(){
       cost = tiles.filter(([x,y])=>state.grid[y][x].type===T.GRASS).length * toolCost;
     }
     const [cx,cy]=isoToScreen(state.drag.cx,state.drag.cy,0);
-    ctx.font='11px monospace'; ctx.textAlign='center';
+    ctx.font='11px \'JetBrains Mono\', monospace'; ctx.textAlign='center';
     ctx.fillStyle='#000'; ctx.fillRect(cx-26, cy-6, 52, 14);
-    ctx.fillStyle = cost<=state.funds ? '#00ff41' : '#ff5b3b';
+    ctx.fillStyle = cost<=state.funds ? '#e8e8e8' : '#ff5b3b';
     ctx.fillText(tiles.length+'t $'+cost, cx, cy+4);
     ctx.textAlign='start';
   }
@@ -1115,7 +1117,7 @@ function miniColor(t,x,y){
       return _grad([[0,'#8b1a1a'],[0.5,'#ffd23f'],[1,'#2ecf4a']], clamp((t.land-20)/150,0,1));
     case 'density': {
       if(!zone || (t.pop===0 && t.level===0)) return MDARK;
-      const hue = t.type===T.RES?'#39d353':t.type===T.COM?'#3b9dff':'#ffd23f';
+      const hue = t.type===T.RES?'#7caa6b':t.type===T.COM?'#8a5cf6':'#d9a72c';
       const f=[0.5,0.75,1][t.level]||0.5;             // brightness by density level
       return _mix('#0a0a10', hue, f);
     }
@@ -1136,9 +1138,9 @@ function miniColor(t,x,y){
         case T.POWERLINE:  return '#776';
         case T.PUMP:  return '#2bd';
         case T.PARK:  return '#1e8';
-        case T.RES:   return t.pop>0?'#39d353':'#1c3a1c';
-        case T.COM:   return t.pop>0?'#3b9dff':'#16304a';
-        case T.IND:   return t.pop>0?'#ffd23f':'#4a3c10';
+        case T.RES:   return t.pop>0?'#7caa6b':'#222a20';
+        case T.COM:   return t.pop>0?'#8a5cf6':'#241a3a';
+        case T.IND:   return t.pop>0?'#d9a72c':'#3a2e10';
         default: return '#13260f';
       }
   }
@@ -1159,7 +1161,7 @@ export function drawMinimap(){
       mctx.fillStyle='#ff5b3b'; mctx.fillRect(rx*s,ry*s,Math.ceil(s),Math.ceil(s));
     }
   }
-  mctx.strokeStyle='rgba(0,255,65,0.6)';
+  mctx.strokeStyle='rgba(232,232,232,0.6)';
   mctx.strokeRect(1,1,mini.width-2,mini.height-2);
 }
 /* ===== end MINIMAP OVERLAYS ========================================== */
@@ -1176,7 +1178,7 @@ export function drawToolIcon(c,tool){
       c.fillRect(14,7,1,1); c.fillRect(17,7,1,1); break;
     case 'road':
       c.fillStyle='#444'; c.fillRect(2,9,20,6);
-      c.fillStyle='#00ff41'; c.fillRect(4,11,3,1); c.fillRect(11,11,3,1); c.fillRect(18,11,3,1); break;
+      c.fillStyle='#e8e8e8'; c.fillRect(4,11,3,1); c.fillRect(11,11,3,1); c.fillRect(18,11,3,1); break;
     case 'power':
       c.strokeStyle=tool.color; c.lineWidth=1;
       c.beginPath(); c.moveTo(12,4); c.lineTo(12,20); c.moveTo(6,7); c.lineTo(18,7); c.stroke(); break;

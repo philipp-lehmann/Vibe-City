@@ -1,15 +1,15 @@
 /* ============================================================
    ui.css — CRT / PIXEL-RETRO THEME
-   dark charcoal #1a1a2e canvas, lime-green #00ff41 accents,
-   monospace throughout. No modern gradients.
+   dark charcoal #1a1a2e canvas, neutral white-gray monochrome
+   accents, monospace throughout. No modern gradients.
    ============================================================ */
 :root {
   --bg:      #1a1a2e;
   --panel:   #16162a;
   --panel2:  #0f0f1f;
-  --ink:     #00ff41;     /* lime green accent */
-  --ink-dim: #0a8f28;
-  --ink-mid: #00c233;
+  --ink:     #e8e8e8;     /* neutral monochrome accent */
+  --ink-dim: #707070;
+  --ink-mid: #aaaaaa;
   --warn:    #ff5b3b;
   --gold:    #ffd23f;
   --line:    #2a2a44;
@@ -19,7 +19,7 @@ html, body {
   margin: 0; padding: 0; height: 100%; overflow: hidden;
   background: var(--bg);
   color: var(--ink);
-  font-family: "Courier New", "Lucida Console", monospace;
+  font-family: "JetBrains Mono", "Courier New", "Lucida Console", monospace;
   -webkit-font-smoothing: none;
   image-rendering: pixelated;
   user-select: none;
@@ -45,7 +45,7 @@ html, body {
   border-bottom: 2px solid var(--ink-dim);
   display: flex; align-items: center; gap: 22px;
   padding: 0 12px; font-size: 13px; z-index: 50;
-  text-shadow: 0 0 4px rgba(0,255,65,0.5);
+  text-shadow: 0 0 4px rgba(232,232,232,0.5);
 }
 #statusbar .lbl { color: var(--ink-dim); }
 #statusbar b { color: var(--ink); font-weight: normal; }
@@ -78,8 +78,8 @@ html, body {
 .tool span { line-height: 1.1; }
 .tool .cost { display:block; color: var(--gold); font-size: 9px; }
 .tool:hover { border-color: var(--ink-mid); color: var(--ink); }
-.tool.sel { border-color: var(--ink); background: #10301a; color: var(--ink);
-            box-shadow: 0 0 6px rgba(0,255,65,0.4) inset; }
+.tool.sel { border-color: var(--ink); background: #2a2a2a; color: var(--ink);
+            box-shadow: 0 0 6px rgba(232,232,232,0.4) inset; }
 
 /* --- Demand bars (left, under toolbar) --- */
 #demand {

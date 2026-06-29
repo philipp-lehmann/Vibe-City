@@ -41,12 +41,12 @@ function frame(){
 function showLoadingBar(){
   const o=document.createElement('div'); o.id='asset-loading';
   o.style.cssText='position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;'+
-    'align-items:center;justify-content:center;gap:14px;background:#05050c;color:#00ff41;'+
-    'font:13px monospace;letter-spacing:2px;';
+    'align-items:center;justify-content:center;gap:14px;background:#05050c;color:#e8e8e8;'+
+    'font:13px \'JetBrains Mono\', monospace;letter-spacing:2px;';
   o.innerHTML=`<div>LOADING ASSETS</div>
-    <div style="width:300px;height:14px;border:1px solid #00ff41;background:#0a0a14;box-shadow:0 0 8px rgba(0,255,65,0.4);">
-      <div id="asset-bar" style="height:100%;width:0%;background:#00ff41;transition:width .08s linear;"></div></div>
-    <div id="asset-pct" style="color:#7CFC9B;">0%</div>`;
+    <div style="width:300px;height:14px;border:1px solid #e8e8e8;background:#0a0a14;box-shadow:0 0 8px rgba(232,232,232,0.4);">
+      <div id="asset-bar" style="height:100%;width:0%;background:#e8e8e8;transition:width .08s linear;"></div></div>
+    <div id="asset-pct" style="color:#cfcfcf;">0%</div>`;
   document.body.appendChild(o); return o;
 }
 function updateLoadingBar(done,total){

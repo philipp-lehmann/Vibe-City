@@ -27,9 +27,9 @@ export const T = {
 
 // --- tool catalogue: id, tile placed, label, build cost, monthly upkeep, icon colour ---
 export const TOOLS = [
-  { id:'res',   tile:T.RES,        label:'Resid',  cost:100, up:0,  color:'#39d353' },
-  { id:'com',   tile:T.COM,        label:'Comm',   cost:100, up:0,  color:'#3b9dff' },
-  { id:'ind',   tile:T.IND,        label:'Indus',  cost:100, up:0,  color:'#ffd23f' },
+  { id:'res',   tile:T.RES,        label:'Resid',  cost:100, up:0,  color:'#7caa6b' },
+  { id:'com',   tile:T.COM,        label:'Comm',   cost:100, up:0,  color:'#8a5cf6' },
+  { id:'ind',   tile:T.IND,        label:'Indus',  cost:100, up:0,  color:'#d9a72c' },
   { id:'road',  tile:T.ROAD,       label:'Road',   cost:10,  up:1,  color:'#777' },
   { id:'power', tile:T.POWERLINE,  label:'P.Line', cost:5,   up:1,  color:'#caa' },
   { id:'plant', tile:T.POWERPLANT, label:'Coal',   cost:3000,up:50, color:'#555' },
