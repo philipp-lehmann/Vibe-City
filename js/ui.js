@@ -103,6 +103,22 @@ function drawSparkline(canvas, values, opts = {}) {
   ctx.stroke();
 }
 
+// STATISTICS: per-metric colors live in css/ui.css (--stat-pop/--stat-happiness/
+// --stat-funds) so the statusbar sparklines, the panel's big combined chart,
+// and its legend swatches all stay in sync from one place. Read once and cache
+// — :root custom properties don't change at runtime.
+let _statColorCache = null;
+function getStatColors() {
+  if (_statColorCache) return _statColorCache;
+  const cs = getComputedStyle(document.documentElement);
+  _statColorCache = {
+    pop: cs.getPropertyValue('--stat-pop').trim() || '#e8e8e8',
+    happiness: cs.getPropertyValue('--stat-happiness').trim() || '#ffd23f',
+    funds: cs.getPropertyValue('--stat-funds').trim() || '#2bd1d4',
+  };
+  return _statColorCache;
+}
+
 // NOTE: history arrays are capped at HISTORY_LEN (24) and shift() once full,
 // so array length stops changing after month 24 — guard on state.month
 // (always increasing) instead, or redraws silently stop forever past month 24.
@@ -115,22 +131,18 @@ function drawSparklines() {
   const h = state.history;
   if (state.month === _statHistMonth) return;   // only redraw when a new sample lands
   _statHistMonth = state.month;
-  drawSparkline($('spark-pop'), h.pop, { color: '#e8e8e8' });
-  drawSparkline($('spark-happy'), h.happiness, {
-    min: 0, max: 100,
-    color: state.happiness >= 60 ? '#e8e8e8' : state.happiness >= 35 ? '#ffd23f' : '#ff5b3b'
-  });
-  drawSparkline($('spark-funds'), h.funds, { color: state.funds < 0 ? '#ff5b3b' : '#e8e8e8' });
+  const c = getStatColors();
+  drawSparkline($('spark-pop'), h.pop, { color: c.pop });
+  drawSparkline($('spark-happy'), h.happiness, { min: 0, max: 100, color: c.happiness });
+  drawSparkline($('spark-funds'), h.funds, { color: c.funds });
 }
 
-// STATISTICS: fixed per-metric colors for the panel's combined chart (legend
-// swatches in index.html use the same hex values) — distinct hues so all three
-// lines stay readable overlapping on one canvas regardless of their values.
-const STAT_COLOR = { pop: '#e8e8e8', happiness: '#ffd23f', funds: '#2bd1d4' };
-
-// draw every toggled-on series on the bigger panel chart, each independently
-// normalized to its own min/max (population/happiness/funds live on wildly
-// different scales, so a shared y-axis would flatten two of the three lines)
+// draw every toggled-on series on the bigger panel chart. Population/funds
+// have no natural bound, so they're auto-ranged to their own min/max; happiness
+// is a fixed 0-100 score (same as its small statusbar sparkline), so it gets a
+// fixed range instead — auto-ranging it would either flatten small swings to
+// fill the whole height or, worse, collapse a near-constant value to the
+// bottom edge instead of showing where it actually sits on the 0-100 scale.
 function drawStatsChart(force) {
   const canvas = $('stats-chart');
   if (!canvas || !isStatsPanelOpen()) return;
@@ -140,11 +152,13 @@ function drawStatsChart(force) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, ch = canvas.height;
   ctx.clearRect(0, 0, w, ch);
+  const c = getStatColors();
   for (const key of ['pop', 'happiness', 'funds']) {
     if (!state.statsVisible[key]) continue;
     const values = h[key];
     if (!values.length) continue;
-    const min = Math.min(...values), max = Math.max(...values);
+    const min = key === 'happiness' ? 0 : Math.min(...values);
+    const max = key === 'happiness' ? 100 : Math.max(...values);
     const range = (max - min) || 1;
     ctx.beginPath();
     values.forEach((v, i) => {
@@ -152,7 +166,7 @@ function drawStatsChart(force) {
       const y = ch - 4 - ((v - min) / range) * (ch - 8);
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = STAT_COLOR[key];
+    ctx.strokeStyle = c[key];
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }

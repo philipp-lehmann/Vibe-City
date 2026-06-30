@@ -16,6 +16,12 @@
   --gold: #ffd23f;
   --line: #161616;
 
+  /* STATISTICS: per-metric identity colors — shared by the statusbar
+     sparklines, the panel's big combined chart, and its legend swatches */
+  --stat-pop: #e8e8e8;
+  --stat-happiness: #ffd23f;
+  --stat-funds: #2bd1d4;
+
   /* Typography */
   --font-xs: 10px;
   /* cost labels, hints */
