@@ -72,6 +72,7 @@ export const state = {
   notices: [],                    // pending toast messages (drained by ui)
   flash: null,                    // pending status-bar flash (drained by ui)
   pendingOffers: [],              // SCENARIOS: contract IDs queued for player acceptance
+  pendingPlacements: [],          // SCENARIOS: contract IDs needing tile placement for a new stage
   placementMode: null,            // SCENARIOS: { scenarioId, required, selectedTiles: [[x,y]] }
   powerPlantCount: 0,             // updated by propagatePower each tick
   powerCapacity: 0,               // SCENARIOS: total power units generated (300 per plant)
@@ -326,8 +327,9 @@ export function applySave(blob){
   }
   state.revenue  = s.revenue  ? { ...s.revenue  } : { monthly: 0, lost: 0 };
   state.prestige = s.prestige ?? 0;
-  state.pendingOffers = [];   // SCENARIOS: never restore mid-offer state
-  state.placementMode = null;
+  state.pendingOffers    = [];   // SCENARIOS: never restore mid-offer/placement state
+  state.pendingPlacements = [];
+  state.placementMode    = null;
   return true;
 }
 export function loadGame(slot){ return applySave(readSave(slot)); }
@@ -353,7 +355,8 @@ export function newGame(name, sizeKey, waterPct){
   state.scenarios = { active: [], completed: [], jobs: 0, contractBlacklist: {} };
   state.revenue   = { monthly: 0, lost: 0 };
   state.prestige  = 0;
-  state.pendingOffers = [];
-  state.placementMode = null;
+  state.pendingOffers    = [];
+  state.pendingPlacements = [];
+  state.placementMode    = null;
   // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }

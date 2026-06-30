@@ -492,7 +492,7 @@ function slotCard(slot, entry) {
   const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:var(--sp-1);';
 
   const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)');
-  bLoad.onclick = () => { if (loadGame(slot)) { syncMinimapSize(); resetStatsHistoryGuards(); startGame(); closeSaves(); flashStatus('Loaded ' + (entry.cityName || '')); } }; // MAP SIZE + STARTUP
+  bLoad.onclick = () => { if (loadGame(slot)) { syncMinimapSize(); resetStatsHistoryGuards(); resetGameUI(); startGame(); closeSaves(); flashStatus('Loaded ' + (entry.cityName || '')); } }; // MAP SIZE + STARTUP
   const bDel = document.createElement('button'); bDel.textContent = 'Delete'; bDel.style.cssText = btnCss('var(--warn)');
   bDel.onclick = () => { if (confirm('Delete save "' + (entry.cityName || slot) + '"?')) { deleteSave(slot); renderSlots(); } };
   row.appendChild(bLoad); row.appendChild(bDel);
@@ -519,7 +519,7 @@ function renderSlots() {
     card.innerHTML = `${a.thumb ? `<img src="${a.thumb}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated;background:#05050c;">` : ''}
       <div style="flex:1;"><b>AUTOSAVE</b> <span style="color:var(--ink-dim);">${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span></div>`;
     const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)') + 'flex:0 0 60px;';
-    bLoad.onclick = () => { if (loadGame('autosave')) { syncMinimapSize(); resetStatsHistoryGuards(); startGame(); closeSaves(); flashStatus('Loaded autosave'); } }; // MAP SIZE + STARTUP
+    bLoad.onclick = () => { if (loadGame('autosave')) { syncMinimapSize(); resetStatsHistoryGuards(); resetGameUI(); startGame(); closeSaves(); flashStatus('Loaded autosave'); } }; // MAP SIZE + STARTUP
     card.appendChild(bLoad); box.appendChild(card);
   }
 }
@@ -609,6 +609,7 @@ function buildSizeModal() {
     newGame(name, pickedSize, WATER_LEVELS[pickedWater].pct);  // MAP SIZE / WATER AMOUNT
     syncMinimapSize();
     resetStatsHistoryGuards();
+    resetGameUI();
     startGame();                                       // STARTUP
     closeSaves();
     flashStatus(`NEW ${MAP_SIZES[pickedSize].label} CITY: ${state.cityName}`);
@@ -681,11 +682,22 @@ let _pausedForContract = false;
 
 // ── Contracts panel ───────────────────────────────────────────────
 
+let _contractsPanelFP = '';   // fingerprint — only rebuild DOM when data changes
+
 function syncContractsPanel() {
   const panel = $('contracts-panel');
   if (!panel) return;
 
   const contracts = scenarioManager.getContractStatus();
+
+  // Cheap fingerprint — avoids destroying button elements every frame (which
+  // swallows click events before they fire, the same bug as the placement banner).
+  const fp = contracts.map(c =>
+    `${c.id}:${c.status}:${c.deadlineIn}:${c.stageStatus}:` +
+    Object.entries(c.requirementDetails).map(([k, v]) => `${k}=${v.current}`).join(',')
+  ).join('|');
+  if (fp === _contractsPanelFP) return;
+  _contractsPanelFP = fp;
 
   if (contracts.length === 0) {
     panel.innerHTML = '';
@@ -740,7 +752,7 @@ function syncContractsPanel() {
       <div class="contract-reqs">${reqs}</div>
       <div class="contract-revenue">+${fmt(c.pendingRevenue)}/month pending</div>
       ${earnedNote}
-      <button class="contract-decline" data-scenario-id="${c.id}">DECLINE</button>
+      <button class="contract-decline" data-scenario-id="${c.id}">CANCEL CONTRACT</button>
     </div>`;
   }).join('');
 
@@ -786,7 +798,7 @@ export function showDeclineModal(scenarioId) {
 
   openContractModal(`
     <div class="contract-modal-panel">
-      <div class="contract-modal-title">⚠ DECLINE CONTRACT?</div>
+      <div class="contract-modal-title">⚠ CANCEL CONTRACT?</div>
       <div class="contract-modal-subtitle">${typeName} — ${scenario.currentStage.name}</div>
 
       <div class="contract-modal-section">CONSEQUENCES</div>
@@ -798,8 +810,8 @@ export function showDeclineModal(scenarioId) {
       <div class="contract-modal-warning">This is permanent and cannot be undone.</div>
 
       <div class="contract-modal-footer">
-        <button class="btn-confirm-action" id="cm-cancel">CANCEL</button>
-        <button class="btn-danger" id="cm-confirm">DECLINE — I'M SURE</button>
+        <button class="btn-confirm-action" id="cm-cancel">KEEP CONTRACT</button>
+        <button class="btn-danger" id="cm-confirm">CANCEL CONTRACT — I'M SURE</button>
       </div>
     </div>
   `);
@@ -1020,6 +1032,32 @@ function buildContractInspectorHTML(scenario) {
     </div>`;
 }
 
+/* --- reset UI state that accumulates across a game session --- */
+export function resetGameUI() {
+  // Sync scenario manager's in-memory arrays with (now reset/loaded) state.scenarios
+  // Without this, scenarioManager.activeScenarios still holds the previous game's contracts.
+  scenarioManager.loadFromState();
+
+  // Clear notification log (persistent warnings rebuild automatically each frame)
+  const log = $('notif-log');
+  if (log) log.innerHTML = '';
+
+  // Clear contracts panel and reset fingerprint so it rebuilds immediately
+  const panel = $('contracts-panel');
+  if (panel) panel.innerHTML = '';
+  _contractsPanelFP = '';
+
+  // Reset placement banner
+  if (_placementBanner) { _placementBanner.classList.remove('active'); }
+  _placementLastCount = -1;
+
+  // Reset contract-offer pause tracking
+  _pausedForContract = false;
+
+  // Close any open contract modal
+  closeContractModal();
+}
+
 /* --- init + the single per-frame entry point main calls --- */
 export function initUI() {
   buildToolbar(); wireControls(); buildMiniStrip(); /* MINIMAP OVERLAYS */
@@ -1047,6 +1085,14 @@ export function syncUI() {
     const scenarioId = state.pendingOffers.shift();
     if (!state.paused) { togglePause(); _pausedForContract = true; }
     showContractOfferModal(scenarioId);
+  }
+
+  // SCENARIOS: drain pending stage placements (tile requirement on a new stage after completion)
+  // placementMode is already set by completeStage(); we just need to pause and notify
+  if (state.pendingPlacements?.length && !state.placementMode?.fromPending) {
+    state.pendingPlacements.shift();
+    if (!state.paused) { togglePause(); _pausedForContract = true; }
+    if (state.placementMode) state.placementMode.fromPending = true;
   }
 
   while (state.notices.length) toast(state.notices.shift());   // drain sim/input notices

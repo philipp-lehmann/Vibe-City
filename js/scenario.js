@@ -45,10 +45,20 @@ function completeStage(scenario) {
     scenario.currentStage    = scenario.stages[scenario.currentStageIndex];
     scenario.monthsRemaining = scenario.currentStage.monthsUntilDeadline;
     scenario.stageStatus     = 'IN_PROGRESS';
-    scenario.status          = 'ACTIVE';
 
     pushNotice(`✓ ${stage.name} complete!`);
     pushNotice(`Next: ${scenario.currentStage.name} (${Math.ceil(scenario.monthsRemaining)} months)`);
+
+    // New stage requires tile placement — pause and enter placement mode
+    if (scenario.currentStage.requirements.tiles) {
+      const required = scenario.currentStage.requirements.tiles.count || 5;
+      scenario.status = 'PLACEMENT';
+      state.placementMode = { scenarioId: scenario.id, required, selectedTiles: [] };
+      state.pendingPlacements.push(scenario.id);
+      pushNotice(`📍 Place ${required} more tiles to begin the next stage.`);
+    } else {
+      scenario.status = 'ACTIVE';
+    }
   } else {
     scenario.status = 'COMPLETED';
     pushNotice(
@@ -330,7 +340,8 @@ export class ScenarioManager {
     const scenario = this.getScenario(scenarioId);
     if (!scenario) return false;
 
-    scenario.tiles = tiles;
+    // Append — each stage adds tiles rather than replacing them
+    scenario.tiles = [...(scenario.tiles || []), ...tiles];
     tiles.forEach(([x, y]) => {
       const tile = tileAt(x, y);
       if (tile) {

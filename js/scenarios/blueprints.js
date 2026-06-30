@@ -14,8 +14,8 @@ export const SCENARIOS = {
       {
         id:   'stage_1_setup',
         name: 'Initial Campus Build',
-        monthsUntilDeadline: 180,
-        monthsRemaining:     180,
+        monthsUntilDeadline: 18,
+        monthsRemaining:     18,
         requirements: {
           tiles:     { count: 5,  type: 'placement',          position: null },
           power:     { amount: 8, type: 'infrastructure' },
@@ -39,22 +39,22 @@ export const SCENARIOS = {
       {
         id:   'stage_2_expansion',
         name: 'Capacity Expansion',
-        monthsUntilDeadline: 540,
-        monthsRemaining:     540,
+        monthsUntilDeadline: 54,
+        monthsRemaining:     54,
         requirements: {
-          tiles: { count: 5,   type: 'placement',         position: 'adjacent_to_stage_1' },
+          tiles: { count: 10,   type: 'placement',         position: 'adjacent_to_stage_1' },
           power: { amount: 8,  type: 'infrastructure' },
           road:  { quality: 'high', type: 'connectivity' },
           labor: { skilled: 150, type: 'workforce_available' }
         },
-        rewards: { revenue: 100000, jobs: 200, prestige: 12 },
+        rewards: { revenue: 10000, jobs: 200, prestige: 12 },
         penalties: {
           ifFailed: {
-            revenue: 550000, prestige: -10, populationLoss: -800,
+            revenue: 55000, prestige: -10, populationLoss: -800,
             renegotiate: false, contractEnds: true
           },
           ifDeclined: {
-            revenue: 1100000, prestige: -20, populationLoss: -1600,
+            revenue: 110000, prestige: -20, populationLoss: -1600,
             contractBlacklist: 1825,
             message: 'Expansion cancelled. They downgrade and eventually leave.'
           }
@@ -63,10 +63,10 @@ export const SCENARIOS = {
       {
         id:   'stage_3_consolidation',
         name: 'Mega-Campus Consolidation',
-        monthsUntilDeadline: 900,
-        monthsRemaining:     900,
+        monthsUntilDeadline: 90,
+        monthsRemaining:     90,
         requirements: {
-          tiles:     { count: 10,  type: 'placement',        position: 'merge_both_campuses' },
+          tiles:     { count: 20,  type: 'placement',        position: 'merge_both_campuses' },
           power:     { amount: 16, type: 'infrastructure' },
           water:     { amount: 8,  type: 'infrastructure' },
           road:      { quality: 'highway', type: 'connectivity' },
