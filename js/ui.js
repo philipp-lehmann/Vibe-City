@@ -676,6 +676,9 @@ function buildExportButton() {
 
 /* ===== SCENARIOS: contracts panel, modals, inspector =============== */
 
+// Track whether we paused the game to show a contract offer
+let _pausedForContract = false;
+
 // ── Contracts panel ───────────────────────────────────────────────
 
 function syncContractsPanel() {
@@ -684,12 +687,7 @@ function syncContractsPanel() {
 
   const contracts = scenarioManager.getContractStatus();
 
-  // Also show renegotiating scenarios (player must respond)
-  const renegotiating = scenarioManager.activeScenarios.filter(
-    s => s.status === 'RENEGOTIATING'
-  );
-
-  if (contracts.length === 0 && renegotiating.length === 0) {
+  if (contracts.length === 0) {
     panel.innerHTML = '';
     return;
   }
@@ -698,13 +696,27 @@ function syncContractsPanel() {
   const reqLabel = k => k.charAt(0).toUpperCase() + k.slice(1);
 
   panel.innerHTML = contracts.map(c => {
+    // PLACEMENT scenarios show a special "placing zone" card
+    if (c.status === 'PLACEMENT') {
+      return `<div class="contract-card contract-placement">
+        <div class="contract-head">
+          <span class="contract-name">${c.type.replace(/_/g, ' ')}</span>
+          <span class="contract-stage-badge">S${c.stage}/${c.totalStages}</span>
+        </div>
+        <div class="contract-stage-name">${c.stageName}</div>
+        <div class="contract-reqs"><span class="req-unmet">📍 Placing zone: ${c.tilesSelected}/${c.tilesRequired} tiles</span></div>
+      </div>`;
+    }
+
     const pct = Math.max(4, Math.min(100, (c.deadlineIn / c.maxDeadline) * 100));
     const barColor = c.deadlineIn <= 12 ? 'var(--warn)'
                    : c.deadlineIn <= 36 ? 'var(--gold)'
                    : 'var(--ink-mid)';
+    // v is now { met, current, required } — show "Power: 3/8" style
     const reqs = Object.entries(c.requirementDetails)
       .map(([k, v]) =>
-        `<span class="${v ? 'req-met' : 'req-unmet'}" title="${reqLabel(k)}">${v ? '✓' : '✗'} ${reqLabel(k)}</span>`
+        `<span class="${v.met ? 'req-met' : 'req-unmet'}" title="${reqLabel(k)}">` +
+        `${v.met ? '✓' : '✗'} ${reqLabel(k)}: ${v.current}/${v.required}</span>`
       ).join('');
     const statusLabel = c.requirementsMet
       ? `<span style="color:var(--gold)">READY</span>`
@@ -839,6 +851,131 @@ export function showRenegotiationModal(scenarioId) {
   };
 }
 
+// ── Contract offer modal ──────────────────────────────────────────
+
+function formatReqForOffer(key, req) {
+  switch (key) {
+    case 'tiles':     return `Place <b>${req.count}</b> tiles for the zone`;
+    case 'power':     return `<b>${req.amount}</b> spare power capacity`;
+    case 'water':     return `Full water coverage of zone`;
+    case 'happiness': return `City happiness ≥ <b>${req.minValue}</b>`;
+    case 'labor':     return `<b>${req.skilled}</b> skilled workers available`;
+    case 'road':      return `Road access — <b>${req.quality || 'nearby'}</b>`;
+    default:          return `${key}: ${JSON.stringify(req)}`;
+  }
+}
+
+export function showContractOfferModal(scenarioId) {
+  const scenario = scenarioManager.getScenario(scenarioId);
+  if (!scenario || scenario.status !== 'OFFERED') return;
+  const stage    = scenario.currentStage;
+  const typeName = scenario.type.replace(/_/g, ' ');
+  const years    = Math.round(stage.monthsUntilDeadline / 12);
+  const p        = stage.penalties.ifDeclined;
+  const blacklistYears = p.contractBlacklist ? Math.round(p.contractBlacklist / 12) : 0;
+
+  const reqRows = Object.entries(stage.requirements)
+    .map(([k, req]) => `<div class="contract-modal-row offer-req">• ${formatReqForOffer(k, req)}</div>`)
+    .join('');
+
+  openContractModal(`
+    <div class="contract-modal-panel">
+      <div class="contract-modal-title">📋 CONTRACT OFFER</div>
+      <div class="contract-modal-subtitle">${typeName}</div>
+      <div class="contract-modal-meta">Stage ${scenario.currentStageIndex + 1} of ${scenario.stages.length} — ${stage.name}</div>
+      <div class="contract-modal-meta">Deadline: ${stage.monthsUntilDeadline} months (${years} years)</div>
+
+      <div class="contract-modal-section">REQUIREMENTS</div>
+      ${reqRows}
+
+      <div class="contract-modal-section">REWARDS ON COMPLETION</div>
+      <div class="contract-modal-row offer-reward">+$${stage.rewards.revenue.toLocaleString()}/month revenue</div>
+      <div class="contract-modal-row offer-reward">+${stage.rewards.jobs} jobs · +${stage.rewards.prestige} prestige</div>
+
+      <div class="contract-modal-section">IF DECLINED</div>
+      <div class="contract-modal-row consequence">Fine: $${(p.revenue || 0).toLocaleString()}</div>
+      <div class="contract-modal-row consequence">Prestige: ${p.prestige || 0} · Pop: −${Math.abs(p.populationLoss || 0).toLocaleString()}</div>
+      ${blacklistYears ? `<div class="contract-modal-row consequence">No ${typeName} contracts for ${blacklistYears} years</div>` : ''}
+
+      <div class="contract-modal-footer">
+        <button class="btn-danger" id="cm-decline-offer">DECLINE</button>
+        <button class="btn-confirm-action" id="cm-accept-offer">ACCEPT — SELECT ZONE ▶</button>
+      </div>
+    </div>
+  `);
+
+  _contractModal.querySelector('#cm-decline-offer').onclick = () => {
+    scenarioManager.declineOffer(scenarioId);
+    closeContractModal();
+    if (_pausedForContract && state.paused) { togglePause(); _pausedForContract = false; }
+  };
+  _contractModal.querySelector('#cm-accept-offer').onclick = () => {
+    scenarioManager.acceptOffer(scenarioId);
+    closeContractModal();
+    // Game stays paused — player now selects tiles via placement banner
+  };
+}
+
+// ── Placement banner ──────────────────────────────────────────────
+
+let _placementBanner     = null;
+let _placementLastCount  = -1;   // only rebuild DOM when tile count changes
+
+function ensurePlacementBanner() {
+  if (_placementBanner) return;
+  _placementBanner = document.createElement('div');
+  _placementBanner.id = 'placement-banner';
+  document.body.appendChild(_placementBanner);
+}
+
+function syncPlacementBanner() {
+  const pm = state.placementMode;
+  ensurePlacementBanner();
+
+  if (!pm) {
+    _placementBanner.classList.remove('active');
+    _placementLastCount = -1;
+    return;
+  }
+
+  const sel = pm.selectedTiles.length;
+
+  // Show the banner
+  _placementBanner.classList.add('active');
+
+  // Only rebuild innerHTML when the count changes — prevents buttons being
+  // replaced every frame (which swallows click events before they fire).
+  if (sel === _placementLastCount) return;
+  _placementLastCount = sel;
+
+  const req      = pm.required;
+  const ready    = sel >= req;
+  const scenario = scenarioManager.getScenario(pm.scenarioId);
+  const typeName = scenario ? scenario.type.replace(/_/g, ' ') : '';
+
+  _placementBanner.innerHTML = `
+    <div class="pb-title">📍 PLACE ${typeName.toUpperCase()} ZONE</div>
+    <div class="pb-count">${sel} / ${req} tiles selected</div>
+    <div class="pb-hint">Click tiles on the map to select · drag to paint</div>
+    <div class="pb-actions">
+      <button class="btn-danger" id="pb-cancel">Cancel (Decline)</button>
+      <button class="btn-confirm-action" id="pb-confirm" ${ready ? '' : 'disabled'}>
+        ${ready ? 'Confirm Zone ✓' : `Need ${req - sel} more tile${req - sel === 1 ? '' : 's'}`}
+      </button>
+    </div>
+  `;
+
+  _placementBanner.querySelector('#pb-cancel').onclick = () => {
+    scenarioManager.cancelPlacement(pm.scenarioId);
+    if (_pausedForContract && state.paused) { togglePause(); _pausedForContract = false; }
+  };
+  _placementBanner.querySelector('#pb-confirm').onclick = () => {
+    if (scenarioManager.confirmPlacement(pm.scenarioId)) {
+      if (_pausedForContract && state.paused) { togglePause(); _pausedForContract = false; }
+    }
+  };
+}
+
 // ── Inspector integration ─────────────────────────────────────────
 
 function buildContractInspectorHTML(scenario) {
@@ -862,7 +999,8 @@ function buildContractInspectorHTML(scenario) {
   const contractStatus = scenarioManager.getContractStatus().find(c => c.id === scenario.id);
   const reqRows = contractStatus
     ? Object.entries(contractStatus.requirementDetails).map(([k, v]) =>
-        `<span class="${v ? 'pwr-ok' : 'pwr-no'}">${v ? '✓' : '✗'}</span> <span class="k">${k}</span>`
+        `<span class="${v.met ? 'pwr-ok' : 'pwr-no'}">${v.met ? '✓' : '✗'}</span>` +
+        ` <span class="k">${k}</span> <span class="v">${v.current}/${v.required}</span>`
       ).join('<br>')
     : '';
 
@@ -902,6 +1040,15 @@ export function syncUI() {
   updateInspector();
   syncPersistentWarnings();
   syncContractsPanel();  /* SCENARIOS */
+  syncPlacementBanner(); /* SCENARIOS: tile placement overlay */
+
+  // SCENARIOS: drain pending contract offers → pause + show offer modal (one at a time)
+  if (state.pendingOffers.length && !(_contractModal?.style.display === 'flex')) {
+    const scenarioId = state.pendingOffers.shift();
+    if (!state.paused) { togglePause(); _pausedForContract = true; }
+    showContractOfferModal(scenarioId);
+  }
+
   while (state.notices.length) toast(state.notices.shift());   // drain sim/input notices
   // SCENARIOS: route special flash payloads to modals; pass everything else to the status bar
   if (state.flash) {

@@ -1,7 +1,10 @@
 /* ================================================================
    requirements.js — Validators for each scenario requirement type.
 
-   Each validator receives (req, contract, state) and returns bool.
+   Each validator receives (req, contract, state) and returns
+   { met: bool, current: any, required: any } so the UI can show
+   progress like "power 3/8" instead of just ✓/✗.
+
    checkAllRequirements() is the single entry point used by
    ScenarioManager.tick() and getContractStatus().
    ================================================================ */
@@ -14,55 +17,65 @@ import { availablePowerCapacity } from '../simulation.js';
  * tiles — contract zone must be placed and have the right count.
  */
 function checkTiles(req, contract, state) {
-  if (!contract.tiles || contract.tiles.length === 0) return false;
+  if (!contract.tiles || contract.tiles.length === 0)
+    return { met: false, current: 0, required: req.count };
   const locked = contract.tiles.filter(([x, y]) => {
     const t = state.grid[y]?.[x];
     return t && t.contractId === contract.id;
   });
-  return locked.length >= req.count;
+  return { met: locked.length >= req.count, current: locked.length, required: req.count };
 }
 
 /**
  * power — two-part check:
- * 1. All contract tiles must receive power (zone is connected to the grid).
- * 2. Global spare capacity must be >= req.amount (grid isn't on the margin).
- *    1 power unit ≈ 1 MW for game purposes; each plant provides 300 units.
- *    This catches the "grid is barely holding together" scenario.
+ * 1. All contract tiles must receive power.
+ * 2. Global spare capacity must be >= req.amount.
+ *    Displays spare capacity once all tiles powered, otherwise shows tile count.
  */
 function checkPower(req, contract, state) {
-  if (!contract.tiles || contract.tiles.length === 0) return false;
-  const allPowered = contract.tiles.every(([x, y]) => {
+  if (!contract.tiles || contract.tiles.length === 0)
+    return { met: false, current: 0, required: req.amount || 0 };
+  const poweredCount = contract.tiles.filter(([x, y]) => {
     const t = state.grid[y]?.[x];
     return t && t.powered;
-  });
-  if (!allPowered) return false;
-  return availablePowerCapacity() >= (req.amount || 0);
+  }).length;
+  const allPowered = poweredCount === contract.tiles.length;
+  const spare = availablePowerCapacity();
+  const met = allPowered && spare >= (req.amount || 0);
+  const current = allPowered ? spare : poweredCount;
+  return { met, current, required: req.amount || 0 };
 }
 
 /**
  * water — all contract tiles must have water coverage.
- * Same logic as power: req.amount is informational until a capacity
- * model exists; the meaningful check is full coverage of the footprint.
  */
 function checkWater(req, contract, state) {
-  if (!contract.tiles || contract.tiles.length === 0) return false;
-  return contract.tiles.every(([x, y]) => {
+  if (!contract.tiles || contract.tiles.length === 0)
+    return { met: false, current: 0, required: '?' };
+  const wateredCount = contract.tiles.filter(([x, y]) => {
     const t = state.grid[y]?.[x];
     return t && t.water;
-  });
+  }).length;
+  return {
+    met: wateredCount === contract.tiles.length,
+    current: wateredCount,
+    required: contract.tiles.length
+  };
 }
 
 /**
  * happiness — city-wide happiness must meet a minimum threshold.
  */
 function checkHappiness(req, _contract, state) {
-  return state.happiness >= req.minValue;
+  return {
+    met: state.happiness >= req.minValue,
+    current: state.happiness,
+    required: req.minValue
+  };
 }
 
 /**
  * labor — rough available workforce estimate.
- * Available = total pop minus workers already employed in COM/IND tiles.
- * Stub: no "skilled vs unskilled" split yet — req.skilled is the threshold.
  */
 function checkLabor(req, _contract, state) {
   let employed = 0;
@@ -73,44 +86,46 @@ function checkLabor(req, _contract, state) {
     }
   }
   const available = Math.max(0, state.pop - employed);
-  return available >= (req.skilled || 0);
+  return {
+    met: available >= (req.skilled || 0),
+    current: available,
+    required: req.skilled || 0
+  };
 }
 
 /**
- * road — tiered connectivity check based on req.quality:
- *
- *   (default / "low") — any road within 3 tiles (nearRoad flag).
- *   "high"            — nearRoad AND at least one contract tile has a
- *                       road tile as a direct orthogonal neighbour.
- *   "highway"         — stub: treated as "high" until a highway tile
- *                       type exists; flagged in details so UI can warn.
+ * road — tiered connectivity check.
+ * "low": any road within 3 tiles (nearRoad flag).
+ * "high"/"highway": nearRoad AND at least one tile directly borders a road tile.
  */
 function checkRoad(req, contract, state) {
-  if (!contract.tiles || contract.tiles.length === 0) return false;
+  if (!contract.tiles || contract.tiles.length === 0)
+    return { met: false, current: 'none', required: req.quality || 'low' };
 
-  // All tiles need nearRoad regardless of quality tier
   const allNearRoad = contract.tiles.every(([x, y]) => {
     const t = state.grid[y]?.[x];
     return t && t.nearRoad;
   });
-  if (!allNearRoad) return false;
+  if (!allNearRoad) return { met: false, current: 'none', required: req.quality || 'low' };
 
   const quality = req.quality || 'low';
-  if (quality === 'low') return true;
+  if (quality === 'low') return { met: true, current: 'nearby', required: quality };
 
-  // "high" / "highway": at least one contract tile must directly border a road
-  const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
-  const hasDirectAccess = contract.tiles.some(([x, y]) =>
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const hasDirect = contract.tiles.some(([x, y]) =>
     DIRS.some(([dx, dy]) => {
       const t = state.grid[y + dy]?.[x + dx];
       return t && t.type === T.ROAD;
     })
   );
-  return hasDirectAccess;
+  return {
+    met: hasDirect,
+    current: hasDirect ? 'direct' : 'nearby',
+    required: quality
+  };
 }
 
 // ── Validator dispatch table ───────────────────────────────────────
-// Keyed by requirement object key (tiles, power, water, etc.)
 
 const VALIDATORS = {
   tiles:     checkTiles,
@@ -129,7 +144,7 @@ const VALIDATORS = {
  * @param {object} stage    - The current stage object
  * @param {object} contract - The full scenario/contract object
  * @param {object} state    - The live game state
- * @returns {{ met: boolean, details: Object.<string, boolean> }}
+ * @returns {{ met: boolean, details: Object.<string, {met:boolean,current:any,required:any}> }}
  */
 export function checkAllRequirements(stage, contract, state) {
   const details = {};
@@ -137,10 +152,11 @@ export function checkAllRequirements(stage, contract, state) {
 
   for (const [key, req] of Object.entries(stage.requirements)) {
     const validator = VALIDATORS[key];
-    // Unknown requirement types default to false (fail-safe)
-    const result = validator ? validator(req, contract, state) : false;
+    const result = validator
+      ? validator(req, contract, state)
+      : { met: false, current: '?', required: '?' };
     details[key] = result;
-    if (!result) allMet = false;
+    if (!result.met) allMet = false;
   }
 
   return { met: allMet, details };

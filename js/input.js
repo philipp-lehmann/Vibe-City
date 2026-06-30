@@ -30,6 +30,20 @@ let dragging=false, dragBtn=0, lastPaint='';
 // --- single-tile placement (used by non-drag tools and per-tile paint) ---
 function placeTool(gx,gy){
   if(!inBounds(gx,gy)) return;
+
+  // PLACEMENT MODE: left-click paints tiles into the contract zone selection.
+  // lastPaint throttles so drag-painting selects each tile at most once per stroke.
+  if(state.placementMode){
+    const pm=state.placementMode;
+    const key=gx+','+gy;
+    if(key===lastPaint) return;
+    lastPaint=key;
+    const idx=pm.selectedTiles.findIndex(([x,y])=>x===gx&&y===gy);
+    if(idx>=0) pm.selectedTiles.splice(idx,1);
+    else pm.selectedTiles.push([gx,gy]);
+    return;
+  }
+
   // TERRAIN TOOLS: terrain brushes paint per tile; recompute is flushed on mouseup
   if(isTerrainTool(state.tool)){
     const key=gx+','+gy+':'+state.tool; if(key===lastPaint) return;
@@ -316,6 +330,13 @@ export function initInput(){
   view.addEventListener('mousedown',e=>{
     const [gx,gy]=pickFromEvent(e);
     dragging=true; dragBtn=e.button; lastPaint='';
+
+    // PLACEMENT MODE: only left-click tile selection; ignore right-click and drag tools
+    if(state.placementMode){
+      if(e.button===0) placeTool(gx,gy);
+      return;
+    }
+
     if(e.button===2){
       // RIGHTCLICK DRAG: context-aware clearing. Zone/road tools erase via the
       // drag-preview region (axis-lock/preview); water brush + bulldozer/other

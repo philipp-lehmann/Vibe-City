@@ -976,6 +976,82 @@ button:hover {
   background: #2a2a2a;
 }
 
+/* ── SCENARIOS: placement banner ──────────────────────────────── */
+
+#placement-banner {
+  display: none;
+  position: fixed;
+  top: 46px;              /* just below status bar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 205;
+  background: var(--panel);
+  border: 2px solid #ff8c00;
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-5);
+  color: var(--ink);
+  font-size: var(--font-sm);
+  font-family: inherit;
+  text-align: center;
+  min-width: 320px;
+  box-shadow: 0 0 20px rgba(255,140,0,0.25);
+}
+
+#placement-banner.active { display: block; }
+
+#placement-banner .pb-title {
+  color: #ff8c00;
+  font-size: var(--font-xs);
+  letter-spacing: 1px;
+  margin-bottom: var(--sp-2);
+}
+
+#placement-banner .pb-count {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  margin-bottom: var(--sp-1);
+}
+
+#placement-banner .pb-hint {
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+  margin-bottom: var(--sp-3);
+}
+
+#placement-banner .pb-actions {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: center;
+}
+
+#placement-banner .pb-actions button {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--font-xs);
+}
+
+#placement-banner .pb-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── SCENARIOS: offer modal additions ─────────────────────────── */
+
+.contract-modal-meta {
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+  margin-bottom: 2px;
+}
+
+.contract-modal-row.offer-req { color: var(--ink-mid); }
+.contract-modal-row.offer-reward { color: var(--gold); }
+
+/* ── SCENARIOS: placement state card in contracts panel ────────── */
+
+.contract-card.contract-placement {
+  border-color: rgba(255,140,0,0.4);
+  background: rgba(255,140,0,0.04);
+}
+
 /* DEMAND SYSTEM: tax slider control */
 #taxbox {
   background: var(--panel2);

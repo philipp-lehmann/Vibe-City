@@ -295,6 +295,24 @@ export function render(){
         ctx.fill();
         ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1.5; ctx.stroke();
       }
+
+      // PLACEMENT MODE: orange overlay on selected tiles
+      if(state.placementMode){
+        const pm=state.placementMode;
+        const isSel=pm.selectedTiles.some(([tx,ty])=>tx===gx&&ty===gy);
+        if(isSel){
+          diamond(sx,sy);
+          ctx.fillStyle='rgba(255,140,0,0.45)';
+          ctx.fill();
+          ctx.strokeStyle='#ff8c00'; ctx.lineWidth=2; ctx.stroke();
+        } else if(state.hover.x===gx && state.hover.y===gy){
+          // dim orange preview on hover (helps player aim)
+          diamond(sx,sy);
+          ctx.fillStyle='rgba(255,140,0,0.18)';
+          ctx.fill();
+          ctx.strokeStyle='rgba(255,140,0,0.5)'; ctx.lineWidth=1.5; ctx.stroke();
+        }
+      }
     }
   }
   drawDragPreview();

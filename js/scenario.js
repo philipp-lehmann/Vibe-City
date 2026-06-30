@@ -1,14 +1,18 @@
 /* ================================================================
    scenario.js — ScenarioManager: multi-stage contract system.
 
-   Manages active/completed scenarios, monthly ticking, stage
-   transitions, rewards, penalties, and renegotiation logic.
+   Contract lifecycle:
+     OFFERED      → player must accept or decline (game paused)
+     PLACEMENT    → player selects tiles on the map (game paused)
+     ACTIVE       → ticking toward deadline
+     RENEGOTIATING → stage failed, player must accept/reject offer
+     COMPLETED    → all stages done
+     FAILED_CONTRACT_ENDED / DECLINED → terminal
 
    Completely decoupled from the DOM — communicates only via
-   pushNotice() and requestFlash(). UI listens for two special
-   flash payloads:
-     "__RENEGOTIATE__:<id>"           → open renegotiation modal
-     "__DECLINE_CONSEQUENCES__:<id>"  → show decline consequences
+   pushNotice() and requestFlash(). UI listens for one special
+   flash payload:
+     "__RENEGOTIATE__:<id>"  → open renegotiation modal
 
    Dependencies: state.js, scenarios/blueprints.js,
                  scenarios/requirements.js
@@ -58,10 +62,9 @@ function failStage(scenario) {
   const stage    = scenario.currentStage;
   const penalties = stage.penalties.ifFailed;
 
-  // Apply penalties (populationLoss stored as negative in blueprints)
   state.funds    -= (penalties.revenue        || 0);
-  state.prestige += (penalties.prestige       || 0);  // negative value
-  state.pop      += (penalties.populationLoss || 0);  // negative value
+  state.prestige += (penalties.prestige       || 0);
+  state.pop      += (penalties.populationLoss || 0);
   state.revenue.lost += (penalties.revenue    || 0);
 
   scenario.stageStatus = 'FAILED';
@@ -76,7 +79,6 @@ function failStage(scenario) {
       newDeadline: 90,
       message:     penalties.message || "They're willing to continue at reduced capacity."
     };
-    // Signal UI to open renegotiation modal
     requestFlash(`__RENEGOTIATE__:${scenario.id}`);
     pushNotice(`⚠️ ${scenario.type}: stage failed — renegotiation offered.`);
   } else if (penalties.contractEnds) {
@@ -89,13 +91,11 @@ function declineStage(scenario) {
   const stage    = scenario.currentStage;
   const penalties = stage.penalties.ifDeclined;
 
-  // Apply brutal penalties
   state.funds    -= (penalties.revenue        || 0);
-  state.prestige += (penalties.prestige       || 0);  // large negative
-  state.pop      += (penalties.populationLoss || 0);  // large negative
+  state.prestige += (penalties.prestige       || 0);
+  state.pop      += (penalties.populationLoss || 0);
   state.revenue.lost += (penalties.revenue    || 0);
 
-  // Blacklist this contract type
   if (penalties.contractBlacklist) {
     state.scenarios.contractBlacklist[scenario.type] = {
       until:  state.month + penalties.contractBlacklist,
@@ -108,8 +108,6 @@ function declineStage(scenario) {
     stage: stage.id, action: 'DECLINED', month: state.month
   });
 
-  // Signal UI to show consequences screen
-  requestFlash(`__DECLINE_CONSEQUENCES__:${scenario.id}`);
   pushNotice(`❌ ${scenario.type} DECLINED. ${penalties.message || ''}`);
 }
 
@@ -124,9 +122,12 @@ export class ScenarioManager {
 
   // ── Spawn ────────────────────────────────────────────────────────
 
-  /** Add a new scenario from a blueprint. Returns the scenario or null if blacklisted. */
+  /**
+   * Add a new scenario from a blueprint.
+   * Sets status OFFERED and queues it in state.pendingOffers for the UI
+   * to show an acceptance modal (and pause the game).
+   */
   addScenario(blueprint) {
-    // Blacklist check
     const bl = this._state.scenarios.contractBlacklist[blueprint.type];
     if (bl && bl.until > this._state.month) {
       const remaining = bl.until - this._state.month;
@@ -134,7 +135,6 @@ export class ScenarioManager {
       return null;
     }
 
-    // Deep-clone stages so mutations never corrupt the source blueprint
     const stages = blueprint.stages.map(s => ({
       ...s,
       requirements: JSON.parse(JSON.stringify(s.requirements)),
@@ -146,7 +146,7 @@ export class ScenarioManager {
     const scenario = {
       id:                 `${blueprint.type}_${this._state.month}_${Math.floor(Math.random() * 9000) + 1000}`,
       type:               blueprint.type,
-      status:             'ACTIVE',
+      status:             'OFFERED',   // waits for player acceptance
       stages,
       currentStageIndex:  0,
       currentStage:       stages[0],
@@ -159,10 +159,10 @@ export class ScenarioManager {
     };
 
     this.activeScenarios.push(scenario);
-    // Keep state.scenarios.active in sync for save/load
     this._state.scenarios.active = this.activeScenarios;
 
-    pushNotice(`📋 New contract available: ${stages[0].name}`);
+    // Queue for UI to show offer modal + pause
+    this._state.pendingOffers.push(scenario.id);
     return scenario;
   }
 
@@ -170,18 +170,16 @@ export class ScenarioManager {
 
   tick(monthsElapsed = 1) {
     this.activeScenarios.forEach(scenario => {
+      // Only tick ACTIVE contracts — OFFERED/PLACEMENT/RENEGOTIATING wait for player
       if (scenario.status !== 'ACTIVE') return;
 
-      // Decrement deadline
       scenario.monthsRemaining             -= monthsElapsed;
       scenario.currentStage.monthsRemaining = scenario.monthsRemaining;
 
-      // Evaluate requirements
-      const { met, details } = checkAllRequirements(
+      const { met } = checkAllRequirements(
         scenario.currentStage, scenario, this._state
       );
 
-      // Notify on status change
       if (met && scenario.stageStatus === 'IN_PROGRESS') {
         scenario.stageStatus = 'REQUIREMENTS_MET';
         pushNotice(`✓ ${scenario.currentStage.name} requirements met — hold until deadline!`);
@@ -190,24 +188,19 @@ export class ScenarioManager {
         pushNotice(`⚠️ ${scenario.currentStage.name} requirements no longer met!`);
       }
 
-      // Deadline warnings (every 6 months when < 30 months remain)
       if (scenario.monthsRemaining > 0 && scenario.monthsRemaining <= 30) {
         if (Math.ceil(scenario.monthsRemaining) % 6 === 0) {
           requestFlash(`${scenario.type}: ${Math.ceil(scenario.monthsRemaining)} months left!`);
         }
       }
 
-      // Deadline passed → resolve
       if (scenario.monthsRemaining <= 0) {
-        if (met) {
-          completeStage(scenario);
-        } else {
-          failStage(scenario);
-        }
+        if (met) completeStage(scenario);
+        else     failStage(scenario);
       }
     });
 
-    // Archive finished scenarios; keep state.scenarios in sync
+    // Archive finished scenarios
     this.activeScenarios = this.activeScenarios.filter(s => {
       if (['COMPLETED', 'FAILED_CONTRACT_ENDED', 'DECLINED'].includes(s.status)) {
         this.completedScenarios.push(s);
@@ -221,41 +214,113 @@ export class ScenarioManager {
 
   // ── Queries ──────────────────────────────────────────────────────
 
-  /** Look up a scenario by id (active first, then completed). */
   getScenario(id) {
     return this.activeScenarios.find(s => s.id === id) ||
            this.completedScenarios.find(s => s.id === id) ||
            null;
   }
 
-  /** Summary of all active contracts — used by the UI contracts panel. */
+  /**
+   * Summary for the contracts panel — excludes OFFERED (those use a modal).
+   * PLACEMENT scenarios are included so the player sees what they committed to.
+   */
   getContractStatus() {
-    return this.activeScenarios.map(s => {
-      const { met, details } = checkAllRequirements(
-        s.currentStage, s, this._state
-      );
-      return {
-        id:                 s.id,
-        type:               s.type,
-        stage:              s.currentStageIndex + 1,
-        totalStages:        s.stages.length,
-        stageName:          s.currentStage.name,
-        deadlineIn:         Math.ceil(s.monthsRemaining),
-        maxDeadline:        s.currentStage.monthsUntilDeadline,
-        requirementsMet:    met,
-        requirementDetails: details,
-        stageStatus:        s.stageStatus,
-        status:             s.status,
-        pendingRevenue:     s.currentStage.rewards.revenue,
-        earnedRevenue:      s.stages
-          .slice(0, s.currentStageIndex)
-          .reduce((sum, stage) => sum + stage.rewards.revenue, 0),
-        renegotiationOffer: s.renegotiationOffer || null
-      };
-    });
+    return this.activeScenarios
+      .filter(s => s.status !== 'OFFERED')
+      .map(s => {
+        const { met, details } = checkAllRequirements(
+          s.currentStage, s, this._state
+        );
+        return {
+          id:                 s.id,
+          type:               s.type,
+          stage:              s.currentStageIndex + 1,
+          totalStages:        s.stages.length,
+          stageName:          s.currentStage.name,
+          deadlineIn:         Math.ceil(s.monthsRemaining),
+          maxDeadline:        s.currentStage.monthsUntilDeadline,
+          requirementsMet:    met,
+          requirementDetails: details,
+          stageStatus:        s.stageStatus,
+          status:             s.status,
+          pendingRevenue:     s.currentStage.rewards.revenue,
+          earnedRevenue:      s.stages
+            .slice(0, s.currentStageIndex)
+            .reduce((sum, stage) => sum + stage.rewards.revenue, 0),
+          renegotiationOffer: s.renegotiationOffer || null,
+          tilesRequired:      s.currentStage.requirements.tiles?.count || 0,
+          tilesSelected:      s.tiles?.length || 0
+        };
+      });
   }
 
   // ── Player actions ───────────────────────────────────────────────
+
+  /**
+   * Player accepts a contract offer.
+   * Transitions to PLACEMENT and sets state.placementMode.
+   * Game stays paused; UI shows placement banner.
+   */
+  acceptOffer(scenarioId) {
+    const scenario = this.getScenario(scenarioId);
+    if (!scenario || scenario.status !== 'OFFERED') return false;
+
+    scenario.status = 'PLACEMENT';
+    const required = scenario.currentStage.requirements.tiles?.count || 5;
+    this._state.placementMode = {
+      scenarioId,
+      required,
+      selectedTiles: []
+    };
+    pushNotice(`📍 Place ${required} tiles for ${scenario.type}.`);
+    return true;
+  }
+
+  /**
+   * Player declines a contract offer (before accepting).
+   * Applies ifDeclined penalties and archives the scenario.
+   */
+  declineOffer(scenarioId) {
+    const scenario = this.getScenario(scenarioId);
+    if (!scenario || scenario.status !== 'OFFERED') return false;
+    declineStage(scenario);
+    return true;
+  }
+
+  /**
+   * Player cancels during tile placement (after accepting).
+   * Resets placement mode and applies decline penalties.
+   */
+  cancelPlacement(scenarioId) {
+    const scenario = this.getScenario(scenarioId);
+    if (!scenario || scenario.status !== 'PLACEMENT') return false;
+    this._state.placementMode = null;
+    // Temporarily set OFFERED so declineStage can fire
+    scenario.status = 'OFFERED';
+    declineStage(scenario);
+    return true;
+  }
+
+  /**
+   * Player confirms tile selection and activates the contract.
+   * Unlocks the game (caller should unpause).
+   */
+  confirmPlacement(scenarioId) {
+    const scenario = this.getScenario(scenarioId);
+    if (!scenario || scenario.status !== 'PLACEMENT') return false;
+    const pm = this._state.placementMode;
+    if (!pm || pm.scenarioId !== scenarioId) return false;
+    if (pm.selectedTiles.length < pm.required) return false;
+
+    // Lock only the required number of tiles (trim if over-selected)
+    const tiles = pm.selectedTiles.slice(0, pm.required);
+    this.placeScenario(scenarioId, tiles);
+
+    scenario.status      = 'ACTIVE';
+    scenario.stageStatus = 'IN_PROGRESS';
+    this._state.placementMode = null;
+    return true;
+  }
 
   /**
    * Lock a set of tiles to this contract.
@@ -279,7 +344,7 @@ export class ScenarioManager {
     return true;
   }
 
-  /** Player explicitly declines an active contract. */
+  /** Player explicitly declines an active contract via the panel. */
   declineScenario(scenarioId) {
     const scenario = this.getScenario(scenarioId);
     if (!scenario || scenario.status === 'DECLINED') return false;
@@ -287,7 +352,6 @@ export class ScenarioManager {
     return true;
   }
 
-  /** Player accepts a renegotiation offer after a stage failure. */
   acceptRenegotiation(scenarioId) {
     const scenario = this.getScenario(scenarioId);
     if (!scenario || scenario.status !== 'RENEGOTIATING') return false;
@@ -304,11 +368,9 @@ export class ScenarioManager {
     return true;
   }
 
-  /** Player rejects a renegotiation offer — triggers full decline penalties. */
   rejectRenegotiation(scenarioId) {
     const scenario = this.getScenario(scenarioId);
     if (!scenario) return false;
-    // Reset status so declineStage can run its normal flow
     scenario.status = 'ACTIVE';
     declineStage(scenario);
     return true;
@@ -316,17 +378,12 @@ export class ScenarioManager {
 
   // ── Save/load sync ───────────────────────────────────────────────
 
-  /**
-   * Rebuild in-memory scenario objects from a deserialized save blob.
-   * Called by applySave() after restoring state.scenarios.active.
-   * Merges saved runtime data onto the matching blueprint stages.
-   */
   loadFromState() {
     this.activeScenarios = (this._state.scenarios.active || []).map(saved => {
       const blueprint = SCENARIOS[saved.type];
-      if (!blueprint) return null;   // unknown type — skip
+      if (!blueprint) return null;
 
-      const stages = blueprint.stages.map((s, i) => ({
+      const stages = blueprint.stages.map(s => ({
         ...s,
         requirements: JSON.parse(JSON.stringify(s.requirements)),
         rewards:      { ...s.rewards },
@@ -346,7 +403,4 @@ export class ScenarioManager {
 
 // ── Singleton ──────────────────────────────────────────────────────
 export const scenarioManager = new ScenarioManager(state);
-
-// Re-export SCENARIOS so other modules (simulation.js) can import it
-// from a single place without reaching into the blueprints file directly.
 export { SCENARIOS };

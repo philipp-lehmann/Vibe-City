@@ -311,8 +311,13 @@ export function monthlyTick(){
   state.funds += state.revenue.monthly;
   scenarioManager.tick(1);   // 1 month elapsed
 
-  // Randomly offer new contracts (~30% chance per month, max 3 active at once)
+  // Randomly offer new contracts (5% chance per month, max 3 active at once)
+  // Don't queue a new offer while one is pending acceptance or tile placement
+  const noPendingOffer = !scenarioManager.activeScenarios.some(
+    s => s.status === 'OFFERED' || s.status === 'PLACEMENT'
+  );
   if (state.revenue.monthly >= 0 &&   // don't offer during a fiscal crisis
+      noPendingOffer &&
       scenarioManager.activeScenarios.length < 3 &&
       Math.random() < 0.05) {         // ~5% per month so offers feel rare
     const available = Object.values(SCENARIOS).filter(bp => {
