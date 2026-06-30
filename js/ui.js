@@ -79,6 +79,172 @@ export function refreshHUD() {
   }
 }
 
+/* ===== STATISTICS: statusbar sparklines + the Statistics dropdown panel.
+   state.history (pop/happiness/funds, last 24 monthly samples) is owned by
+   state.js and appended to once per monthlyTick. This module only reads it
+   and draws/refreshes the DOM — same decoupling rule as the rest of ui.js. */
+function drawSparkline(canvas, values, opts = {}) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (!values.length) return;
+  const min = opts.min ?? Math.min(...values);
+  const max = opts.max ?? Math.max(...values);
+  const range = (max - min) || 1;
+  ctx.beginPath();
+  values.forEach((v, i) => {
+    const x = values.length > 1 ? (i / (values.length - 1)) * (w - 1) : w - 1;
+    const y = h - 1 - ((v - min) / range) * (h - 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = opts.color || '#e8e8e8';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+// NOTE: history arrays are capped at HISTORY_LEN (24) and shift() once full,
+// so array length stops changing after month 24 — guard on state.month
+// (always increasing) instead, or redraws silently stop forever past month 24.
+let _statHistMonth = -1;
+let _chartHistMonth = -1;
+// New Game / Load both reset state.month to a value the redraw guards may
+// already hold from a prior city — force the next draw call through.
+function resetStatsHistoryGuards() { _statHistMonth = -1; _chartHistMonth = -1; }
+function drawSparklines() {
+  const h = state.history;
+  if (state.month === _statHistMonth) return;   // only redraw when a new sample lands
+  _statHistMonth = state.month;
+  drawSparkline($('spark-pop'), h.pop, { color: '#e8e8e8' });
+  drawSparkline($('spark-happy'), h.happiness, {
+    min: 0, max: 100,
+    color: state.happiness >= 60 ? '#e8e8e8' : state.happiness >= 35 ? '#ffd23f' : '#ff5b3b'
+  });
+  drawSparkline($('spark-funds'), h.funds, { color: state.funds < 0 ? '#ff5b3b' : '#e8e8e8' });
+}
+
+// STATISTICS: fixed per-metric colors for the panel's combined chart (legend
+// swatches in index.html use the same hex values) — distinct hues so all three
+// lines stay readable overlapping on one canvas regardless of their values.
+const STAT_COLOR = { pop: '#e8e8e8', happiness: '#ffd23f', funds: '#2bd1d4' };
+
+// draw every toggled-on series on the bigger panel chart, each independently
+// normalized to its own min/max (population/happiness/funds live on wildly
+// different scales, so a shared y-axis would flatten two of the three lines)
+function drawStatsChart(force) {
+  const canvas = $('stats-chart');
+  if (!canvas || !isStatsPanelOpen()) return;
+  const h = state.history;
+  if (!force && state.month === _chartHistMonth) return;
+  _chartHistMonth = state.month;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, ch = canvas.height;
+  ctx.clearRect(0, 0, w, ch);
+  for (const key of ['pop', 'happiness', 'funds']) {
+    if (!state.statsVisible[key]) continue;
+    const values = h[key];
+    if (!values.length) continue;
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = (max - min) || 1;
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = values.length > 1 ? (i / (values.length - 1)) * (w - 4) + 2 : w - 2;
+      const y = ch - 4 - ((v - min) / range) * (ch - 8);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = STAT_COLOR[key];
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+
+
+let _statsDidAutoPause = false;   // true only if WE paused the sim for the panel (so we don't un-pause a manual pause)
+function isStatsPanelOpen() { return $('stats-panel')?.style.display === 'flex'; }
+function openStatsPanel(anchorEl) {
+  $('stats-panel').style.display = 'flex';
+  if (state.statsAutoPause && !state.paused) { _statsDidAutoPause = true; state.paused = true; }
+  refreshStatsPanel();
+  drawStatsChart(true);
+}
+function closeStatsPanel() {
+  $('stats-panel').style.display = 'none';
+  if (_statsDidAutoPause) { state.paused = false; _statsDidAutoPause = false; }
+}
+
+function fmtDelta(n) { const r = Math.round(n); return (r > 0 ? '+' : '') + r.toLocaleString(); }
+function deltaColor(n) { return n > 0 ? 'var(--gold)' : n < 0 ? 'var(--warn)' : 'var(--ink-dim)'; }
+
+function refreshStatsPanel() {
+  if (!isStatsPanelOpen()) return;
+  const h = state.history;
+  const lastDelta = arr => arr.length >= 2 ? arr[arr.length - 1] - arr[arr.length - 2] : 0;
+
+  $('stat-pop').textContent = state.pop.toLocaleString();
+  const dPop = lastDelta(h.pop);
+  $('stat-pop-delta').textContent = fmtDelta(dPop);
+  $('stat-pop-delta').style.color = deltaColor(dPop);
+
+  $('stat-happy').textContent = state.happiness;
+  const dHappy = lastDelta(h.happiness);
+  $('stat-happy-delta').textContent = fmtDelta(dHappy);
+  $('stat-happy-delta').style.color = deltaColor(dHappy);
+
+  const fv = $('stat-funds');
+  fv.textContent = (state.funds < 0 ? '-$' : '$') + Math.abs(state.funds).toLocaleString();
+  fv.style.color = state.funds < 0 ? 'var(--warn)' : 'var(--ink)';
+  const dFunds = lastDelta(h.funds);
+  const fd = $('stat-funds-delta');
+  fd.textContent = (dFunds >= 0 ? '+$' : '-$') + Math.abs(Math.round(dFunds)).toLocaleString();
+  fd.style.color = deltaColor(dFunds);
+
+  drawStatsChart();
+}
+
+// maps each statusbar trigger's data-stats-trigger value (matches its label
+// text) to the state.statsVisible / state.history key it represents
+const TRIGGER_TO_STAT = { population: 'pop', happyness: 'happiness', funds: 'funds' };
+
+function initStatsPanel() {
+  // clicking a stat's own trigger opens the panel anchored there and makes
+  // sure that metric's line is switched on; re-clicking the same one closes it
+  document.querySelectorAll('[data-stats-trigger]').forEach(lbl => {
+    const grp = lbl.closest('.grp') || lbl;
+    const statKey = TRIGGER_TO_STAT[lbl.dataset.statsTrigger];
+    grp.onclick = () => {
+      if (isStatsPanelOpen()) { closeStatsPanel(); return; }
+      if (statKey && !state.statsVisible[statKey]) {
+        state.statsVisible[statKey] = true;
+        const toggle = $('stat-toggle-' + statKey);
+        if (toggle) toggle.checked = true;
+      }
+      openStatsPanel(grp);
+    };
+  });
+  $('stats-head').onclick = closeStatsPanel;
+
+  // STATISTICS: per-row checkboxes show/hide that metric's line on the chart
+  document.querySelectorAll('.stat-toggle').forEach(toggle => {
+    const key = toggle.closest('.stat-row').dataset.stat;
+    toggle.checked = state.statsVisible[key];
+    toggle.onchange = e => {
+      state.statsVisible[key] = e.target.checked;
+      drawStatsChart(true);
+    };
+  });
+
+  const cb = $('stats-autopause');
+  cb.checked = state.statsAutoPause;
+  cb.onchange = e => {
+    state.statsAutoPause = e.target.checked;
+    if (!isStatsPanelOpen()) return;
+    if (state.statsAutoPause && !state.paused) { _statsDidAutoPause = true; state.paused = true; }
+    else if (!state.statsAutoPause && _statsDidAutoPause) { _statsDidAutoPause = false; state.paused = false; }
+  };
+  window.addEventListener('resize', () => { if (isStatsPanelOpen()) positionStatsPanel(); });
+}
+
 /* --- tile inspector for the hovered tile --- */
 export function updateInspector() {
   const { x, y } = state.hover;
@@ -297,7 +463,7 @@ function slotCard(slot, entry) {
   const bSave = document.createElement('button'); bSave.textContent = 'Save'; bSave.style.cssText = btnCss('var(--ink-mid)');
   bSave.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
   const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)');
-  bLoad.onclick = () => { if (loadGame(slot)) { syncMinimapSize(); startGame(); closeSaves(); flashStatus('Loaded ' + (entry.cityName || '')); } }; // MAP SIZE + STARTUP
+  bLoad.onclick = () => { if (loadGame(slot)) { syncMinimapSize(); resetStatsHistoryGuards(); startGame(); closeSaves(); flashStatus('Loaded ' + (entry.cityName || '')); } }; // MAP SIZE + STARTUP
   const bDel = document.createElement('button'); bDel.textContent = 'Del'; bDel.style.cssText = btnCss('var(--warn)');
   bDel.onclick = () => { if (confirm('Delete save "' + (entry.cityName || slot) + '"?')) { deleteSave(slot); renderSlots(); } };
   row.appendChild(bSave); row.appendChild(bLoad); row.appendChild(bDel);
@@ -324,7 +490,7 @@ function renderSlots() {
     card.innerHTML = `${a.thumb ? `<img src="${a.thumb}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated;background:#05050c;">` : ''}
       <div style="flex:1;"><b>AUTOSAVE</b> <span style="color:var(--ink-dim);">${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span></div>`;
     const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)') + 'flex:0 0 60px;';
-    bLoad.onclick = () => { if (loadGame('autosave')) { syncMinimapSize(); startGame(); closeSaves(); flashStatus('Loaded autosave'); } }; // MAP SIZE + STARTUP
+    bLoad.onclick = () => { if (loadGame('autosave')) { syncMinimapSize(); resetStatsHistoryGuards(); startGame(); closeSaves(); flashStatus('Loaded autosave'); } }; // MAP SIZE + STARTUP
     card.appendChild(bLoad); box.appendChild(card);
   }
 }
@@ -396,6 +562,7 @@ function buildSizeModal() {
     const name = ($('city-name-input').value || '').trim() || randomCityName();
     newGame(name, pickedSize);  // MAP SIZE
     syncMinimapSize();
+    resetStatsHistoryGuards();
     startGame();                                       // STARTUP
     closeSaves();
     flashStatus(`NEW ${MAP_SIZES[pickedSize].label} CITY: ${state.cityName}`);
@@ -460,10 +627,13 @@ export function initUI() {
   syncMinimapSize();                                 /* MAP SIZE: match default map */
   initAdminPanel();                                  /* ADMIN PANEL */
   initNotifCenter();                                 /* NOTIFICATION CENTRE */
+  initStatsPanel();                                  /* STATISTICS */
 }
 
 export function syncUI() {
   refreshHUD();
+  drawSparklines();      /* STATISTICS */
+  refreshStatsPanel();   /* STATISTICS: no-op while the panel is closed */
   syncControls();
   syncTools();
   updateInspector();

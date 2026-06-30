@@ -7,7 +7,7 @@
    via state.pushNotice (drained by ui), never via the DOM.
    ================================================================ */
 import { T, isZone, conducts, clamp, lerp } from './config.js';   // MAP SIZE: GRID now runtime
-import { state, tileAt, makeTile, pushNotice, requestFlash } from './state.js';
+import { state, tileAt, makeTile, pushNotice, requestFlash, pushHistory } from './state.js';
 import { TERRAIN } from './terrain.js';   // TERRAIN TOOLS: terrain land-value effects
 
 const POP_MILESTONES = [
@@ -290,6 +290,7 @@ export function monthlyTick(){
   }
 
   state.funds += Math.round(income - upkeep);
+  pushHistory();   // STATISTICS: sample this month's pop/happiness/funds for sparklines + stats panel
 
   updateDemand(resPop, resJobPop, comCap, indCap);
   tickFire();

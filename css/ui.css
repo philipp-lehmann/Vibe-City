@@ -126,6 +126,148 @@ body {
   white-space: nowrap;
 }
 
+/* --- STATISTICS: per-metric statusbar sparkline + click-to-open trigger --- */
+#statusbar .lbl[data-stats-trigger] {
+  cursor: pointer;
+}
+
+#statusbar .grp:has(.lbl[data-stats-trigger]) {
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+}
+
+#statusbar .grp:has(.lbl[data-stats-trigger]):hover {
+  background: var(--panel2);
+}
+
+canvas.spark {
+  width: 36px;
+  height: 16px;
+  image-rendering: pixelated;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* --- STATISTICS: dropdown panel — bigger combined chart + toggleable rows --- */
+#stats-panel {
+  position: fixed;
+  top: var(--sp-9);
+  left: 200px;
+  display: none;
+  flex-direction: column;
+  width: 448px;
+  z-index: 90;
+  background: var(--panel);
+  border: var(--border-panel);
+  border-radius: var(--radius-md);
+  padding: var(--sp-2);
+  font-size: var(--font-md);
+}
+
+#stats-chart {
+  width: 100%;
+  height: 200px;
+  display: block;
+  margin-bottom: var(--sp-2);
+  background: var(--panel2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.stats-head {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  justify-content: space-between;
+  color: var(--ink-dim);
+  font-size: var(--font-sm);
+  border-bottom: var(--border);
+  padding-bottom: var(--sp-1);
+  margin-bottom: var(--sp-1);
+}
+
+.stats-head:hover {
+  color: var(--ink);
+}
+
+.ap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-1) var(--sp-3);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--font-sm);
+  color: var(--ink-dim);
+}
+
+#stats-close {
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: var(--font-sm);
+}
+
+.stats-head:hover #stats-close {
+  color: var(--warn);
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px 0;
+}
+
+.stat-toggle {
+  accent-color: var(--ink);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.stat-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.stat-ico {
+  width: 16px;
+  text-align: center;
+}
+
+.stat-lbl {
+  color: var(--ink-dim);
+  flex: 1;
+}
+
+.stat-val {
+  color: var(--ink);
+}
+
+.stat-delta {
+  font-size: var(--font-xs);
+  min-width: 44px;
+  text-align: right;
+}
+
+.stats-autopause-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: var(--border-panel);
+  font-size: var(--font-sm);
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+.stats-autopause-row input {
+  accent-color: var(--ink);
+}
+
 /* --- Left panel (tools + terrain + demand accordion) --- */
 #left-panel {
   position: absolute;
@@ -191,12 +333,12 @@ body {
 .drow {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin: 3px 0;
+  font-size: var(--font-sm);
+  width: 100%;
 }
 
 .drow .dlab {
-  width: 12px;
+  width: var(--sp-2);
 }
 
 .dtrack {

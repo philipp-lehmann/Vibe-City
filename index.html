@@ -23,9 +23,10 @@
       |
       <span id="s-name">New Terminus</span>
       <span class="grp"><span class="lbl">Date</span> <b id="s-date">January 1900</b></span>
-      <span class="grp"><span class="lbl">Population</span> <b id="s-pop">0</b></span>
-      <span class="grp"><span class="lbl">Funds</span> <b id="s-funds">$50,000</b></span>
-      <span class="grp"><span class="lbl">Happyness</span> <b id="s-happy">70</b></span><!-- DEMAND SYSTEM -->
+      <!-- STATISTICS: each stat owns its own trend sparkline; clicking the label opens the Statistics panel -->
+      <span class="grp"><span class="lbl" data-stats-trigger="population">Population</span> <b id="s-pop">0</b><canvas class="spark" id="spark-pop" width="36" height="16"></canvas></span>
+      <span class="grp"><span class="lbl" data-stats-trigger="funds">Funds</span> <b id="s-funds">$50,000</b><canvas class="spark" id="spark-funds" width="36" height="16"></canvas></span>
+      <span class="grp"><span class="lbl" data-stats-trigger="happyness">Happyness</span> <b id="s-happy">70</b><canvas class="spark" id="spark-happy" width="36" height="16"></canvas></span><!-- DEMAND SYSTEM -->
 
     </div>
 
@@ -40,6 +41,41 @@
         <div id="notif-persistent"></div>
         <div id="notif-log"></div>
       </div>
+    </div>
+
+    <!-- ===== STATISTICS PANEL ===== -->
+    <!-- STATISTICS: a bigger combined sparkline — each row's checkbox shows/hides its line on #stats-chart -->
+    <div id="stats-panel">
+      <div id="stats-head" class="stats-head">
+        <span class="ttl">Statistics</span>
+        <span id="stats-close" title="Close">✕</span>
+      </div>
+      <canvas id="stats-chart" width="400" height="200"></canvas>
+      <div class="stat-row" data-stat="pop">
+        <input type="checkbox" class="stat-toggle" id="stat-toggle-pop">
+        <span class="stat-swatch" style="background:#e8e8e8"></span>
+        <span class="stat-lbl">Population</span>
+        <span class="stat-val" id="stat-pop">0</span>
+        <span class="stat-delta" id="stat-pop-delta">+0</span>
+      </div>
+      <div class="stat-row" data-stat="happiness">
+        <input type="checkbox" class="stat-toggle" id="stat-toggle-happiness">
+        <span class="stat-swatch" style="background:#ffd23f"></span>
+        <span class="stat-lbl">Happiness</span>
+        <span class="stat-val" id="stat-happy">70</span>
+        <span class="stat-delta" id="stat-happy-delta">+0</span>
+      </div>
+      <div class="stat-row" data-stat="funds">
+        <input type="checkbox" class="stat-toggle" id="stat-toggle-funds">
+        <span class="stat-swatch" style="background:#2bd1d4"></span>
+        <span class="stat-lbl">Funds</span>
+        <span class="stat-val" id="stat-funds">$50,000</span>
+        <span class="stat-delta" id="stat-funds-delta">+$0</span>
+      </div>
+      <label class="stats-autopause-row">
+        <input type="checkbox" id="stats-autopause">
+        <span>Pause game while shown</span>
+      </label>
     </div>
 
     <!-- ===== LEFT PANEL ===== -->

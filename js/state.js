@@ -69,6 +69,9 @@ export const state = {
   flash: null,                    // pending status-bar flash (drained by ui)
   powerPlantCount: 0,             // updated by propagatePower each tick
   milestones: [],                 // population thresholds already celebrated, e.g. [10000]
+  history: { pop: [], happiness: [], funds: [] },  // STATISTICS: rolling monthly samples (sparklines + stats panel)
+  statsAutoPause: false,          // STATISTICS: pause the sim while the stats panel is open
+  statsVisible: { pop: true, happiness: true, funds: true },   // STATISTICS: which lines show on the panel's combined chart
 };
 
 // --- grid init: all grass; TERRAIN: water/relief now come from generateTerrain ---
@@ -158,6 +161,20 @@ export function rotateView(d){ state.rot = (state.rot + d + 4) % 4; }
 export function pushNotice(msg){ state.notices.push(msg); }
 export function requestFlash(msg){ state.flash = msg; }
 
+/* ===== STATISTICS: rolling history for the statusbar sparklines + the
+   Statistics panel. Simulation calls pushHistory() once per monthly tick;
+   ui.js only ever reads state.history. ===================================== */
+const HISTORY_LEN = 24;   // last 24 monthly samples
+function pushSample(arr, val){
+  arr.push(val);
+  if(arr.length > HISTORY_LEN) arr.shift();
+}
+export function pushHistory(){
+  pushSample(state.history.pop, state.pop);
+  pushSample(state.history.happiness, state.happiness);
+  pushSample(state.history.funds, state.funds);
+}
+
 // --- drag-geometry selector: tiles under the current drag in LOGICAL coords.
 // Shared by renderer.drawDragPreview and input.commitDrag so they never diverge.
 // Ordered outward from the origin so the affordability cutoff fills from where
@@ -209,7 +226,8 @@ export function serializeSave(thumb){
       speedIdx: state.speedIdx, demand: { ...state.demand }, cityName: state.cityName,
       gridWidth: state.gridWidth, gridHeight: state.gridHeight,   // MAP SIZE
       bridges: state.bridges,   // BRIDGES: persist bridge entities
-      milestones: state.milestones
+      milestones: state.milestones,
+      history: state.history    // STATISTICS: persist sparkline/stats-panel history
     },
     meta: { cityName: state.cityName, ts: Date.now(), thumb: thumb || null,
             month: state.month, pop: state.pop }
@@ -253,6 +271,11 @@ export function applySave(blob){
   if(s.demand) state.demand = { ...state.demand, ...s.demand };
   state.bridges   = Array.isArray(s.bridges)   ? s.bridges   : [];   // BRIDGES: restore entities
   state.milestones = Array.isArray(s.milestones) ? s.milestones : [];
+  // STATISTICS: restore history if present (older saves won't have it — seed one sample so charts aren't empty)
+  state.history = (s.history && Array.isArray(s.history.pop))
+    ? { pop: [...s.history.pop], happiness: [...s.history.happiness], funds: [...s.history.funds] }
+    : { pop: [], happiness: [], funds: [] };
+  if(!state.history.pop.length) pushHistory();
   coastPass(state.grid);   // TERRAIN TOOLS: recompute shoreline flags after load
   recomputeAllRoads();   // ROAD CONNECTORS: rebuild masks + outside count on load
   return true;
@@ -273,5 +296,7 @@ export function newGame(name, sizeKey){
   state.outsideConnections = 0;
   state.bridges = [];     // BRIDGES
   state.milestones = [];
+  state.history = { pop: [], happiness: [], funds: [] };   // STATISTICS
+  pushHistory();   // seed one sample so the sparklines/panel aren't empty at month 0
   // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }
