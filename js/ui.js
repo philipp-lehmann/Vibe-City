@@ -5,7 +5,7 @@
    facing updates, tile inspector, control-button wiring, toast +
    status flash, and per-frame syncUI() that applies state -> DOM.
    ================================================================ */
-import { MAP_SIZES, T, TOOLS, FACES, MONTHS, isZone } from './config.js';   // MAP SIZE
+import { MAP_SIZES, T, TOOLS, FACES, SHORT_MONTHS, isZone } from './config.js';   // MAP SIZE
 import {
   state, tileAt, setTool, togglePause, rotateView,
   listSaves, saveGame, loadGame, deleteSave, newGame
@@ -55,7 +55,6 @@ const barColor = k => k === 'R' ? '#7caa6b' : k === 'C' ? '#8a5cf6' : '#d9a72c';
 export function refreshHUD() {
   $('s-name').textContent = state.cityName;
   // DATE FORMAT: fixed-width "Mmm YYYY" (3-char month, 4-digit year, single space)
-  const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const yr = 1900 + Math.floor(state.month / 12);
   $('s-date').textContent = `${SHORT_MONTHS[state.month % 12]} ${yr}`;
   $('s-face').textContent = FACES[state.rot];
@@ -424,7 +423,7 @@ function highlightMini() {
 
 /* ===== SAVE SYSTEM: status-bar buttons, modal, autosave =============== */
 const SAVE_SLOTS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5', 'slot6'];
-const fmtDate = m => `${MONTHS[m % 12]} ${1900 + Math.floor(m / 12)}`;
+const fmtDate = m => `${SHORT_MONTHS[m % 12]} ${1900 + Math.floor(m / 12)}`;
 const liveThumb = () => { try { return $('minimap').toDataURL(); } catch { return null; } };
 
 // build the (hidden) modal overlay once
@@ -473,14 +472,13 @@ function slotCard(slot, entry) {
   card.innerHTML = `<b style="color:var(--ink);">${escapeHtml(entry.cityName || 'City')}</b>
     <div style="color:var(--ink-dim);font-size:var(--font-sm)">${fmtDate(entry.month || 0)} · pop ${(entry.pop || 0).toLocaleString()}</div>
     ${img}`;
-  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:3px;';
-  const bSave = document.createElement('button'); bSave.textContent = 'Save'; bSave.style.cssText = btnCss('var(--ink-mid)');
-  bSave.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
+  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:var(--sp-1);';
+
   const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)');
   bLoad.onclick = () => { if (loadGame(slot)) { syncMinimapSize(); resetStatsHistoryGuards(); startGame(); closeSaves(); flashStatus('Loaded ' + (entry.cityName || '')); } }; // MAP SIZE + STARTUP
-  const bDel = document.createElement('button'); bDel.textContent = 'Del'; bDel.style.cssText = btnCss('var(--warn)');
+  const bDel = document.createElement('button'); bDel.textContent = 'Delete'; bDel.style.cssText = btnCss('var(--warn)');
   bDel.onclick = () => { if (confirm('Delete save "' + (entry.cityName || slot) + '"?')) { deleteSave(slot); renderSlots(); } };
-  row.appendChild(bSave); row.appendChild(bLoad); row.appendChild(bDel);
+  row.appendChild(bLoad); row.appendChild(bDel);
   card.appendChild(row);
   return card;
 }

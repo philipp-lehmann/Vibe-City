@@ -620,7 +620,7 @@ button:hover {
 .hint {
   font-size: var(--font-xs);
   color: var(--ink-dim);
-  text-align: center;
+  text-align: left;
   line-height: 1.6;
 }
 
