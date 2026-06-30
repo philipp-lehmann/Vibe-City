@@ -28,22 +28,32 @@ function checkTiles(req, contract, state) {
 
 /**
  * power — two-part check:
- * 1. All contract tiles must receive power.
+ * 1. All contract tiles must be "powered" — i.e. the tile itself OR any
+ *    orthogonal neighbour conducts power (is powered). Contract tiles are
+ *    GRASS and don't conduct, so the player satisfies this by placing
+ *    a road or powerline adjacent to the zone.
  * 2. Global spare capacity must be >= req.amount.
- *    Displays spare capacity once all tiles powered, otherwise shows tile count.
  */
+const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
+function tilePoweredOrAdjacent(x, y, grid) {
+  if (grid[y]?.[x]?.powered) return true;
+  return DIRS4.some(([dx, dy]) => grid[y + dy]?.[x + dx]?.powered);
+}
+
 function checkPower(req, contract, state) {
   if (!contract.tiles || contract.tiles.length === 0)
-    return { met: false, current: 0, required: req.amount || 0 };
-  const poweredCount = contract.tiles.filter(([x, y]) => {
-    const t = state.grid[y]?.[x];
-    return t && t.powered;
-  }).length;
-  const allPowered = poweredCount === contract.tiles.length;
+    return { met: false, current: '0/0 tiles', required: `all + ${req.amount || 0} spare` };
+  const total = contract.tiles.length;
+  const poweredCount = contract.tiles.filter(([x, y]) =>
+    tilePoweredOrAdjacent(x, y, state.grid)
+  ).length;
+  const allPowered = poweredCount === total;
   const spare = availablePowerCapacity();
   const met = allPowered && spare >= (req.amount || 0);
-  const current = allPowered ? spare : poweredCount;
-  return { met, current, required: req.amount || 0 };
+  // Show tile coverage until all tiles are reached; then show spare vs req
+  if (!allPowered)
+    return { met, current: `${poweredCount}/${total} tiles`, required: 'all tiles' };
+  return { met, current: `${spare} spare`, required: `${req.amount || 0} spare` };
 }
 
 /**

@@ -416,6 +416,14 @@ function drawTileContent(sx,sy,t,gx,gy){
     drawNeedIcon(sx,sy,t);
   }
   if(t.onFire>0) drawFire(sx,sy);
+  // SCENARIOS: contract zone marker — overlay on every locked tile
+  if(t.contractId){
+    const img=getAsset('contract_generic');
+    if(img){
+      const z=state.zoom, hh=(TILE_H/2)*z;
+      blitAsset(img, sx, sy+2*hh);
+    }
+  }
 }
 
 /* ===== ROAD CONNECTORS ================================================
