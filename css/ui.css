@@ -757,6 +757,225 @@ button:hover {
   padding: var(--sp-2) 10px;
 }
 
+/* ── SCENARIOS: contracts panel ───────────────────────────────── */
+
+#contracts-panel {
+  position: absolute;
+  top: var(--sp-9);
+  left: 162px;          /* right edge of the left panel (152px) + gap */
+  width: 220px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  pointer-events: none; /* children re-enable as needed */
+}
+
+.contract-card {
+  background: var(--panel);
+  border: var(--border-panel);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  pointer-events: auto;
+}
+
+.contract-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.contract-name {
+  color: var(--ink);
+  font-size: var(--font-md);
+  letter-spacing: 0.5px;
+}
+
+.contract-stage-badge {
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+}
+
+.contract-stage-name {
+  color: var(--ink-mid);
+  font-size: var(--font-xs);
+  margin-bottom: var(--sp-2);
+}
+
+/* deadline progress bar */
+.contract-bar {
+  height: 4px;
+  background: var(--panel2);
+  border: var(--border);
+  border-radius: 2px;
+  margin-bottom: var(--sp-1);
+  overflow: hidden;
+}
+
+.contract-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.contract-deadline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+  margin-bottom: var(--sp-1);
+}
+
+.contract-reqs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  font-size: var(--font-xs);
+  margin-bottom: var(--sp-1);
+}
+
+.req-met   { color: var(--gold); }
+.req-unmet { color: var(--warn); }
+
+.contract-revenue {
+  color: var(--ink-mid);
+  font-size: var(--font-xs);
+  margin-bottom: var(--sp-2);
+}
+
+.contract-earned {
+  color: var(--gold);
+  font-size: var(--font-xs);
+}
+
+.contract-decline {
+  font-size: var(--font-xs);
+  color: var(--warn);
+  border-color: #5a2018;
+  padding: 2px var(--sp-2);
+  width: 100%;
+}
+
+.contract-decline:hover {
+  background: #3a120c;
+  color: #fff;
+}
+
+/* ── SCENARIOS: contract + renegotiation modals ───────────────── */
+
+#contract-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: none;
+  background: rgba(5, 5, 12, 0.85);
+  align-items: center;
+  justify-content: center;
+}
+
+.contract-modal-panel {
+  background: var(--panel);
+  border: var(--border-dim);
+  padding: var(--sp-5);
+  width: 420px;
+  max-width: 94vw;
+  color: var(--ink);
+  font-size: var(--font-sm);
+  font-family: inherit;
+  border-radius: var(--radius-md);
+  line-height: 1.6;
+}
+
+.contract-modal-title {
+  font-size: var(--font-lg);
+  color: var(--ink);
+  margin-bottom: var(--sp-1);
+  border-bottom: var(--border-panel);
+  padding-bottom: var(--sp-2);
+}
+
+.contract-modal-subtitle {
+  color: var(--ink-mid);
+  font-size: var(--font-sm);
+  margin-bottom: var(--sp-4);
+}
+
+.contract-modal-section {
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+  letter-spacing: 1px;
+  margin: var(--sp-3) 0 var(--sp-1);
+}
+
+.contract-modal-row {
+  padding: 2px 0;
+  font-size: var(--font-sm);
+  color: var(--ink-mid);
+}
+
+.contract-modal-row.consequence {
+  color: var(--warn);
+}
+
+.contract-modal-row.term-old {
+  color: var(--ink-dim);
+  text-decoration: line-through;
+}
+
+.contract-modal-row.term-new {
+  color: var(--gold);
+}
+
+.contract-modal-quote {
+  color: var(--ink-dim);
+  font-style: italic;
+  margin: var(--sp-3) 0;
+  padding-left: var(--sp-3);
+  border-left: 2px solid var(--ink-dim);
+}
+
+.contract-modal-warning {
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+  margin-top: var(--sp-4);
+}
+
+.contract-modal-footer {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: var(--border-panel);
+}
+
+.contract-modal-footer button {
+  flex: 1;
+  padding: var(--sp-2);
+}
+
+.btn-danger {
+  color: var(--warn);
+  border-color: #5a2018;
+}
+
+.btn-danger:hover {
+  background: #3a120c;
+  color: #fff;
+}
+
+.btn-confirm-action {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+}
+
+.btn-confirm-action:hover {
+  border-color: var(--ink);
+  background: #2a2a2a;
+}
+
 /* DEMAND SYSTEM: tax slider control */
 #taxbox {
   background: var(--panel2);

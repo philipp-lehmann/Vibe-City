@@ -9,6 +9,7 @@
 import { T, isZone, conducts, clamp, lerp } from './config.js';   // MAP SIZE: GRID now runtime
 import { state, tileAt, makeTile, pushNotice, requestFlash, pushHistory } from './state.js';
 import { TERRAIN } from './terrain.js';   // TERRAIN TOOLS: terrain land-value effects
+import { scenarioManager, SCENARIOS } from './scenario.js';         // SCENARIOS
 
 const POP_MILESTONES = [
   [10_000,  '10,000 residents — Village!'],
@@ -31,6 +32,7 @@ export function propagatePower(){
     }
   }
   state.powerPlantCount = plants;
+  state.powerCapacity   = capacity;
 
   let used = 0;
   const N=[[1,0],[-1,0],[0,1],[0,-1]];
@@ -43,6 +45,14 @@ export function propagatePower(){
       if(conducts(t.type)){ t.powered=true; used++; queue.push([nx,ny]); }
     }
   }
+  state.powerUsed = used;
+}
+
+// SCENARIOS: spare power units available on the grid (capacity - consumed).
+// Each plant contributes 300 units; req.amount in scenario blueprints is
+// compared directly to this value (treat 1 unit ≈ 1 MW for game purposes).
+export function availablePowerCapacity(){
+  return state.powerCapacity - state.powerUsed;
 }
 
 /* --- Water propagation: floods from every road-connected pump. --- */
@@ -296,6 +306,24 @@ export function monthlyTick(){
   tickFire();
 
   if(state.funds < 0) pushNotice('TREASURY OVERDRAWN! Raise income or cut upkeep.');
+
+  // SCENARIOS: apply recurring contract revenue, tick deadlines, offer new contracts
+  state.funds += state.revenue.monthly;
+  scenarioManager.tick(1);   // 1 month elapsed
+
+  // Randomly offer new contracts (~30% chance per month, max 3 active at once)
+  if (state.revenue.monthly >= 0 &&   // don't offer during a fiscal crisis
+      scenarioManager.activeScenarios.length < 3 &&
+      Math.random() < 0.05) {         // ~5% per month so offers feel rare
+    const available = Object.values(SCENARIOS).filter(bp => {
+      const bl = state.scenarios.contractBlacklist[bp.type];
+      return !bl || bl.until <= state.month;
+    });
+    if (available.length > 0) {
+      const bp = available[Math.floor(Math.random() * available.length)];
+      scenarioManager.addScenario(bp);
+    }
+  }
 }
 
 /* --- (legacy helper, retained) pumps within radius 4 provide water --- */

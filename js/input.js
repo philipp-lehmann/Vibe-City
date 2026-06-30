@@ -39,7 +39,9 @@ function placeTool(gx,gy){
   const t=state.grid[gy][gx];
   const tool=TOOLS.find(x=>x.id===state.tool);
 
+  if(t.contractLocked && tool.id!=='bull'){ pushNotice('⛔ Contract tile — cannot build here.'); return; } // SCENARIOS
   if(tool.id==='bull'){
+    if(t.contractLocked){ pushNotice('⛔ Contract tile — cannot bulldoze.'); return; }  // SCENARIOS
     if(t.type!==T.GRASS && t.type!==T.WATER){
       const wasRoad=t.type===T.ROAD;
       if(spend(bulldozeCost(t))){ state.grid[gy][gx]=makeTile(T.GRASS);   // wetland costs 2x
@@ -200,6 +202,7 @@ function removeBridgeSpan(bridgeId){
 function bulldoze(gx,gy){
   if(!inBounds(gx,gy)) return;
   const t=state.grid[gy][gx];
+  if(t.contractLocked){ pushNotice('⛔ Contract tile — cannot bulldoze.'); return; }  // SCENARIOS
   // BRIDGES: bulldozing any bridge tile removes the whole span and refunds 50%
   if(t.bridge && t.bridgeId!=null){ state.funds += removeBridgeSpan(t.bridgeId); return; }
   if(t.type!==T.GRASS && t.type!==T.WATER){

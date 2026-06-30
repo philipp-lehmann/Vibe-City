@@ -11,6 +11,7 @@ import {
   listSaves, saveGame, loadGame, deleteSave, newGame
 } from './state.js'; // SAVE SYSTEM
 import { igniteFire } from './simulation.js';
+import { scenarioManager } from './scenario.js';              // SCENARIOS
 import {
   drawToolIcon, MINI_OVERLAYS, setMiniOverlay, getMiniOverlay,
   cycleZoom, zoomLabel
@@ -265,6 +266,22 @@ export function updateInspector() {
   const t = tileAt(x, y);
   if (!t) { panel.style.display = 'none'; return; }
   panel.style.display = '';
+
+  // SCENARIOS: contract tile — show contract info instead of standard tile info
+  if (t.contractId) {
+    const scenario = scenarioManager.getScenario(t.contractId);
+    if (scenario && scenario.status === 'ACTIVE') {
+      panel.innerHTML = buildContractInspectorHTML(scenario);
+      const declineBtn = document.createElement('button');
+      declineBtn.textContent = 'DECLINE CONTRACT';
+      declineBtn.className = 'contract-decline';
+      declineBtn.style.marginTop = 'var(--sp-2)';
+      declineBtn.onclick = () => showDeclineModal(t.contractId);
+      panel.querySelector('#insp-body').appendChild(declineBtn);
+      return;
+    }
+  }
+
   const body = $('insp-body');
   const names = {
     [T.GRASS]: 'Grassland', [T.WATER]: 'Water', [T.ROAD]: 'Road',
@@ -657,6 +674,214 @@ function buildExportButton() {
   (adminFirst || document.body).appendChild(btn);
 }
 
+/* ===== SCENARIOS: contracts panel, modals, inspector =============== */
+
+// ── Contracts panel ───────────────────────────────────────────────
+
+function syncContractsPanel() {
+  const panel = $('contracts-panel');
+  if (!panel) return;
+
+  const contracts = scenarioManager.getContractStatus();
+
+  // Also show renegotiating scenarios (player must respond)
+  const renegotiating = scenarioManager.activeScenarios.filter(
+    s => s.status === 'RENEGOTIATING'
+  );
+
+  if (contracts.length === 0 && renegotiating.length === 0) {
+    panel.innerHTML = '';
+    return;
+  }
+
+  const fmt = n => '$' + Math.abs(n).toLocaleString();
+  const reqLabel = k => k.charAt(0).toUpperCase() + k.slice(1);
+
+  panel.innerHTML = contracts.map(c => {
+    const pct = Math.max(4, Math.min(100, (c.deadlineIn / c.maxDeadline) * 100));
+    const barColor = c.deadlineIn <= 12 ? 'var(--warn)'
+                   : c.deadlineIn <= 36 ? 'var(--gold)'
+                   : 'var(--ink-mid)';
+    const reqs = Object.entries(c.requirementDetails)
+      .map(([k, v]) =>
+        `<span class="${v ? 'req-met' : 'req-unmet'}" title="${reqLabel(k)}">${v ? '✓' : '✗'} ${reqLabel(k)}</span>`
+      ).join('');
+    const statusLabel = c.requirementsMet
+      ? `<span style="color:var(--gold)">READY</span>`
+      : `<span style="color:var(--ink-dim)">IN PROGRESS</span>`;
+    const earnedNote = c.earnedRevenue > 0
+      ? `<div class="contract-earned">+${fmt(c.earnedRevenue)}/mo earned</div>` : '';
+
+    return `<div class="contract-card">
+      <div class="contract-head">
+        <span class="contract-name">${c.type.replace(/_/g, ' ')}</span>
+        <span class="contract-stage-badge">S${c.stage}/${c.totalStages}</span>
+      </div>
+      <div class="contract-stage-name">${c.stageName}</div>
+      <div class="contract-bar">
+        <div class="contract-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+      </div>
+      <div class="contract-deadline">
+        <span>${c.deadlineIn} months</span>
+        ${statusLabel}
+      </div>
+      <div class="contract-reqs">${reqs}</div>
+      <div class="contract-revenue">+${fmt(c.pendingRevenue)}/month pending</div>
+      ${earnedNote}
+      <button class="contract-decline" data-scenario-id="${c.id}">DECLINE</button>
+    </div>`;
+  }).join('');
+
+  // Wire decline buttons (rebuilt every sync, so re-wire each time)
+  panel.querySelectorAll('.contract-decline').forEach(btn => {
+    btn.onclick = () => showDeclineModal(btn.dataset.scenarioId);
+  });
+}
+
+// ── Contract modal (shared overlay) ──────────────────────────────
+
+let _contractModal = null;
+
+function ensureContractModal() {
+  if (_contractModal) return;
+  _contractModal = document.createElement('div');
+  _contractModal.id = 'contract-modal';
+  _contractModal.addEventListener('click', e => {
+    if (e.target === _contractModal) closeContractModal();
+  });
+  document.body.appendChild(_contractModal);
+}
+
+function closeContractModal() {
+  if (_contractModal) { _contractModal.style.display = 'none'; _contractModal.innerHTML = ''; }
+}
+
+function openContractModal(html) {
+  ensureContractModal();
+  _contractModal.innerHTML = html;
+  _contractModal.style.display = 'flex';
+}
+
+// ── Decline confirmation modal ────────────────────────────────────
+
+export function showDeclineModal(scenarioId) {
+  const scenario = scenarioManager.getScenario(scenarioId);
+  if (!scenario) return;
+  const p = scenario.currentStage.penalties.ifDeclined;
+  const typeName = scenario.type.replace(/_/g, ' ');
+  const blacklistYears = p.contractBlacklist
+    ? Math.round(p.contractBlacklist / 12) : 0;
+
+  openContractModal(`
+    <div class="contract-modal-panel">
+      <div class="contract-modal-title">⚠ DECLINE CONTRACT?</div>
+      <div class="contract-modal-subtitle">${typeName} — ${scenario.currentStage.name}</div>
+
+      <div class="contract-modal-section">CONSEQUENCES</div>
+      <div class="contract-modal-row consequence">Lost Revenue: $${(p.revenue || 0).toLocaleString()}</div>
+      <div class="contract-modal-row consequence">Prestige: ${p.prestige || 0}</div>
+      <div class="contract-modal-row consequence">Population Loss: −${Math.abs(p.populationLoss || 0).toLocaleString()}</div>
+      ${blacklistYears ? `<div class="contract-modal-row consequence">No ${typeName} contracts for ${blacklistYears} years</div>` : ''}
+
+      <div class="contract-modal-warning">This is permanent and cannot be undone.</div>
+
+      <div class="contract-modal-footer">
+        <button class="btn-confirm-action" id="cm-cancel">CANCEL</button>
+        <button class="btn-danger" id="cm-confirm">DECLINE — I'M SURE</button>
+      </div>
+    </div>
+  `);
+
+  _contractModal.querySelector('#cm-cancel').onclick  = closeContractModal;
+  _contractModal.querySelector('#cm-confirm').onclick = () => {
+    scenarioManager.declineScenario(scenarioId);
+    closeContractModal();
+  };
+}
+
+// ── Renegotiation offer modal ─────────────────────────────────────
+
+export function showRenegotiationModal(scenarioId) {
+  const scenario = scenarioManager.getScenario(scenarioId);
+  if (!scenario || !scenario.renegotiationOffer) return;
+  const offer    = scenario.renegotiationOffer;
+  const stage    = scenario.currentStage;
+  const typeName = scenario.type.replace(/_/g, ' ');
+
+  openContractModal(`
+    <div class="contract-modal-panel">
+      <div class="contract-modal-title">📋 RENEGOTIATION OFFER</div>
+      <div class="contract-modal-subtitle">${typeName} — Stage ${scenario.currentStageIndex + 1} Failed</div>
+
+      ${offer.message ? `<div class="contract-modal-quote">"${offer.message}"</div>` : ''}
+
+      <div class="contract-modal-section">OLD TERMS</div>
+      <div class="contract-modal-row term-old">Revenue: $${stage.rewards.revenue.toLocaleString()}/month</div>
+
+      <div class="contract-modal-section">NEW TERMS</div>
+      <div class="contract-modal-row term-new">Revenue: $${offer.newRevenue.toLocaleString()}/month</div>
+      <div class="contract-modal-row term-new">Extra time: +${offer.newDeadline} months</div>
+
+      <div class="contract-modal-footer">
+        <button class="btn-confirm-action" id="cm-accept">ACCEPT OFFER</button>
+        <button class="btn-danger" id="cm-reject">DECLINE & END CONTRACT</button>
+      </div>
+    </div>
+  `);
+
+  _contractModal.querySelector('#cm-accept').onclick = () => {
+    scenarioManager.acceptRenegotiation(scenarioId);
+    closeContractModal();
+  };
+  _contractModal.querySelector('#cm-reject').onclick = () => {
+    scenarioManager.rejectRenegotiation(scenarioId);
+    closeContractModal();
+  };
+}
+
+// ── Inspector integration ─────────────────────────────────────────
+
+function buildContractInspectorHTML(scenario) {
+  const { met, details } = scenarioManager.activeScenarios.length
+    ? (() => {
+        // inline require check without importing requirements module in ui
+        return { met: scenario.stageStatus === 'REQUIREMENTS_MET', details: {} };
+      })()
+    : { met: false, details: {} };
+
+  const typeName  = scenario.type.replace(/_/g, ' ');
+  const stage     = scenario.currentStage;
+  const deadline  = Math.ceil(scenario.monthsRemaining);
+  const pct       = Math.max(0, Math.min(100, (deadline / stage.monthsUntilDeadline) * 100));
+  const barColor  = deadline <= 12 ? 'var(--warn)' : deadline <= 36 ? 'var(--gold)' : 'var(--ink-mid)';
+  const status    = scenario.stageStatus === 'REQUIREMENTS_MET'
+    ? '<span style="color:var(--gold)">READY ✓</span>'
+    : '<span style="color:var(--ink-dim)">IN PROGRESS</span>';
+
+  // Get live requirement details from the status cache
+  const contractStatus = scenarioManager.getContractStatus().find(c => c.id === scenario.id);
+  const reqRows = contractStatus
+    ? Object.entries(contractStatus.requirementDetails).map(([k, v]) =>
+        `<span class="${v ? 'pwr-ok' : 'pwr-no'}">${v ? '✓' : '✗'}</span> <span class="k">${k}</span>`
+      ).join('<br>')
+    : '';
+
+  return `
+    <div class="ttl">${typeName}</div>
+    <div id="insp-body">
+      <span class="k">Stage:</span> <span class="v">${scenario.currentStageIndex + 1}/${scenario.stages.length} — ${stage.name}</span><br>
+      <span class="k">Deadline:</span> <span class="v">${deadline} months</span><br>
+      <div style="height:3px;background:var(--panel2);border:var(--border);margin:4px 0;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${barColor}"></div>
+      </div>
+      <span class="k">Status:</span> ${status}<br>
+      ${reqRows ? `<br><span class="k">Requirements:</span><br>${reqRows}<br>` : ''}
+      <br>
+      <span class="k">Pending:</span> <span class="v">+$${stage.rewards.revenue.toLocaleString()}/month</span><br>
+      <span class="k">Tile locked</span> <span class="v">— cannot bulldoze</span>
+    </div>`;
+}
+
 /* --- init + the single per-frame entry point main calls --- */
 export function initUI() {
   buildToolbar(); wireControls(); buildMiniStrip(); /* MINIMAP OVERLAYS */
@@ -676,6 +901,17 @@ export function syncUI() {
   syncTools();
   updateInspector();
   syncPersistentWarnings();
+  syncContractsPanel();  /* SCENARIOS */
   while (state.notices.length) toast(state.notices.shift());   // drain sim/input notices
-  if (state.flash) { flashStatus(state.flash); state.flash = null; }
+  // SCENARIOS: route special flash payloads to modals; pass everything else to the status bar
+  if (state.flash) {
+    const msg = state.flash;
+    state.flash = null;
+    if (msg.startsWith('__RENEGOTIATE__:')) {
+      showRenegotiationModal(msg.slice(16));
+    } else if (!msg.startsWith('__DECLINE_CONSEQUENCES__:')) {
+      flashStatus(msg);   // ordinary flash — show in notification centre
+    }
+    // __DECLINE_CONSEQUENCES__ is swallowed here; consequences were shown in the modal before decline
+  }
 }

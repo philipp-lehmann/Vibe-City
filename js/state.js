@@ -72,6 +72,8 @@ export const state = {
   notices: [],                    // pending toast messages (drained by ui)
   flash: null,                    // pending status-bar flash (drained by ui)
   powerPlantCount: 0,             // updated by propagatePower each tick
+  powerCapacity: 0,               // SCENARIOS: total power units generated (300 per plant)
+  powerUsed: 0,                   // SCENARIOS: total power units consumed (1 per powered tile)
   milestones: [],                 // population thresholds already celebrated, e.g. [10000]
   history: { pop: [], happiness: [], funds: [] },  // STATISTICS: rolling monthly samples (sparklines + stats panel)
   statsAutoPause: false,          // STATISTICS: pause the sim while the stats panel is open

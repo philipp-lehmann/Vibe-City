@@ -241,6 +241,7 @@ export class ScenarioManager {
         totalStages:        s.stages.length,
         stageName:          s.currentStage.name,
         deadlineIn:         Math.ceil(s.monthsRemaining),
+        maxDeadline:        s.currentStage.monthsUntilDeadline,
         requirementsMet:    met,
         requirementDetails: details,
         stageStatus:        s.stageStatus,
