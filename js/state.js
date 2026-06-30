@@ -32,7 +32,11 @@ export function makeTile(type){
     moisture: 0.5,   // 0..1 simplex moisture
     bridge: false,   // TERRAIN: road tile is a bridge over water
     bridgeId: null,  // BRIDGES: id of the bridge entity this tile belongs to
-    coast: false     // TERRAIN TOOLS: water-adjacent shoreline flag (auto-computed)
+    coast: false,    // TERRAIN TOOLS: water-adjacent shoreline flag (auto-computed)
+    // SCENARIOS: contract that owns this tile (set by ScenarioManager.placeScenario)
+    contractId:     null,
+    contractType:   null,
+    contractLocked: false   // locked tiles cannot be bulldozed or built over
   };
 }
 
@@ -72,6 +76,17 @@ export const state = {
   history: { pop: [], happiness: [], funds: [] },  // STATISTICS: rolling monthly samples (sparklines + stats panel)
   statsAutoPause: false,          // STATISTICS: pause the sim while the stats panel is open
   statsVisible: { pop: true, happiness: true, funds: true },   // STATISTICS: which lines show on the panel's combined chart
+  // SCENARIOS: active/completed contracts and blacklist
+  scenarios: {
+    active:    [],
+    completed: [],
+    jobs:      0,    // total jobs added by completed scenario stages
+    contractBlacklist: {}   // { [type]: { until: month, reason: string } }
+  },
+  // SCENARIOS: recurring monthly revenue from active contracts
+  revenue: { monthly: 0, lost: 0 },
+  // SCENARIOS: city prestige/reputation (modified by contract outcomes)
+  prestige: 0,
 };
 
 // --- grid init: all grass; TERRAIN: water/relief now come from generateTerrain ---
@@ -227,7 +242,25 @@ export function serializeSave(thumb){
       gridWidth: state.gridWidth, gridHeight: state.gridHeight,   // MAP SIZE
       bridges: state.bridges,   // BRIDGES: persist bridge entities
       milestones: state.milestones,
-      history: state.history    // STATISTICS: persist sparkline/stats-panel history
+      history: state.history,   // STATISTICS: persist sparkline/stats-panel history
+      // SCENARIOS
+      scenarios: {
+        active:            state.scenarios.active.map(s => ({
+          id: s.id, type: s.type, status: s.status,
+          currentStageIndex: s.currentStageIndex,
+          monthsRemaining: s.monthsRemaining,
+          stageStatus: s.stageStatus,
+          tiles: s.tiles,
+          completedStages: s.completedStages,
+          acceptanceHistory: s.acceptanceHistory,
+          renegotiationOffer: s.renegotiationOffer
+        })),
+        completed:         state.scenarios.completed,
+        jobs:              state.scenarios.jobs,
+        contractBlacklist: state.scenarios.contractBlacklist
+      },
+      revenue:  { ...state.revenue },
+      prestige: state.prestige
     },
     meta: { cityName: state.cityName, ts: Date.now(), thumb: thumb || null,
             month: state.month, pop: state.pop }
@@ -278,6 +311,17 @@ export function applySave(blob){
   if(!state.history.pop.length) pushHistory();
   coastPass(state.grid);   // TERRAIN TOOLS: recompute shoreline flags after load
   recomputeAllRoads();   // ROAD CONNECTORS: rebuild masks + outside count on load
+  // SCENARIOS: restore contract state (older saves without this key get fresh defaults)
+  if (s.scenarios) {
+    state.scenarios.active              = s.scenarios.active    || [];
+    state.scenarios.completed           = s.scenarios.completed || [];
+    state.scenarios.jobs                = s.scenarios.jobs      || 0;
+    state.scenarios.contractBlacklist   = s.scenarios.contractBlacklist || {};
+  } else {
+    state.scenarios = { active: [], completed: [], jobs: 0, contractBlacklist: {} };
+  }
+  state.revenue  = s.revenue  ? { ...s.revenue  } : { monthly: 0, lost: 0 };
+  state.prestige = s.prestige ?? 0;
   return true;
 }
 export function loadGame(slot){ return applySave(readSave(slot)); }
@@ -299,5 +343,9 @@ export function newGame(name, sizeKey, waterPct){
   state.milestones = [];
   state.history = { pop: [], happiness: [], funds: [] };   // STATISTICS
   pushHistory();   // seed one sample so the sparklines/panel aren't empty at month 0
+  // SCENARIOS: reset contract state on new game
+  state.scenarios = { active: [], completed: [], jobs: 0, contractBlacklist: {} };
+  state.revenue   = { monthly: 0, lost: 0 };
+  state.prestige  = 0;
   // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }

@@ -958,23 +958,149 @@ Scenario.md           (this file)
 
 ## Implementation Checklist
 
-- [ ] Create `ScenarioManager` class
-- [ ] Implement `checkAllRequirements()`
-- [ ] Wire `tick()` into main loop
-- [ ] Implement `completeStage()`, `failStage()`, `declineStage()`
-- [ ] Add requirement validators (power, water, road, labor, happiness)
-- [ ] Create scenario blueprints for AI_DATA_CENTRE
-- [ ] Build contract UI panel
-- [ ] Build inspector integration
-- [ ] Build modal dialogs (decline, renegotiation)
-- [ ] Integrate with save/load
-- [ ] Integrate with simulation monthly tick
-- [ ] Test: accept → complete → next stage
-- [ ] Test: fail deadline → renegotiation flow
-- [ ] Test: decline → blacklist + penalties
-- [ ] Test: multiple concurrent scenarios
-- [ ] Future: Add SHIPPING_CENTRE blueprint
-- [ ] Future: Add WILDLIFE_RESERVE blueprint
+### 1. Create `ScenarioManager` class
+
+- [ ] Create `js/scenario.js` — new module, no existing file to touch
+- [ ] Define `ScenarioManager` class with `constructor(state)`, `activeScenarios = []`, `completedScenarios = []`
+- [ ] Implement `addScenario(blueprint)` — deep-clone blueprint, set `status: "ACTIVE"`, `currentStageIndex: 0`, attach `currentStage`, `monthsRemaining`, emit `pushNotice`
+- [ ] Implement `getScenario(id)` — search both `activeScenarios` and `completedScenarios`
+- [ ] Implement `getContractStatus()` — map active scenarios to summary objects with `deadlineIn`, `requirementsMet`, `totalRevenue`
+- [ ] Implement `placeScenario(scenarioId, tiles)` — set `scenario.tiles`, write `contractId` + `contractType` onto each `state.tileAt(x, y)`, mark tiles as locked (add `contractLocked: true` to `makeTile` shape in `state.js`)
+- [ ] Implement `declineScenario(scenarioId)` and `acceptRenegotiation(scenarioId)` as thin wrappers over the stage functions
+- [ ] Export a singleton `export const scenarioManager = new ScenarioManager(state)` at the bottom of the file
+
+---
+
+### 2. Implement `checkAllRequirements()`
+
+- [ ] Create `js/scenarios/requirements.js` — one validator function per requirement type, all exported
+- [ ] **`tiles` validator** — filter `state.grid` tiles where `tile.contractId === contract.id`, compare count to `requirements.tiles.count`
+- [ ] **`power` validator** — sum `powered: true` tiles on the contract footprint; also check global available capacity (expose `availablePowerCapacity()` helper from `simulation.js` that returns `totalGenerated - totalConsumed`)
+- [ ] **`water` validator** — check that all contract tiles have `tile.water === true` (already computed by `propagateWater` in `simulation.js`)
+- [ ] **`happiness` validator** — compare `state.happiness` to `requirements.happiness.minValue`
+- [ ] **`labor` validator** — `state.pop` minus sum of `tile.pop` on all `T.COM`/`T.IND` tiles gives rough available workforce; wire to `requirements.labor.skilled`
+- [ ] **`road` validator** — check that contract tiles have `tile.nearRoad === true` (quality tiers: `"high"` requires `nearRoad` + at least one adjacent road tile, `"highway"` is a stub for now)
+- [ ] Implement `checkAllRequirements(stage, contract, state)` — iterate `Object.entries(stage.requirements)`, call the matching validator, return `{ met: bool, details: { [key]: bool } }`
+
+---
+
+### 3. Wire `tick()` into main loop
+
+- [ ] In `js/main.js`, import `scenarioManager` from `./scenario.js`
+- [ ] In the `requestAnimationFrame` loop, call `scenarioManager.tick(deltaMs)` after the existing simulation tick (but before `syncUI`)
+- [ ] Pass `TICKS_PER_MONTH` (define in `config.js` if not already present — currently implied by `state.speeds`) so the deadline decrement is speed-aware
+
+---
+
+### 4. Implement `completeStage()`, `failStage()`, `declineStage()`
+
+All in `js/scenario.js`:
+
+- [ ] **`completeStage(scenario)`**
+  - Add `stage.rewards.revenue` to `state.scenarios.revenue.monthly`
+  - Add `stage.rewards.jobs` to a new `state.scenarios.jobs` counter (display in inspector later)
+  - Push stage to `scenario.completedStages`, advance `currentStageIndex`
+  - If more stages remain: reset `monthsRemaining`, set `status: "ACTIVE"`, emit notices
+  - If all stages done: set `status: "COMPLETED"`, emit celebration notice
+
+- [ ] **`failStage(scenario)`**
+  - Deduct `penalties.ifFailed.revenue` from `state.funds`
+  - Apply `penalties.ifFailed.prestige` (add `state.prestige` field to `state.js` — currently missing)
+  - Apply `penalties.ifFailed.populationLoss` to `state.pop`
+  - If `renegotiate: true`: set `status: "RENEGOTIATING"`, build `renegotiationOffer` object, trigger renegotiation modal via `requestFlash`
+  - If `contractEnds: true`: set `status: "FAILED_CONTRACT_ENDED"`, emit notice
+
+- [ ] **`declineStage(scenario)`**
+  - Apply `penalties.ifDeclined` (revenue, prestige, population)
+  - Write blacklist entry: `state.scenarios.contractBlacklist[scenario.type] = { until: state.month + penalties.contractBlacklist, reason: "Declined" }`
+  - Set `status: "DECLINED"`, push to `acceptanceHistory`
+  - Call `showDeclineConsequencesModal(scenario, penalties)` (stubbed in `ui.js` for now)
+
+---
+
+### 5. Add state fields (`state.js`)
+
+- [ ] Add `scenarios: { active: [], completed: [], contractBlacklist: {} }` to the `state` object
+- [ ] Add `revenue: { monthly: 0, lost: 0 }` to the `state` object (currently `state.funds` is a one-time balance; `revenue.monthly` gets added to `funds` each `monthlyTick`)
+- [ ] Add `prestige: 0` to the `state` object
+- [ ] Add `contractLocked: false` to `makeTile()` shape so locked contract tiles can be detected anywhere
+- [ ] Update `newGame()` / `resetState()` to zero out `scenarios`, `revenue`, `prestige`
+
+---
+
+### 6. Create scenario blueprints
+
+- [ ] Create `js/scenarios/blueprints.js`
+- [ ] Define `export const SCENARIOS = { AI_DATA_CENTRE: { ... } }` with all 3 stages as shown in the config section above
+- [ ] Stub out `SHIPPING_CENTRE` and `WILDLIFE_RESERVE` with one placeholder stage each (so the blacklist keys exist)
+- [ ] Import `SCENARIOS` in `scenario.js` and `simulation.js`
+
+---
+
+### 7. Build contract UI panel
+
+In `js/ui.js` and `css/ui.css`:
+
+- [ ] Add `<div id="contracts-panel">` to `index.html`, positioned top-left or as a collapsible section of the admin panel
+- [ ] Write `syncContractsPanel()` — called from `syncUI()` each frame — that renders one row per active scenario: name, `Stage X/Y`, countdown bar, revenue, `✓/✗` per requirement
+- [ ] Add a "CONTRACTS" toggle button to the toolbar / HUD (reuse the existing collapsible section pattern from `initAdminPanel()`)
+- [ ] Wire a "Decline" button per row that calls `scenarioManager.declineScenario(id)` after showing confirmation modal
+- [ ] Apply existing CSS tokens (`--warn`, `--gold`, `--panel`, spacing scale) — no new token definitions needed
+
+---
+
+### 8. Build inspector integration
+
+In `js/ui.js` `syncInspector()`:
+
+- [ ] When hovered tile has `tile.contractId`, look up the scenario via `scenarioManager.getScenario(tile.contractId)`
+- [ ] Replace or extend the inspector's body with: scenario name, stage name, deadline countdown, per-requirement `✓/✗` rows, status badge, pending revenue line
+- [ ] Show "DECLINE CONTRACT" and "DETAILS" buttons in the inspector footer (same pattern as existing inspector buttons)
+
+---
+
+### 9. Build modal dialogs
+
+In `js/ui.js`:
+
+- [ ] **Decline confirmation modal** — `showDeclineConsequencesModal(scenario, penalties)`: create and append a `<div class="modal">` with consequence list (revenue lost, prestige, population, blacklist duration); wire "CANCEL" and "DECLINE – I'M SURE" buttons; "I'M SURE" calls `scenarioManager.declineScenario(id)` and removes the modal
+- [ ] **Renegotiation offer modal** — `showRenegotiationModal(scenario)`: show old vs. new terms side-by-side; wire "ACCEPT OFFER" (`scenarioManager.acceptRenegotiation(id)`) and "DECLINE & END CONTRACT" buttons
+- [ ] Add modal backdrop and CSS (`.modal-backdrop`, `.modal`) to `css/ui.css` using existing design tokens
+- [ ] Ensure only one modal can be open at a time (close any existing modal before opening a new one)
+
+---
+
+### 10. Integrate with save/load (`state.js`)
+
+- [ ] In `serializeSave()`: add `scenarios` blob (active array with `id, type, status, currentStageIndex, monthsRemaining, tiles, acceptanceHistory, completedStages`) + `contractBlacklist` + `revenue` + `prestige`
+- [ ] In `applySave(save)`: restore `state.scenarios.active` by merging saved data onto the matching blueprint from `SCENARIOS`; restore `contractBlacklist`, `revenue`, `prestige`
+- [ ] Guard against missing `save.scenarios` (old save format) — default to empty
+
+---
+
+### 11. Integrate with simulation monthly tick (`simulation.js`)
+
+- [ ] Import `scenarioManager` and `SCENARIOS` from their respective files
+- [ ] At the end of `monthlyTick()`, add `state.revenue.monthly` to `state.funds` (recurring income)
+- [ ] After the income step, run the random contract-offer logic: if `Math.random() < 0.3` and fewer than 3 active scenarios, pick a non-blacklisted type and call `scenarioManager.addScenario(SCENARIOS[type])`
+- [ ] Call `scenarioManager.tick(1)` from `monthlyTick()` (monthly granularity is sufficient; remove the per-frame tick from step 3 unless real-time countdown display is needed — decide which feels better during testing)
+
+---
+
+### 12. Testing
+
+- [ ] **Happy path** — place tiles, meet all requirements before deadline, confirm stage completes, revenue increases, next stage unlocks
+- [ ] **Fail → renegotiation** — let deadline expire with unmet requirements, confirm renegotiation modal appears, accept, confirm new deadline and reduced revenue
+- [ ] **Decline** — click decline, confirm modal shows correct penalty numbers, confirm blacklist entry is written and persists across save/load
+- [ ] **Multiple concurrent scenarios** — trigger two different contract types simultaneously, verify both tick independently and UI shows both
+- [ ] **Save/load round-trip** — mid-scenario save, reload, verify `monthsRemaining`, `currentStageIndex`, tile locks, and revenue are all restored correctly
+- [ ] **Edge cases** — tile bulldoze attempt on locked tile should be blocked; power plant demolished mid-contract should immediately fail power requirement
+
+---
+
+- [ ] Future: Add full `SHIPPING_CENTRE` blueprint (waterfront placement, road quality, low-skill labor)
+- [ ] Future: Add full `WILDLIFE_RESERVE` blueprint (pollution cap, happiness threshold, no-build buffer zone)
+- [ ] Future: Dynamic contract generation with randomized deadlines and revenue from templates
 
 ---
 
