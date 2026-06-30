@@ -71,9 +71,11 @@ function makeSimplex(seed){
 const clamp01 = v => v<0?0:v>1?1:v;
 
 // elevation + moisture -> terrain type (thresholds per spec)
-export function classifyTerrain(e,m){
-  if(e < 0.30) return TERRAIN.WATER;
-  if(e < 0.38) return TERRAIN.SHALLOWS;
+// WATER AMOUNT: waterCut/shallowCut are optional overrides for the two lowest
+// bands, computed per-map by generateTerrain() to hit a requested water %.
+export function classifyTerrain(e,m,waterCut=0.30,shallowCut=0.38){
+  if(e < waterCut) return TERRAIN.WATER;
+  if(e < shallowCut) return TERRAIN.SHALLOWS;
   if(e < 0.50 && m > 0.60) return TERRAIN.WETLAND;
   if(e < 0.65) return TERRAIN.LOWLAND;
   if(e < 0.82) return TERRAIN.HIGHLAND;
@@ -87,19 +89,52 @@ function fractal(noise, x, y, f0){
   return clamp01((sum/norm + 1) / 2);
 }
 
-/* generateTerrain(gridWidth, gridHeight, seed) -> [y][x] base tile data */
-export function generateTerrain(gw, gh, seed){
+// WATER AMOUNT: within the water-class band, deep WATER vs SHALLOWS keep the
+// same 0.30:0.38 ratio the original fixed thresholds used, so the shoreline
+// looks proportionally the same at any requested water %.
+const SHALLOWS_BAND_RATIO = 0.30 / 0.38;
+
+/* generateTerrain(gridWidth, gridHeight, seed, waterPct) -> [y][x] base tile data
+   waterPct: optional 0..1 target fraction of tiles that become water-class
+   (deep water + shallows). Omit to use the original fixed elevation cutoffs
+   (~25-30% water, varies by seed). 0 produces a fully dry landmass. */
+export function generateTerrain(gw, gh, seed, waterPct){
   seed = (seed>>>0) || 1;
   const elevNoise  = makeSimplex(seed);
   const moistNoise = makeSimplex(seed ^ 0x9e3779b9);   // independent layer
   const f0 = 2.4 / Math.max(gw, gh);                    // ~2-3 features across the map
+  const targeted = waterPct != null;
+  const elevRows = [], moistRows = [], flatElev = targeted ? [] : null;
+  for(let y=0;y<gh;y++){
+    const er = [], mr = [];
+    for(let x=0;x<gw;x++){
+      const e = fractal(elevNoise,  x, y, f0);
+      const m = fractal(moistNoise, x, y, f0);
+      er.push(e); mr.push(m);
+      if(flatElev) flatElev.push(e);
+    }
+    elevRows.push(er); moistRows.push(mr);
+  }
+  // WATER AMOUNT: derive cutoffs from this map's own elevation distribution
+  // (quantile) so the requested % lands close regardless of seed/map size.
+  let waterCut, shallowCut;
+  if(targeted){
+    if(waterPct <= 0){
+      waterCut = shallowCut = -1;   // 0% -> no water-class tiles at all
+    } else {
+      flatElev.sort((a,b)=>a-b);
+      const idx = Math.min(flatElev.length-1, Math.floor(waterPct*flatElev.length));
+      shallowCut = flatElev[idx];
+      waterCut = shallowCut * SHALLOWS_BAND_RATIO;
+    }
+  }
   const out = [];
   for(let y=0;y<gh;y++){
     const row = [];
     for(let x=0;x<gw;x++){
-      const e = fractal(elevNoise,  x, y, f0);
-      const m = fractal(moistNoise, x, y, f0);
-      row.push({ elevation:e, moisture:m, terrain:classifyTerrain(e,m) });
+      const e = elevRows[y][x], m = moistRows[y][x];
+      row.push({ elevation:e, moisture:m,
+        terrain: targeted ? classifyTerrain(e,m,waterCut,shallowCut) : classifyTerrain(e,m) });
     }
     out.push(row);
   }

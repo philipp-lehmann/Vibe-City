@@ -5,7 +5,7 @@
    facing updates, tile inspector, control-button wiring, toast +
    status flash, and per-frame syncUI() that applies state -> DOM.
    ================================================================ */
-import { MAP_SIZES, T, TOOLS, FACES, SHORT_MONTHS, isZone } from './config.js';   // MAP SIZE
+import { MAP_SIZES, WATER_LEVELS, DEFAULT_WATER, T, TOOLS, FACES, SHORT_MONTHS, isZone } from './config.js';   // MAP SIZE / WATER AMOUNT
 import {
   state, tileAt, setTool, togglePause, rotateView,
   listSaves, saveGame, loadGame, deleteSave, newGame
@@ -531,7 +531,7 @@ function randomCityName() {
   const s = _CITY_SUFFIXES[Math.random() * _CITY_SUFFIXES.length | 0];
   return f + s;
 }
-let sizeModal = null, pickedSize = 'medium';
+let sizeModal = null, pickedSize = 'medium', pickedWater = DEFAULT_WATER;   // WATER AMOUNT
 function buildSizeModal() {
   sizeModal = document.createElement('div');
   sizeModal.id = 'size-modal';
@@ -546,7 +546,14 @@ function buildSizeModal() {
         <button id="city-name-shuffle" class="btn-shuffle" title="Shuffle name">Random</button>
       </div>
     </div>
-    <div id="size-row"></div>
+    <div class="modal-field">
+      <label>Map Size</label>
+      <div id="size-row"></div>
+    </div>
+    <div class="modal-field">
+      <label>Water</label>
+      <div id="water-row"></div>
+    </div>
     <div class="modal-actions">
       <button id="size-confirm" class="btn-confirm">Start</button>
       <button id="size-cancel" class="btn-cancel">Cancel</button>
@@ -567,12 +574,22 @@ function buildSizeModal() {
     card.onclick = () => { pickedSize = key; highlightSize(); };
     row.appendChild(card);
   });
+  // WATER AMOUNT: same card style as size, just a % label instead of a preview
+  const waterRow = $('water-row');
+  Object.entries(WATER_LEVELS).forEach(([key, w]) => {
+    const card = document.createElement('button');
+    card.dataset.water = key;
+    card.className = 'size-card';
+    card.innerHTML = `<b>${w.label}</b><span class="size-dim">Water</span>`;
+    card.onclick = () => { pickedWater = key; highlightWater(); };
+    waterRow.appendChild(card);
+  });
   $('city-name-shuffle').onclick = () => { $('city-name-input').value = randomCityName(); };
   $('size-cancel').onclick = () => { sizeModal.style.display = 'none'; };
   $('size-confirm').onclick = () => {
     sizeModal.style.display = 'none';
     const name = ($('city-name-input').value || '').trim() || randomCityName();
-    newGame(name, pickedSize);  // MAP SIZE
+    newGame(name, pickedSize, WATER_LEVELS[pickedWater].pct);  // MAP SIZE / WATER AMOUNT
     syncMinimapSize();
     resetStatsHistoryGuards();
     startGame();                                       // STARTUP
@@ -588,11 +605,20 @@ function highlightSize() {
     c.style.background = on ? '#2a2a2a' : 'var(--panel2)';
   });
 }
+function highlightWater() {
+  sizeModal.querySelectorAll('[data-water]').forEach(c => {
+    const on = c.dataset.water === pickedWater;
+    c.style.borderColor = on ? 'var(--ink)' : 'var(--line)';
+    c.style.color = on ? 'var(--ink)' : 'var(--ink-mid)';
+    c.style.background = on ? '#2a2a2a' : 'var(--panel2)';
+  });
+}
 function doNewGame() {
   if (!sizeModal) buildSizeModal();
   pickedSize = Object.values(MAP_SIZES).find(p => p.w === state.gridWidth) ?
     Object.keys(MAP_SIZES).find(k => MAP_SIZES[k].w === state.gridWidth) : 'medium';
   highlightSize();
+  highlightWater();
   $('city-name-input').value = randomCityName();
   sizeModal.style.display = 'flex';
   setTimeout(() => $('city-name-input').select(), 50);

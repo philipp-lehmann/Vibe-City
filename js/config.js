@@ -15,6 +15,16 @@ export const MAP_SIZES = {
   large:  { w:64, h:64, mini:128, label:'Large',  dim:'64×64'},
 };
 export const DEFAULT_MAP = 'small';   // DEFAULT MAP SIZE: 32×32 default
+
+// WATER AMOUNT: selectable presets controlling what % of a new map's tiles
+// become water-class (deep water + shallows) during terrain generation.
+export const WATER_LEVELS = {
+  none: { pct: 0,    label: '0%'  },
+  low:  { pct: 0.1, label: '10%'  },
+  med:  { pct: 0.2, label: '20%' },
+  high:  { pct: 0.3, label: '30%' },
+};
+export const DEFAULT_WATER = 'low';   // DEFAULT WATER AMOUNT: 5% default
 export const TILE_W = 64;   // base diamond width  (2:1 ratio)
 export const TILE_H = 32;   // base diamond height
 export const ELEV   = 8;    // pixels of "lift" per elevation unit

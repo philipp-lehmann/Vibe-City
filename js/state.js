@@ -284,11 +284,12 @@ export function loadGame(slot){ return applySave(readSave(slot)); }
 
 // reset to a fresh city (clears grid, reseeds a coal plant like first boot)
 // MAP SIZE: optional sizeKey selects grid dimensions before init
-export function newGame(name, sizeKey){
+// WATER AMOUNT: optional waterPct (0..1) targets that fraction of the map as water
+export function newGame(name, sizeKey, waterPct){
   if(sizeKey) setMapSize(sizeKey);
   initGrid();
   // TERRAIN: generate once per new game from a fresh random seed
-  applyTerrain(generateTerrain(state.gridWidth, state.gridHeight, (Math.random()*1e9)>>>0));
+  applyTerrain(generateTerrain(state.gridWidth, state.gridHeight, (Math.random()*1e9)>>>0, waterPct));
   state.funds=50000; state.pop=0; state.month=0;
   state.taxPct=8; state.taxRate=0.08; state.happiness=70;
   state.cityName = name || 'New Terminus';
