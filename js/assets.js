@@ -40,7 +40,10 @@ ROAD_KEYS.push('road_bridge_span_ns', 'road_bridge_span_ew',
 
 // power plant + pump get the same SVG-sprite treatment as zone buildings
 // contract_generic is the overlay marker drawn on all contract-locked tiles
-const UTILITY_KEYS = ['powerplant', 'pump', 'contract_generic'];
+const UTILITY_KEYS = [
+  'powerplant', 'pump',
+  'contract_datacentre', 'contract_shippingcentre', 'contract_wildlife'
+];
 
 // key -> folder, so getAsset callers only ever deal in bare keys
 const MANIFEST = [

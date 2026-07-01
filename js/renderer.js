@@ -416,9 +416,15 @@ function drawTileContent(sx,sy,t,gx,gy){
     drawNeedIcon(sx,sy,t);
   }
   if(t.onFire>0) drawFire(sx,sy);
-  // SCENARIOS: contract zone marker — overlay on every locked tile
+  // SCENARIOS: contract zone marker — type-specific sprite, fallback to generic
   if(t.contractId){
-    const img=getAsset('contract_generic');
+    const TYPE_SPRITE = {
+      AI_DATA_CENTRE:   'contract_datacentre',
+      SHIPPING_CENTRE:  'contract_shippingcentre',
+      WILDLIFE_RESERVE: 'contract_wildlife'
+    };
+    const key = TYPE_SPRITE[t.contractType] || 'contract_generic';
+    const img = getAsset(key) || getAsset('contract_generic');
     if(img){
       const z=state.zoom, hh=(TILE_H/2)*z;
       blitAsset(img, sx, sy+2*hh);

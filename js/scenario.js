@@ -18,6 +18,7 @@
                  scenarios/requirements.js
    ================================================================ */
 import { state, tileAt, pushNotice, requestFlash } from './state.js';
+import { TERRAIN } from './terrain.js';
 import { SCENARIOS } from './scenarios/blueprints.js';
 import { checkAllRequirements } from './scenarios/requirements.js';
 
@@ -347,6 +348,10 @@ export class ScenarioManager {
         tile.contractId     = scenarioId;
         tile.contractType   = scenario.type;
         tile.contractLocked = true;
+        // Flatten terrain for data centre + shipping — wildlife keeps its natural terrain
+        if (scenario.type !== 'WILDLIFE_RESERVE') {
+          tile.terrain = TERRAIN.LOWLAND;
+        }
       }
     });
 
