@@ -320,7 +320,9 @@ export function monthlyTick(){
       noPendingOffer &&
       scenarioManager.activeScenarios.length < 3 &&
       Math.random() < 0.05) {         // ~5% per month so offers feel rare
+    const activeTypes = new Set(scenarioManager.activeScenarios.map(s => s.type));
     const available = Object.values(SCENARIOS).filter(bp => {
+      if (activeTypes.has(bp.type)) return false;   // one per type at a time
       const bl = state.scenarios.contractBlacklist[bp.type];
       return !bl || bl.until <= state.month;
     });

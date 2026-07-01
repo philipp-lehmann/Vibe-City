@@ -12,7 +12,7 @@ import { state, makeTile, inBounds, setTool, togglePause, rotateView,
          genBridgeId, findBridge, bulldozeCost } from './state.js';   // ROAD CONNECTORS / EXIT FIX / BRIDGES
 import { view, screenToIso, stepZoom } from './renderer.js';   // ZOOM LEVELS
 import { isWaterTerrain, TERRAIN, coastPass } from './terrain.js';   // ROAD CONNECTORS / WATER TOOL / TERRAIN TOOLS
-import { propagatePower, propagateWater } from './simulation.js';   // WATER TOOL: live propagation
+import { propagatePower, propagateWater, computeRoadAccess } from './simulation.js';   // WATER TOOL: live propagation
 
 // TERRAIN TOOLS: paintable terrain types -> {terrain id, landscaping cost, swatch}
 export const TERRAIN_TOOLS = {
@@ -31,16 +31,21 @@ let dragging=false, dragBtn=0, lastPaint='';
 function placeTool(gx,gy){
   if(!inBounds(gx,gy)) return;
 
-  // PLACEMENT MODE: left-click paints tiles into the contract zone selection.
-  // lastPaint throttles so drag-painting selects each tile at most once per stroke.
+  // PLACEMENT MODE: single click stamps the NxN block and signals auto-confirm.
+  // The block is clamped so it never goes off-grid (same logic as renderer preview).
   if(state.placementMode){
-    const pm=state.placementMode;
-    const key=gx+','+gy;
-    if(key===lastPaint) return;
-    lastPaint=key;
-    const idx=pm.selectedTiles.findIndex(([x,y])=>x===gx&&y===gy);
-    if(idx>=0) pm.selectedTiles.splice(idx,1);
-    else pm.selectedTiles.push([gx,gy]);
+    const pm   = state.placementMode;
+    const size = pm.size || 3;
+    const half = Math.floor(size / 2);
+    const gw   = state.gridWidth, gh = state.gridHeight;
+    const ox   = Math.max(0, Math.min(gx - half, gw - size));
+    const oy   = Math.max(0, Math.min(gy - half, gh - size));
+    const tiles = [];
+    for(let dy = 0; dy < size; dy++)
+      for(let dx = 0; dx < size; dx++)
+        tiles.push([ox + dx, oy + dy]);
+    pm.selectedTiles  = tiles;
+    pm.readyToConfirm = true;   // drained by syncUI() next frame
     return;
   }
 
@@ -378,6 +383,9 @@ export function initInput(){
     }
     // WATER TOOL: flush road recompute + power/water propagation once per stroke
     if(terrainDirty){ afterTerrainChange(); terrainDirty=false; }   // TERRAIN TOOLS
+    // SCENARIOS: when paused, re-propagate power & road so contract requirements
+    // update immediately after the player places infrastructure
+    if(state.paused){ propagatePower(); computeRoadAccess(); }
     dragging=false; lastPaint='';
   });
 

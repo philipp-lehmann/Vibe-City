@@ -3,6 +3,8 @@
    Each entry in SCENARIOS is a template; ScenarioManager deep-clones
    it on spawn so in-flight mutations never corrupt the source.
 
+   tiles.size defines the NxN stamp dimension (3=3×3=9, 4=4×4=16, 5=5×5=25).
+   tiles.count = size*size (used by the requirement checker).
    Population loss values are negative (applied to state.pop directly).
    ================================================================ */
 
@@ -17,10 +19,11 @@ export const SCENARIOS = {
         monthsUntilDeadline: 18,
         monthsRemaining:     18,
         requirements: {
-          tiles:     { count: 5,  type: 'placement',          position: null },
-          power:     { amount: 8, type: 'infrastructure' },
-          water:     { amount: 4, type: 'infrastructure' },
-          happiness: { minValue: 55, type: 'city_stat' }
+          tiles:        { count: 9, size: 3, type: 'placement', position: null },
+          power_access: { type: 'infrastructure' },
+          power:        { amount: 50,  type: 'infrastructure' },
+          water:        { type: 'infrastructure' },
+          happiness:    { minValue: 55, type: 'city_stat' }
         },
         rewards: { revenue: 120000, jobs: 60, prestige: 8 },
         penalties: {
@@ -42,10 +45,11 @@ export const SCENARIOS = {
         monthsUntilDeadline: 54,
         monthsRemaining:     54,
         requirements: {
-          tiles: { count: 10,   type: 'placement',         position: 'adjacent_to_stage_1' },
-          power: { amount: 8,  type: 'infrastructure' },
-          road:  { quality: 'high', type: 'connectivity' },
-          labor: { skilled: 150, type: 'workforce_available' }
+          tiles:        { count: 16, size: 4, type: 'placement', position: 'adjacent_to_stage_1' },
+          power_access: { type: 'infrastructure' },
+          power:        { amount: 100, type: 'infrastructure' },
+          road:         { quality: 'high', type: 'connectivity' },
+          labor:        { skilled: 150, type: 'workforce_available' }
         },
         rewards: { revenue: 10000, jobs: 200, prestige: 12 },
         penalties: {
@@ -66,11 +70,12 @@ export const SCENARIOS = {
         monthsUntilDeadline: 90,
         monthsRemaining:     90,
         requirements: {
-          tiles:     { count: 20,  type: 'placement',        position: 'merge_both_campuses' },
-          power:     { amount: 16, type: 'infrastructure' },
-          water:     { amount: 8,  type: 'infrastructure' },
-          road:      { quality: 'highway', type: 'connectivity' },
-          happiness: { minValue: 65, type: 'city_stat' }
+          tiles:        { count: 25, size: 5, type: 'placement', position: 'merge_both_campuses' },
+          power_access: { type: 'infrastructure' },
+          power:        { amount: 200, type: 'infrastructure' },
+          water:        { type: 'infrastructure' },
+          road:         { quality: 'highway', type: 'connectivity' },
+          happiness:    { minValue: 65, type: 'city_stat' }
         },
         rewards: { revenue: 180000, jobs: 100, prestige: 20 },
         penalties: {
@@ -89,7 +94,7 @@ export const SCENARIOS = {
     ]
   },
 
-  // ── Stubs — stages to be filled in later; blacklist keys must exist ──
+  // ── Stubs ──────────────────────────────────────────────────────────
 
   SHIPPING_CENTRE: {
     type: 'SHIPPING_CENTRE',
@@ -100,9 +105,10 @@ export const SCENARIOS = {
         monthsUntilDeadline: 180,
         monthsRemaining:     180,
         requirements: {
-          tiles: { count: 5, type: 'placement', position: 'waterfront' },
-          power: { amount: 2, type: 'infrastructure' },
-          road:  { quality: 'high', type: 'connectivity' }
+          tiles:        { count: 9, size: 3, type: 'placement', position: 'waterfront' },
+          power_access: { type: 'infrastructure' },
+          power:        { amount: 30, type: 'infrastructure' },
+          road:         { quality: 'high', type: 'connectivity' }
         },
         rewards: { revenue: 45000, jobs: 180, prestige: 5 },
         penalties: {
@@ -129,7 +135,7 @@ export const SCENARIOS = {
         monthsUntilDeadline: 120,
         monthsRemaining:     120,
         requirements: {
-          tiles:     { count: 5, type: 'placement', position: null },
+          tiles:     { count: 9, size: 3, type: 'placement', position: null },
           happiness: { minValue: 50, type: 'city_stat' }
         },
         rewards: { revenue: 25000, jobs: 40, prestige: 5 },

@@ -27,33 +27,37 @@ function checkTiles(req, contract, state) {
 }
 
 /**
- * power — two-part check:
- * 1. All contract tiles must be "powered" — i.e. the tile itself OR any
- *    orthogonal neighbour conducts power (is powered). Contract tiles are
- *    GRASS and don't conduct, so the player satisfies this by placing
- *    a road or powerline adjacent to the zone.
- * 2. Global spare capacity must be >= req.amount.
+ * power_access — the contract zone needs at least ONE tile adjacent to a
+ * powered infrastructure tile (road, powerline, etc.).
+ * A single cable run past the edge of the zone is enough.
  */
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
-function tilePoweredOrAdjacent(x, y, grid) {
-  if (grid[y]?.[x]?.powered) return true;
-  return DIRS4.some(([dx, dy]) => grid[y + dy]?.[x + dx]?.powered);
+
+function checkPowerAccess(_req, contract, state) {
+  if (!contract.tiles || contract.tiles.length === 0)
+    return { met: false, current: 'no zone', required: 'connected' };
+  const connected = contract.tiles.some(([x, y]) =>
+    DIRS4.some(([dx, dy]) => state.grid[y + dy]?.[x + dx]?.powered)
+  );
+  return {
+    met:      connected,
+    current:  connected ? 'connected' : 'not connected',
+    required: 'connected'
+  };
 }
 
-function checkPower(req, contract, state) {
-  if (!contract.tiles || contract.tiles.length === 0)
-    return { met: false, current: '0/0 tiles', required: `all + ${req.amount || 0} spare` };
-  const total = contract.tiles.length;
-  const poweredCount = contract.tiles.filter(([x, y]) =>
-    tilePoweredOrAdjacent(x, y, state.grid)
-  ).length;
-  const allPowered = poweredCount === total;
-  const spare = availablePowerCapacity();
-  const met = allPowered && spare >= (req.amount || 0);
-  // Show tile coverage until all tiles are reached; then show spare vs req
-  if (!allPowered)
-    return { met, current: `${poweredCount}/${total} tiles`, required: 'all tiles' };
-  return { met, current: `${spare} spare`, required: `${req.amount || 0} spare` };
+/**
+ * power — city must have at least req.amount spare MW of capacity.
+ * (1 unit ≈ 1 MW; a single power plant provides 300 MW.)
+ */
+function checkPower(req, _contract, _state) {
+  const spare    = availablePowerCapacity();
+  const required = req.amount || 0;
+  return {
+    met:      spare >= required,
+    current:  `${spare} MW`,
+    required: `${required} MW`
+  };
 }
 
 /**
@@ -104,46 +108,39 @@ function checkLabor(req, _contract, state) {
 }
 
 /**
- * road — tiered connectivity check.
- * "low": any road within 3 tiles (nearRoad flag).
- * "high"/"highway": nearRoad AND at least one tile directly borders a road tile.
+ * road — live adjacency check (does NOT use the cached nearRoad flag, so it
+ * works correctly even when the game is paused).
+ *
+ * Met when at least one zone tile directly borders a ROAD tile — one full
+ * side of the block touching a road is more than enough.
  */
-function checkRoad(req, contract, state) {
+function checkRoad(_req, contract, state) {
   if (!contract.tiles || contract.tiles.length === 0)
-    return { met: false, current: 'none', required: req.quality || 'low' };
+    return { met: false, current: 'no zone', required: 'road adjacent' };
 
-  const allNearRoad = contract.tiles.every(([x, y]) => {
-    const t = state.grid[y]?.[x];
-    return t && t.nearRoad;
-  });
-  if (!allNearRoad) return { met: false, current: 'none', required: req.quality || 'low' };
-
-  const quality = req.quality || 'low';
-  if (quality === 'low') return { met: true, current: 'nearby', required: quality };
-
-  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const hasDirect = contract.tiles.some(([x, y]) =>
-    DIRS.some(([dx, dy]) => {
+    DIRS4.some(([dx, dy]) => {
       const t = state.grid[y + dy]?.[x + dx];
       return t && t.type === T.ROAD;
     })
   );
   return {
-    met: hasDirect,
-    current: hasDirect ? 'direct' : 'nearby',
-    required: quality
+    met:      hasDirect,
+    current:  hasDirect ? 'connected' : 'no road adjacent',
+    required: 'road adjacent'
   };
 }
 
 // ── Validator dispatch table ───────────────────────────────────────
 
 const VALIDATORS = {
-  tiles:     checkTiles,
-  power:     checkPower,
-  water:     checkWater,
-  happiness: checkHappiness,
-  labor:     checkLabor,
-  road:      checkRoad
+  tiles:        checkTiles,
+  power_access: checkPowerAccess,
+  power:        checkPower,
+  water:        checkWater,
+  happiness:    checkHappiness,
+  labor:        checkLabor,
+  road:         checkRoad
 };
 
 // ── Public API ─────────────────────────────────────────────────────

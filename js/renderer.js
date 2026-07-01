@@ -296,21 +296,21 @@ export function render(){
         ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1.5; ctx.stroke();
       }
 
-      // PLACEMENT MODE: orange overlay on selected tiles
-      if(state.placementMode){
-        const pm=state.placementMode;
-        const isSel=pm.selectedTiles.some(([tx,ty])=>tx===gx&&ty===gy);
-        if(isSel){
+      // PLACEMENT MODE: highlight the NxN block under the cursor
+      if(state.placementMode && state.hover.x !== undefined){
+        const pm   = state.placementMode;
+        const size = pm.size || 3;
+        const half = Math.floor(size / 2);
+        const gw   = state.gridWidth, gh = state.gridHeight;
+        const hx   = state.hover.x,   hy = state.hover.y;
+        // Clamp origin so the whole NxN block stays in-grid (same as input.js)
+        const ox = Math.max(0, Math.min(hx - half, gw - size));
+        const oy = Math.max(0, Math.min(hy - half, gh - size));
+        if(gx >= ox && gx < ox + size && gy >= oy && gy < oy + size){
           diamond(sx,sy);
-          ctx.fillStyle='rgba(255,140,0,0.45)';
+          ctx.fillStyle='rgba(255,140,0,0.32)';
           ctx.fill();
-          ctx.strokeStyle='#ff8c00'; ctx.lineWidth=2; ctx.stroke();
-        } else if(state.hover.x===gx && state.hover.y===gy){
-          // dim orange preview on hover (helps player aim)
-          diamond(sx,sy);
-          ctx.fillStyle='rgba(255,140,0,0.18)';
-          ctx.fill();
-          ctx.strokeStyle='rgba(255,140,0,0.5)'; ctx.lineWidth=1.5; ctx.stroke();
+          ctx.strokeStyle='rgba(255,140,0,0.85)'; ctx.lineWidth=1.5; ctx.stroke();
         }
       }
     }

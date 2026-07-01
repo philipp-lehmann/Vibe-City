@@ -51,11 +51,13 @@ function completeStage(scenario) {
 
     // New stage requires tile placement — pause and enter placement mode
     if (scenario.currentStage.requirements.tiles) {
-      const required = scenario.currentStage.requirements.tiles.count || 5;
+      const tileReq = scenario.currentStage.requirements.tiles;
+      const required = tileReq.count || 9;
+      const size     = tileReq.size  || 3;
       scenario.status = 'PLACEMENT';
-      state.placementMode = { scenarioId: scenario.id, required, selectedTiles: [] };
+      state.placementMode = { scenarioId: scenario.id, required, size, selectedTiles: [] };
       state.pendingPlacements.push(scenario.id);
-      pushNotice(`📍 Place ${required} more tiles to begin the next stage.`);
+      pushNotice(`📍 Place a ${size}×${size} zone to begin the next stage.`);
     } else {
       scenario.status = 'ACTIVE';
     }
@@ -276,13 +278,11 @@ export class ScenarioManager {
     if (!scenario || scenario.status !== 'OFFERED') return false;
 
     scenario.status = 'PLACEMENT';
-    const required = scenario.currentStage.requirements.tiles?.count || 5;
-    this._state.placementMode = {
-      scenarioId,
-      required,
-      selectedTiles: []
-    };
-    pushNotice(`📍 Place ${required} tiles for ${scenario.type}.`);
+    const tileReq = scenario.currentStage.requirements.tiles;
+    const required = tileReq?.count || 9;
+    const size     = tileReq?.size  || 3;
+    this._state.placementMode = { scenarioId, required, size, selectedTiles: [] };
+    pushNotice(`📍 Place a ${size}×${size} zone for ${scenario.type}.`);
     return true;
   }
 
@@ -320,10 +320,9 @@ export class ScenarioManager {
     if (!scenario || scenario.status !== 'PLACEMENT') return false;
     const pm = this._state.placementMode;
     if (!pm || pm.scenarioId !== scenarioId) return false;
-    if (pm.selectedTiles.length < pm.required) return false;
+    if (pm.selectedTiles.length === 0) return false;
 
-    // Lock only the required number of tiles (trim if over-selected)
-    const tiles = pm.selectedTiles.slice(0, pm.required);
+    const tiles = pm.selectedTiles;
     this.placeScenario(scenarioId, tiles);
 
     scenario.status      = 'ACTIVE';

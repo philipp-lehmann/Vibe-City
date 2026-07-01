@@ -705,7 +705,16 @@ function syncContractsPanel() {
   }
 
   const fmt = n => '$' + Math.abs(n).toLocaleString();
-  const reqLabel = k => k.charAt(0).toUpperCase() + k.slice(1);
+  const REQ_LABELS = {
+    tiles:        'Zone tiles',
+    power_access: 'Power access',
+    power:        'Spare power',
+    water:        'Water coverage',
+    happiness:    'Happiness',
+    labor:        'Available workers',
+    road:         'Road access'
+  };
+  const reqLabel = k => REQ_LABELS[k] || (k.charAt(0).toUpperCase() + k.slice(1));
 
   panel.innerHTML = contracts.map(c => {
     // PLACEMENT scenarios show a special "placing zone" card
@@ -867,13 +876,14 @@ export function showRenegotiationModal(scenarioId) {
 
 function formatReqForOffer(key, req) {
   switch (key) {
-    case 'tiles':     return `Place <b>${req.count}</b> tiles for the zone`;
-    case 'power':     return `<b>${req.amount}</b> spare power capacity`;
-    case 'water':     return `Full water coverage of zone`;
-    case 'happiness': return `City happiness ≥ <b>${req.minValue}</b>`;
-    case 'labor':     return `<b>${req.skilled}</b> skilled workers available`;
-    case 'road':      return `Road access — <b>${req.quality || 'nearby'}</b>`;
-    default:          return `${key}: ${JSON.stringify(req)}`;
+    case 'tiles':        return `Place a <b>${req.size || req.count}×${req.size || req.count}</b> zone on the map`;
+    case 'power_access': return `Run power to the zone edge (road or powerline adjacent)`;
+    case 'power':        return `<b>${req.amount} MW</b> spare city power capacity`;
+    case 'water':        return `Water coverage of the zone`;
+    case 'happiness':    return `City happiness ≥ <b>${req.minValue}</b>`;
+    case 'labor':        return `<b>${req.skilled}</b> skilled workers available`;
+    case 'road':         return `Road access — <b>${req.quality || 'nearby'}</b>`;
+    default:             return `${key}: ${JSON.stringify(req)}`;
   }
 }
 
@@ -930,8 +940,8 @@ export function showContractOfferModal(scenarioId) {
 
 // ── Placement banner ──────────────────────────────────────────────
 
-let _placementBanner     = null;
-let _placementLastCount  = -1;   // only rebuild DOM when tile count changes
+let _placementBanner    = null;
+let _placementLastSid   = null;   // only rebuild DOM when a new placement starts
 
 function ensurePlacementBanner() {
   if (_placementBanner) return;
@@ -946,45 +956,33 @@ function syncPlacementBanner() {
 
   if (!pm) {
     _placementBanner.classList.remove('active');
-    _placementLastCount = -1;
+    _placementLastSid = null;
     return;
   }
 
-  const sel = pm.selectedTiles.length;
-
-  // Show the banner
   _placementBanner.classList.add('active');
 
-  // Only rebuild innerHTML when the count changes — prevents buttons being
-  // replaced every frame (which swallows click events before they fire).
-  if (sel === _placementLastCount) return;
-  _placementLastCount = sel;
+  // Only rebuild innerHTML when a new placement session starts — prevents the
+  // Cancel button being replaced every frame (which swallows click events).
+  if (pm.scenarioId === _placementLastSid) return;
+  _placementLastSid = pm.scenarioId;
 
-  const req      = pm.required;
-  const ready    = sel >= req;
+  const size     = pm.size || 3;
   const scenario = scenarioManager.getScenario(pm.scenarioId);
   const typeName = scenario ? scenario.type.replace(/_/g, ' ') : '';
 
   _placementBanner.innerHTML = `
     <div class="pb-title">📍 PLACE ${typeName.toUpperCase()} ZONE</div>
-    <div class="pb-count">${sel} / ${req} tiles selected</div>
-    <div class="pb-hint">Click tiles on the map to select · drag to paint</div>
+    <div class="pb-count">${size}×${size} zone — click anywhere on the map</div>
+    <div class="pb-hint">Move your cursor over the grid · click to stamp the zone</div>
     <div class="pb-actions">
       <button class="btn-danger" id="pb-cancel">Cancel (Decline)</button>
-      <button class="btn-confirm-action" id="pb-confirm" ${ready ? '' : 'disabled'}>
-        ${ready ? 'Confirm Zone ✓' : `Need ${req - sel} more tile${req - sel === 1 ? '' : 's'}`}
-      </button>
     </div>
   `;
 
   _placementBanner.querySelector('#pb-cancel').onclick = () => {
     scenarioManager.cancelPlacement(pm.scenarioId);
     if (_pausedForContract && state.paused) { togglePause(); _pausedForContract = false; }
-  };
-  _placementBanner.querySelector('#pb-confirm').onclick = () => {
-    if (scenarioManager.confirmPlacement(pm.scenarioId)) {
-      if (_pausedForContract && state.paused) { togglePause(); _pausedForContract = false; }
-    }
   };
 }
 
@@ -1049,7 +1047,7 @@ export function resetGameUI() {
 
   // Reset placement banner
   if (_placementBanner) { _placementBanner.classList.remove('active'); }
-  _placementLastCount = -1;
+  _placementLastSid = null;
 
   // Reset contract-offer pause tracking
   _pausedForContract = false;
@@ -1079,6 +1077,15 @@ export function syncUI() {
   syncPersistentWarnings();
   syncContractsPanel();  /* SCENARIOS */
   syncPlacementBanner(); /* SCENARIOS: tile placement overlay */
+
+  // SCENARIOS: auto-confirm placement triggered by single click in input.js
+  if (state.placementMode?.readyToConfirm) {
+    const sid = state.placementMode.scenarioId;
+    state.placementMode.readyToConfirm = false;
+    if (scenarioManager.confirmPlacement(sid)) {
+      if (_pausedForContract && state.paused) { togglePause(); _pausedForContract = false; }
+    }
+  }
 
   // SCENARIOS: drain pending contract offers → pause + show offer modal (one at a time)
   if (state.pendingOffers.length && !(_contractModal?.style.display === 'flex')) {
