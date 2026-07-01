@@ -316,10 +316,11 @@ export function monthlyTick(){
   const noPendingOffer = !scenarioManager.activeScenarios.some(
     s => s.status === 'OFFERED' || s.status === 'PLACEMENT'
   );
-  if (state.revenue.monthly >= 0 &&   // don't offer during a fiscal crisis
+    if (state.revenue.monthly >= 0 &&   // don't offer during a fiscal crisis
+      state.pop >= 10000 && // only offer contract when population is over 10k
       noPendingOffer &&
       scenarioManager.activeScenarios.length < 3 &&
-      Math.random() < 0.05) {         // ~5% per month so offers feel rare
+      Math.random() < 0.03) {         // ~3% per month so offers feel rare
     const activeTypes = new Set(scenarioManager.activeScenarios.map(s => s.type));
     const available = Object.values(SCENARIOS).filter(bp => {
       if (activeTypes.has(bp.type)) return false;   // one per type at a time
