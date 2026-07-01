@@ -121,7 +121,7 @@ function declineStage(scenario) {
     stage: stage.id, action: 'DECLINED', month: state.month
   });
 
-  pushNotice(`❌ ${scenario.type} DECLINED. ${penalties.message || ''}`);
+  pushNotice(`❌ ${scenario.type} declined. ${penalties.message || ''}`);
 }
 
 // ── ScenarioManager ────────────────────────────────────────────────
@@ -202,7 +202,7 @@ export class ScenarioManager {
       }
 
       if (scenario.monthsRemaining > 0 && scenario.monthsRemaining <= 30) {
-        if (Math.ceil(scenario.monthsRemaining) % 6 === 0) {
+        if (Math.ceil(scenario.monthsRemaining) % 12 === 0) {
           requestFlash(`${scenario.type}: ${Math.ceil(scenario.monthsRemaining)} months left!`);
         }
       }

@@ -37,7 +37,7 @@ Multi-stage contract scenarios with time-based requirements, penalties, and syst
   monthsRemaining: 45,                               // countdown to deadline
   stageStatus: "IN_PROGRESS",                      // IN_PROGRESS, REQUIREMENTS_MET, FAILED, COMPLETED
   acceptanceHistory: [
-    { stage: "stage_1", action: "ACCEPTED", date: "2026-04-01" }
+    { stage: "stage_1", action: "Accepted", date: "2026-04-01" }
   ],
   
   // Optional renegotiation offer (if stage failed)
@@ -433,7 +433,7 @@ declineStage(scenario) {
   showDeclineConsequencesModal(scenario, penalties);
   
   pushNotice(
-    `❌ ${scenario.id} DECLINED.\n` +
+    `❌ ${scenario.id} declined.\n` +
     `${penalties.message}`
   );
 }
@@ -1163,3 +1163,13 @@ scenario.rivalry = {
 - **Requirements coupling.** A failed power plant means data centre fails. Systemic dependencies are good drama.
 - **Replayability.** Random contract generation + variable deadlines = different playthroughs.
 
+
+
+
+## Ideas
+- Autopick location for ai datacentre
+- Let the user pick an area for the shipping centre
+- Let the user free form pick tiles for the wildlife
+- Continously increase water consumption for datacentres
+- Additional road requirements for shipping centres
+- Watertiles and trees requirements for wildlife

@@ -14,6 +14,7 @@
   --ink-mid: #aaaaaa;
   --warn: #ff5b3b;
   --gold: #ffd23f;
+  --success: #3aca21;
   --line: #161616;
 
   /* STATISTICS: per-metric identity colors — shared by the statusbar
@@ -796,12 +797,12 @@ button:hover {
 
 .contract-stage-badge {
   color: var(--ink-dim);
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
 }
 
 .contract-stage-name {
   color: var(--ink-mid);
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   margin-bottom: var(--sp-2);
 }
 
@@ -833,11 +834,11 @@ button:hover {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-1);
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   margin-bottom: var(--sp-1);
 }
 
-.req-met   { color: var(--gold); }
+.req-met   { color: var(--success); }
 .req-unmet { color: var(--warn); }
 
 .contract-revenue {
@@ -899,20 +900,19 @@ button:hover {
 
 .contract-modal-subtitle {
   color: var(--ink-mid);
-  font-size: var(--font-sm);
-  margin-bottom: var(--sp-4);
+  font-size: var(--font-lg);
+  margin: var(--sp-4) var(--sp-0);
 }
 
 .contract-modal-section {
   color: var(--ink-dim);
-  font-size: var(--font-xs);
-  letter-spacing: 1px;
+  font-size: var(--font-base);
   margin: var(--sp-3) 0 var(--sp-1);
 }
 
 .contract-modal-row {
   padding: 2px 0;
-  font-size: var(--font-sm);
+  font-size: var(--font-base);
   color: var(--ink-mid);
 }
 
@@ -1038,7 +1038,7 @@ button:hover {
 
 .contract-modal-meta {
   color: var(--ink-dim);
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   margin-bottom: 2px;
 }
 

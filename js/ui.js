@@ -273,7 +273,7 @@ export function updateInspector() {
     if (scenario && scenario.status === 'ACTIVE') {
       panel.innerHTML = buildContractInspectorHTML(scenario);
       const declineBtn = document.createElement('button');
-      declineBtn.textContent = 'DECLINE CONTRACT';
+      declineBtn.textContent = 'Decline contract';
       declineBtn.className = 'contract-decline';
       declineBtn.style.marginTop = 'var(--sp-2)';
       declineBtn.onclick = () => showDeclineModal(t.contractId);
@@ -856,8 +856,8 @@ export function showRenegotiationModal(scenarioId) {
       <div class="contract-modal-row term-new">Extra time: +${offer.newDeadline} months</div>
 
       <div class="contract-modal-footer">
-        <button class="btn-confirm-action" id="cm-accept">ACCEPT OFFER</button>
-        <button class="btn-danger" id="cm-reject">DECLINE & END CONTRACT</button>
+        <button class="btn-confirm-action" id="cm-accept">Accept</button>
+        <button class="btn-danger" id="cm-reject">Decline</button>
       </div>
     </div>
   `);
@@ -902,26 +902,26 @@ export function showContractOfferModal(scenarioId) {
 
   openContractModal(`
     <div class="contract-modal-panel">
-      <div class="contract-modal-title">📋 CONTRACT OFFER</div>
+      <div class="contract-modal-title">Contract offer</div>
       <div class="contract-modal-subtitle">${typeName}</div>
       <div class="contract-modal-meta">Stage ${scenario.currentStageIndex + 1} of ${scenario.stages.length} — ${stage.name}</div>
       <div class="contract-modal-meta">Deadline: ${stage.monthsUntilDeadline} months (${years} years)</div>
 
-      <div class="contract-modal-section">REQUIREMENTS</div>
+      <div class="contract-modal-section">Requirements</div>
       ${reqRows}
 
-      <div class="contract-modal-section">REWARDS ON COMPLETION</div>
+      <div class="contract-modal-section">Rewards on completion</div>
       <div class="contract-modal-row offer-reward">+$${stage.rewards.revenue.toLocaleString()}/month revenue</div>
       <div class="contract-modal-row offer-reward">+${stage.rewards.jobs} jobs · +${stage.rewards.prestige} prestige</div>
 
-      <div class="contract-modal-section">IF DECLINED</div>
+      <div class="contract-modal-section">Effects if declined</div>
       <div class="contract-modal-row consequence">Fine: $${(p.revenue || 0).toLocaleString()}</div>
       <div class="contract-modal-row consequence">Prestige: ${p.prestige || 0} · Pop: −${Math.abs(p.populationLoss || 0).toLocaleString()}</div>
       ${blacklistYears ? `<div class="contract-modal-row consequence">No ${typeName} contracts for ${blacklistYears} years</div>` : ''}
 
       <div class="contract-modal-footer">
-        <button class="btn-danger" id="cm-decline-offer">DECLINE</button>
-        <button class="btn-confirm-action" id="cm-accept-offer">ACCEPT — SELECT ZONE ▶</button>
+        <button class="btn-danger" id="cm-decline-offer">Decline</button>
+        <button class="btn-confirm-action" id="cm-accept-offer">Accept</button>
       </div>
     </div>
   `);
