@@ -1268,9 +1268,17 @@ function _roadNear(x,y){
 }
 
 // pick a tile's minimap colour for the active overlay
+const CONTRACT_MINI = {
+  AI_DATA_CENTRE:   '#d04809',
+  SHIPPING_CENTRE:  '#7f2317',
+  WILDLIFE_RESERVE: '#08752a'
+};
+
 function miniColor(t,x,y){
   // ROAD CONNECTORS: edge road = outside connection -> bright white in every overlay
   if(t.type===T.ROAD && (x===0||y===0||x===state.gridWidth-1||y===state.gridHeight-1)) return '#ffffff';
+  // SCENARIOS: contract tiles show their type color in every overlay
+  if(t.contractId) return CONTRACT_MINI[t.contractType] || '#4a4a8a';
   const zone = isZone(t.type);
   switch(miniOverlay){
     case 'power':
