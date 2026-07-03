@@ -14,16 +14,16 @@ export const SCENARIOS = {
     type: 'AI_DATA_CENTRE',
     stages: [
       {
-        id:   'stage_1_setup',
+        id: 'stage_1_setup',
         name: 'Initial Campus Build',
         monthsUntilDeadline: 18,
-        monthsRemaining:     18,
+        monthsRemaining: 18,
         requirements: {
-          tiles:        { count: 9, size: 3, type: 'placement', position: null },
+          tiles: { count: 9, size: 3, type: 'placement', position: null },
           power_access: { type: 'infrastructure' },
-          power:        { amount: 50,  type: 'infrastructure' },
-          water:        { type: 'infrastructure' },
-          happiness:    { minValue: 55, type: 'city_stat' }
+          power: { amount: 300, type: 'infrastructure' },
+          water: { type: 'infrastructure' },
+          happiness: { minValue: 55, type: 'city_stat' }
         },
         rewards: { revenue: 120000, jobs: 60, prestige: 8 },
         penalties: {
@@ -40,18 +40,19 @@ export const SCENARIOS = {
         }
       },
       {
-        id:   'stage_2_expansion',
+        id: 'stage_2_expansion',
         name: 'Capacity Expansion',
         monthsUntilDeadline: 54,
-        monthsRemaining:     54,
+        monthsRemaining: 54,
         requirements: {
-          tiles:        { count: 16, size: 4, type: 'placement', position: 'adjacent_to_stage_1' },
+          tiles: { count: 16, size: 4, type: 'placement', position: 'adjacent_to_stage_1' },
           power_access: { type: 'infrastructure' },
-          power:        { amount: 100, type: 'infrastructure' },
-          road:         { quality: 'high', type: 'connectivity' },
-          labor:        { skilled: 150, type: 'workforce_available' }
+          power: { amount: 600, type: 'infrastructure' },
+          road: { quality: 'high', type: 'connectivity' },
+          water: { type: 'infrastructure' },
+          labor: { skilled: 250, type: 'workforce_available' }
         },
-        rewards: { revenue: 10000, jobs: 200, prestige: 12 },
+        rewards: { revenue: 10000, jobs: 100, prestige: 12 },
         penalties: {
           ifFailed: {
             revenue: 55000, prestige: -10, populationLoss: -800,
@@ -65,17 +66,17 @@ export const SCENARIOS = {
         }
       },
       {
-        id:   'stage_3_consolidation',
+        id: 'stage_3_consolidation',
         name: 'Mega-Campus Consolidation',
         monthsUntilDeadline: 90,
-        monthsRemaining:     90,
+        monthsRemaining: 90,
         requirements: {
-          tiles:        { count: 25, size: 5, type: 'placement', position: 'merge_both_campuses' },
+          tiles: { count: 25, size: 5, type: 'placement', position: 'merge_both_campuses' },
           power_access: { type: 'infrastructure' },
-          power:        { amount: 200, type: 'infrastructure' },
-          water:        { type: 'infrastructure' },
-          road:         { quality: 'highway', type: 'connectivity' },
-          happiness:    { minValue: 65, type: 'city_stat' }
+          power: { amount: 800, type: 'infrastructure' },
+          water: { type: 'infrastructure' },
+          road: { quality: 'highway', type: 'connectivity' },
+          happiness: { minValue: 65, type: 'city_stat' }
         },
         rewards: { revenue: 180000, jobs: 100, prestige: 20 },
         penalties: {
@@ -100,15 +101,15 @@ export const SCENARIOS = {
     type: 'SHIPPING_CENTRE',
     stages: [
       {
-        id:   'stage_1_port',
+        id: 'stage_1_port',
         name: 'Regional Hub Establishment',
         monthsUntilDeadline: 180,
-        monthsRemaining:     180,
+        monthsRemaining: 180,
         requirements: {
-          tiles:        { count: 9, size: 3, type: 'placement', position: 'waterfront' },
+          tiles: { count: 9, size: 3, type: 'placement', position: 'waterfront' },
           power_access: { type: 'infrastructure' },
-          power:        { amount: 30, type: 'infrastructure' },
-          road:         { quality: 'high', type: 'connectivity' }
+          power: { amount: 30, type: 'infrastructure' },
+          road: { quality: 'high', type: 'connectivity' }
         },
         rewards: { revenue: 45000, jobs: 180, prestige: 5 },
         penalties: {
@@ -130,12 +131,12 @@ export const SCENARIOS = {
     type: 'WILDLIFE_RESERVE',
     stages: [
       {
-        id:   'stage_1_protected',
+        id: 'stage_1_protected',
         name: 'Protected Area Designation',
         monthsUntilDeadline: 120,
-        monthsRemaining:     120,
+        monthsRemaining: 120,
         requirements: {
-          tiles:     { count: 9, size: 3, type: 'placement', position: null },
+          tiles: { count: 9, size: 3, type: 'placement', position: null },
           happiness: { minValue: 50, type: 'city_stat' }
         },
         rewards: { revenue: 25000, jobs: 40, prestige: 5 },
@@ -146,6 +147,28 @@ export const SCENARIOS = {
           },
           ifDeclined: {
             revenue: 200000, prestige: -10, populationLoss: -400,
+            contractBlacklist: 1825,
+            message: 'Conservation deal abandoned.'
+          }
+        }
+      },
+      {
+        id: 'stage_2_reservate',
+        name: 'Protected Area Reservate',
+        monthsUntilDeadline: 120,
+        monthsRemaining: 120,
+        requirements: {
+          tiles: { count: 16, size: 4, type: 'placement', position: null },
+          happiness: { minValue: 60, type: 'city_stat' }
+        },
+        rewards: { revenue: 25000, jobs: 40, prestige: 6 },
+        penalties: {
+          ifFailed: {
+            prestige: -5, populationLoss: -200,
+            renegotiate: false, contractEnds: true, message: ''
+          },
+          ifDeclined: {
+            prestige: -10, populationLoss: -400,
             contractBlacklist: 1825,
             message: 'Conservation deal abandoned.'
           }
