@@ -476,20 +476,16 @@ let modal = null;
 function buildSavesModal() {
   modal = document.createElement('div');
   modal.id = 'saves-modal';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:200;display:none;' +
-    'background:rgba(5,5,12,0.78);align-items:center;justify-content:center;';
   modal.addEventListener('click', e => { if (e.target === modal) closeSaves(); });
   const panel = document.createElement('div');
-  panel.classList = 'modal-panel';
-  panel.style.cssText = 'background:var(--panel);border:1px solid var(--ink-dim);' +
-    'padding:14px;width:560px;max-width:94vw;color:var(--ink);font:12px \'JetBrains Mono\', monospace;';
-  panel.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:10px;"">
+  panel.className = 'modal-panel saves-modal-panel';
+  panel.innerHTML = `<div class="saves-modal-head">
       <h2 class="modal-title">Vibe City</h2>
       <button id="saves-new" class="border" style="margin-left:auto;">New City</button>
       <button id="saves-close">✕ Close</button>
     </div>
-    <div id="saves-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;"></div>
-    <div id="saves-auto" style="margin-top:10px;"></div>`;
+    <div id="saves-grid"></div>
+    <div id="saves-auto"></div>`;
   modal.appendChild(panel);
   document.body.appendChild(modal);
   $('saves-close').onclick = closeSaves;
@@ -499,37 +495,51 @@ function openSaves() { if (!modal) buildSavesModal(); renderSlots(); modal.style
 // STARTUP: during the launch screen the modal stays open until a city is chosen
 function closeSaves() { if (startupMode && !gameStarted) return; if (modal) modal.style.display = 'none'; }
 
+// name/stats/thumbnail is one clickable target that loads the slot (bordered on
+// hover — see .slot-load in ui.css); Save/Delete remain explicit buttons below.
+function doLoadSlot(slot, entry) {
+  if (loadGame(slot)) {
+    syncMinimapSize(); resetStatsHistoryGuards(); resetGameUI(); startGame(); closeSaves();   // MAP SIZE + STARTUP
+    flashStatus('Loaded ' + (entry.cityName || ''));
+  }
+}
+
+function slotThumbHtml(thumb) {
+  return thumb ? `<img class="slot-thumb" src="${thumb}">` : `<div class="slot-thumb"></div>`;
+}
+
 function slotCard(slot, entry) {
   const card = document.createElement('div');
-  card.style.cssText = 'background:var(--panel2);border:1px solid var(--line);padding:6px;' +
-    'display:flex;flex-direction:column;gap:4px;min-height:150px;';
+  card.className = 'save-slot';
   if (!entry) {
-    card.innerHTML = ``;
+    const d = document.createElement('div');
+    d.className = 'empty-slot';
     const b = document.createElement('button');
-    b.textContent = 'Save Here'; b.style.cssText = btnCss('var(--ink)');
+    b.className = 'btn-confirm-action';
+    b.textContent = 'Save Here';
     b.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
-    card.appendChild(b);
+    card.appendChild(d);
+    d.appendChild(b);
     return card;
   }
-  const img = entry.thumb
-    ? `<img src="${entry.thumb}" style="width:100%;height:84px;object-fit:contain;image-rendering:pixelated;background:#05050c;">`
-    : `<div style="height:84px;background:#05050c;"></div>`;
-  card.innerHTML = `<b style="color:var(--ink);">${escapeHtml(entry.cityName || 'City')}</b>
-    <div style="color:var(--ink-dim);font-size:var(--font-sm)">${fmtDate(entry.month || 0)}<br>pop ${(entry.pop || 0).toLocaleString()}</div>
-    ${img}`;
-  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:var(--sp-1);';
 
-  const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)');
-  bLoad.onclick = () => { if (loadGame(slot)) { syncMinimapSize(); resetStatsHistoryGuards(); resetGameUI(); startGame(); closeSaves(); flashStatus('Loaded ' + (entry.cityName || '')); } }; // MAP SIZE + STARTUP
-  const bDel = document.createElement('button'); bDel.textContent = 'Delete'; bDel.style.cssText = btnCss('var(--warn)');
+  const info = document.createElement('div');
+  info.className = 'slot-load';
+  info.title = 'Load this city';
+  info.innerHTML = `<span class="slot-name">${escapeHtml(entry.cityName || 'City')}</span>
+    <span class="slot-meta">${fmtDate(entry.month || 0)}<br>pop ${(entry.pop || 0).toLocaleString()}</span>
+    ${slotThumbHtml(entry.thumb)}`;
+  info.onclick = () => doLoadSlot(slot, entry);
+  card.appendChild(info);
+
+  const row = document.createElement('div'); row.className = 'slot-actions';
+  const bSave = document.createElement('button'); bSave.className = 'btn-confirm-action'; bSave.textContent = 'Save';
+  bSave.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
+  const bDel = document.createElement('button'); bDel.className = 'btn-danger'; bDel.textContent = 'Delete';
   bDel.onclick = () => { if (confirm('Delete save "' + (entry.cityName || slot) + '"?')) { deleteSave(slot); renderSlots(); } };
-  row.appendChild(bLoad); row.appendChild(bDel);
+  row.appendChild(bSave); row.appendChild(bDel);
   card.appendChild(row);
   return card;
-}
-function btnCss(col) {
-  return `flex:1;font-size:var(--font-sm);` +
-    `color:${col};`;
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -538,17 +548,19 @@ function renderSlots() {
   const bySlot = {}; idx.forEach(e => bySlot[e.slot] = e);
   const grid = $('saves-grid'); grid.innerHTML = '';
   SAVE_SLOTS.forEach(s => grid.appendChild(slotCard(s, bySlot[s])));
-  // reserved autosave row (load-only)
+  // reserved autosave row (click name/stats/thumbnail to load — no manual save/delete)
   const a = bySlot['autosave']; const box = $('saves-auto'); box.innerHTML = '';
   if (a) {
-    const card = document.createElement('div');
-    card.classList = 'card';
-    card.style.cssText = 'display:flex;align-items:center;gap:8px;';
-    card.innerHTML = `${a.thumb ? `<img src="${a.thumb}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated;background:#05050c;">` : ''}
-      <div style="flex:1;"><b>Autosave</b> <span style="color:var(--ink-dim);">${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span></div>`;
-    const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)') + 'flex:0 0 60px;';
-    bLoad.onclick = () => { if (loadGame('autosave')) { syncMinimapSize(); resetStatsHistoryGuards(); resetGameUI(); startGame(); closeSaves(); flashStatus('Loaded autosave'); } }; // MAP SIZE + STARTUP
-    card.appendChild(bLoad); box.appendChild(card);
+    const row = document.createElement('div');
+    row.className = 'autosave-row';
+    const info = document.createElement('div');
+    info.className = 'slot-load';
+    info.title = 'Load autosave';
+    info.innerHTML = `${slotThumbHtml(a.thumb)}
+      <span class="slot-meta"><span class="slot-name">Autosave</span> ${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span>`;
+    info.onclick = () => doLoadSlot('autosave', a);
+    row.appendChild(info);
+    box.appendChild(row);
   }
 }
 

@@ -6,6 +6,7 @@
 :root {
   /* Colors */
   --bg: #121212;
+  --bg-hover: #2a2a2a;
   --panel: #141414;
   --panel2: #161616;
   --panel3: #333333;
@@ -342,7 +343,7 @@ canvas.spark {
 
 .tool.sel {
   border-color: var(--ink);
-  background: #2a2a2a;
+  background: var(--bg-hover);
   color: var(--ink);
   box-shadow: 0 0 6px rgba(232, 232, 232, 0.4) inset;
 }
@@ -712,6 +713,119 @@ button:hover {
   padding: var(--sp-2) var(--sp-3);
 }
 
+/* ── SAVE SYSTEM: saves modal, slot cards, autosave row ──────────
+   Name/stats/thumbnail (.slot-load) is one clickable target that loads
+   the city — bordered on hover/focus to signal that. Save/Delete remain
+   as explicit buttons underneath. ─────────────────────────────────── */
+#saves-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  background: rgba(5, 5, 12, 0.78);
+  align-items: center;
+  justify-content: center;
+}
+
+.saves-modal-panel {
+  width: 640px;
+}
+
+.saves-modal-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--sp-4);
+  gap: var(--sp-2);
+}
+
+#saves-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-3);
+}
+
+.save-slot {
+  background: var(--panel2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.empty-slot, 
+.empty-slot button {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.save-slot > button {
+  /* align-self: stretch; */
+}
+
+.slot-load {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1);
+  transition: border-color 0.15s ease;
+}
+
+.slot-load:hover, .slot-load:focus-visible {
+  border-color: var(--gold);
+  background-color: var(--bg-hover);
+}
+
+.slot-thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: var(--input);
+}
+
+.slot-name {
+  color: var(--ink);
+  font-size: var(--font-md);
+}
+
+.slot-meta {
+  color: var(--ink-dim);
+  font-size: var(--font-sm);
+}
+
+.slot-actions {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.slot-actions button {
+  flex: 1;
+  font-size: var(--font-sm);
+}
+
+.autosave-row {
+  margin-top: var(--sp-4);
+}
+
+.autosave-row .slot-load {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.autosave-row .slot-thumb {
+  width: 48px;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 48px;
+}
+
 .btn-shuffle {
   font-family: inherit;
   font-size: var(--font-base);
@@ -769,7 +883,7 @@ button:hover {
   font-family: inherit;
   font-size: var(--font-base);
   cursor: pointer;
-  background: #2a2a2a;
+  background: var(--bg-hover);
   color: var(--ink);
   border: 1px solid var(--ink);
   padding: var(--sp-2);
@@ -917,7 +1031,7 @@ button:hover {
 
 .btn-confirm-action:hover {
   border-color: var(--ink);
-  background: #2a2a2a;
+  background: var(--bg-hover);
 }
 
 /* ── SCENARIOS: placement banner ──────────────────────────────── */
