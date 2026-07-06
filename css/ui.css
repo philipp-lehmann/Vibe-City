@@ -1045,6 +1045,49 @@ button:hover {
 .contract-modal-row.offer-req { color: var(--ink-mid); }
 .contract-modal-row.offer-reward { color: var(--gold); }
 
+/* ── SCENARIOS: contracts dialog (status-bar Contracts button) ──── */
+
+#contracts-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 208;
+  display: none;
+  background: rgba(5, 5, 12, 0.82);
+  align-items: center;
+  justify-content: center;
+}
+
+.contracts-dialog-panel {
+  width: 460px;
+}
+
+.contracts-dialog-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.contracts-dialog-row {
+  border: var(--border-panel);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.contracts-dialog-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-1);
+  font-size: var(--font-sm);
+}
+
+.contracts-dialog-row button {
+  width: 100%;
+  font-size: var(--font-sm);
+  padding: var(--sp-1) var(--sp-2);
+}
+
 /* ── SCENARIOS: placement state card in contracts panel ────────── */
 
 .contract-card.contract-placement {

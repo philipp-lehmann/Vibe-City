@@ -25,6 +25,21 @@ export const WATER_LEVELS = {
   high:  { pct: 0.3, label: '30%' },
 };
 export const DEFAULT_WATER = 'low';   // DEFAULT WATER AMOUNT: 5% default
+
+// GAME MODE: chosen once at city creation, persisted on state/save.
+// Free Play has no contract system; Scenario Mode gates growth behind contracts.
+export const GAME_MODES = {
+  freeplay: { label: 'Free Play',     desc: 'Sandbox. No contracts.' },
+  scenario: { label: 'Scenario Mode', desc: 'Demand caps at 15k pop. Contracts unlock growth.' },
+};
+export const DEFAULT_MODE = 'freeplay';
+
+// SCENARIO MODE: demand penalty tuning — population past the cap drags R/C/I
+// demand down unless offset by active contracts' demandBoost (see scenario.js).
+export const SCENARIO_DEMAND_CAP_POP = 15000;       // population above which the penalty kicks in
+export const SCENARIO_DEMAND_PENALTY_SCALE = 30000; // "meters" the overage against — larger = gentler curve
+export const SCENARIO_DEMAND_PENALTY_MAX = 0.9;     // hard ceiling so demand never goes fully to zero/negative-only from this alone
+
 export const TILE_W = 64;   // base diamond width  (2:1 ratio)
 export const TILE_H = 32;   // base diamond height
 export const ELEV   = 8;    // pixels of "lift" per elevation unit

@@ -128,7 +128,7 @@
 
     <!-- ===== ADMIN PANEL ===== -->
     <div id="admin-panel">
-      <div class="ap-section">
+      <div class="ap-section" id="ap-admin">
         <div class="ap-header"><span>Admin</span><span class="ap-arrow">▾</span></div>
         <div class="ap-body">
           <div class="ap-inner">
@@ -136,6 +136,8 @@
               <label>Tax rate <b id="tax-val">8%</b></label>
               <input id="tax-slider" type="range" min="1" max="20" value="8">
             </div>
+            <!-- GAME MODE: only shown/visible in Scenario Mode -->
+            <button id="btn-contracts" style="display:none;">Contracts</button>
           </div>
         </div>
       </div>

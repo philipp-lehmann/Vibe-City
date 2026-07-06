@@ -5,13 +5,14 @@
    facing updates, tile inspector, control-button wiring, toast +
    status flash, and per-frame syncUI() that applies state -> DOM.
    ================================================================ */
-import { MAP_SIZES, WATER_LEVELS, DEFAULT_WATER, T, TOOLS, FACES, SHORT_MONTHS, isZone } from './config.js';   // MAP SIZE / WATER AMOUNT
+import { MAP_SIZES, WATER_LEVELS, DEFAULT_WATER, GAME_MODES, DEFAULT_MODE, SCENARIO_DEMAND_CAP_POP,
+         T, TOOLS, FACES, SHORT_MONTHS, isZone } from './config.js';   // MAP SIZE / WATER AMOUNT / GAME MODE
 import {
   state, tileAt, setTool, togglePause, rotateView,
   listSaves, saveGame, loadGame, deleteSave, newGame
 } from './state.js'; // SAVE SYSTEM
 import { igniteFire } from './simulation.js';
-import { scenarioManager } from './scenario.js';              // SCENARIOS
+import { scenarioManager, SCENARIOS } from './scenario.js';              // SCENARIOS
 import {
   drawToolIcon, MINI_OVERLAYS, setMiniOverlay, getMiniOverlay,
   cycleZoom, zoomLabel
@@ -349,6 +350,11 @@ function syncPersistentWarnings() {
     active.push('⚠ No outside connection — city cannot grow');
   if (state.powerPlantCount === 0)
     active.push('⚡ No power plant — city cannot grow');
+  // SCENARIO MODE: demand penalty above the population cap with no active
+  // contract offsetting it — clears automatically once any contract goes ACTIVE.
+  if (state.mode === 'scenario' && state.pop > SCENARIO_DEMAND_CAP_POP
+      && scenarioManager.getActiveDemandBoost() === 0)
+    active.push('📉 Demand stalling above 15k pop — activate a contract to keep growing.');
   const added = active.filter(w => !_prevPersistentKeys.includes(w));
   _prevPersistentKeys = active;
   pers.innerHTML = active
@@ -389,9 +395,23 @@ export function wireControls() {
   $('tax-slider').addEventListener('input', e => { state.taxPct = parseInt(e.target.value); });
   $('btn-saves').onclick = openSaves;
   $('btn-newgame').onclick = doNewGame;
+  $('btn-contracts').onclick = openContractsDialog;   // SCENARIOS: Admin accordion button, Scenario Mode only
+}
+
+// GAME MODE: force the Admin accordion section open (used once when a Scenario
+// Mode session starts — doesn't fight the player if they collapse it after).
+function expandAdminSection() {
+  const sec = $('ap-admin');
+  const body = sec?.querySelector('.ap-body');
+  const arrow = sec?.querySelector('.ap-arrow');
+  if (body && !body.classList.contains('open')) {
+    body.classList.add('open');
+    if (arrow) arrow.textContent = '▴';
+  }
 }
 
 /* --- per-frame DOM sync: control labels, tool highlight, indicators --- */
+let _lastMode = null;
 function syncControls() {
   const pb = $('btn-pause');
   pb.textContent = state.paused ? '▶ Paused' : '⏸ Running';
@@ -399,6 +419,13 @@ function syncControls() {
   $('btn-speed').innerHTML = [0,1,2].map(i =>
     `<span style="opacity:${i <= state.speedIdx ? 1 : 0.25};pointer-events:none">▶</span>`).join('');
   $('btn-zoom').textContent = zoomLabel();
+  // GAME MODE: Contracts button (in the Admin accordion) only exists in Scenario Mode
+  if (state.mode !== _lastMode) {
+    _lastMode = state.mode;
+    $('btn-contracts').style.display = state.mode === 'scenario' ? '' : 'none';
+    if (state.mode === 'scenario') expandAdminSection();  // expanded by default in Scenario Mode
+    else closeContractsDialog();
+  }
   $('tax-val').textContent = state.taxPct + '%';
 }
 let lastTool = null;
@@ -458,7 +485,7 @@ function buildSavesModal() {
   panel.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:10px;"">
       <h2 class="modal-title">Vibe City</h2>
       <button id="saves-new" class="border" style="margin-left:auto;">New City</button>
-      <button id="saves-close">✕ CLOSE</button>
+      <button id="saves-close">✕ Close</button>
     </div>
     <div id="saves-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;"></div>
     <div id="saves-auto" style="margin-top:10px;"></div>`;
@@ -517,7 +544,7 @@ function renderSlots() {
     card.classList = 'card';
     card.style.cssText = 'display:flex;align-items:center;gap:8px;';
     card.innerHTML = `${a.thumb ? `<img src="${a.thumb}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated;background:#05050c;">` : ''}
-      <div style="flex:1;"><b>AUTOSAVE</b> <span style="color:var(--ink-dim);">${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span></div>`;
+      <div style="flex:1;"><b>Autosave</b> <span style="color:var(--ink-dim);">${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span></div>`;
     const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.cssText = btnCss('var(--gold)') + 'flex:0 0 60px;';
     bLoad.onclick = () => { if (loadGame('autosave')) { syncMinimapSize(); resetStatsHistoryGuards(); resetGameUI(); startGame(); closeSaves(); flashStatus('Loaded autosave'); } }; // MAP SIZE + STARTUP
     card.appendChild(bLoad); box.appendChild(card);
@@ -548,7 +575,7 @@ function randomCityName() {
   const s = _CITY_SUFFIXES[Math.random() * _CITY_SUFFIXES.length | 0];
   return f + s;
 }
-let sizeModal = null, pickedSize = 'medium', pickedWater = DEFAULT_WATER;   // WATER AMOUNT
+let sizeModal = null, pickedSize = 'medium', pickedWater = DEFAULT_WATER, pickedMode = DEFAULT_MODE;   // WATER AMOUNT / GAME MODE
 function buildSizeModal() {
   sizeModal = document.createElement('div');
   sizeModal.id = 'size-modal';
@@ -564,6 +591,10 @@ function buildSizeModal() {
       </div>
     </div>
     <div class="modal-field">
+      <label>Mode</label>
+      <div id="mode-row"></div>
+    </div>
+    <div class="modal-field">
       <label>Map Size</label>
       <div id="size-row"></div>
     </div>
@@ -577,6 +608,16 @@ function buildSizeModal() {
     </div>`;
   sizeModal.appendChild(panel);
   document.body.appendChild(sizeModal);
+  // GAME MODE: two cards, same styling as size/water pickers
+  const modeRow = $('mode-row');
+  Object.entries(GAME_MODES).forEach(([key, m]) => {
+    const card = document.createElement('button');
+    card.dataset.mode = key;
+    card.className = 'size-card';
+    card.innerHTML = `<b>${m.label}</b><span class="size-dim">${m.desc}</span>`;
+    card.onclick = () => { pickedMode = key; highlightMode(); };
+    modeRow.appendChild(card);
+  });
   const row = $('size-row');
   Object.entries(MAP_SIZES).forEach(([key, m]) => {
     const card = document.createElement('button');
@@ -606,13 +647,13 @@ function buildSizeModal() {
   $('size-confirm').onclick = () => {
     sizeModal.style.display = 'none';
     const name = ($('city-name-input').value || '').trim() || randomCityName();
-    newGame(name, pickedSize, WATER_LEVELS[pickedWater].pct);  // MAP SIZE / WATER AMOUNT
+    newGame(name, pickedSize, WATER_LEVELS[pickedWater].pct, pickedMode);  // MAP SIZE / WATER AMOUNT / GAME MODE
     syncMinimapSize();
     resetStatsHistoryGuards();
     resetGameUI();
     startGame();                                       // STARTUP
     closeSaves();
-    flashStatus(`NEW ${MAP_SIZES[pickedSize].label} CITY: ${state.cityName}`);
+    flashStatus(`New ${MAP_SIZES[pickedSize].label} City: ${state.cityName}`);
   };
 }
 function highlightSize() {
@@ -631,12 +672,22 @@ function highlightWater() {
     c.style.background = on ? '#2a2a2a' : 'var(--panel2)';
   });
 }
+function highlightMode() {
+  sizeModal.querySelectorAll('[data-mode]').forEach(c => {
+    const on = c.dataset.mode === pickedMode;
+    c.style.borderColor = on ? 'var(--ink)' : 'var(--line)';
+    c.style.color = on ? 'var(--ink)' : 'var(--ink-mid)';
+    c.style.background = on ? '#2a2a2a' : 'var(--panel2)';
+  });
+}
 function doNewGame() {
   if (!sizeModal) buildSizeModal();
   pickedSize = Object.values(MAP_SIZES).find(p => p.w === state.gridWidth) ?
     Object.keys(MAP_SIZES).find(k => MAP_SIZES[k].w === state.gridWidth) : 'medium';
+  pickedMode = DEFAULT_MODE;   // GAME MODE: never leak a previous new-game flow's selection
   highlightSize();
   highlightWater();
+  highlightMode();
   $('city-name-input').value = randomCityName();
   sizeModal.style.display = 'flex';
   setTimeout(() => $('city-name-input').select(), 50);
@@ -680,6 +731,15 @@ function buildExportButton() {
 // Track whether we paused the game to show a contract offer
 let _pausedForContract = false;
 
+// Blueprint types are SCREAMING_SNAKE_CASE (e.g. AI_DATA_CENTRE) — Title Case
+// them for display instead of the raw uppercase-with-underscores form. Short
+// (<=2 char) words are treated as acronyms and left as-is (e.g. "AI").
+function formatContractName(type) {
+  return type.split('_')
+    .map(w => w.length <= 2 ? w : w.charAt(0) + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 // ── Contracts panel ───────────────────────────────────────────────
 
 let _contractsPanelFP = '';   // fingerprint — only rebuild DOM when data changes
@@ -687,6 +747,13 @@ let _contractsPanelFP = '';   // fingerprint — only rebuild DOM when data chan
 function syncContractsPanel() {
   const panel = $('contracts-panel');
   if (!panel) return;
+
+  // GAME MODE: contracts only exist in Scenario Mode — Free Play shows nothing.
+  if (state.mode !== 'scenario') {
+    if (panel.innerHTML !== '') panel.innerHTML = '';
+    _contractsPanelFP = '';
+    return;
+  }
 
   const contracts = scenarioManager.getContractStatus();
 
@@ -721,7 +788,7 @@ function syncContractsPanel() {
     if (c.status === 'PLACEMENT') {
       return `<div class="contract-card contract-placement">
         <div class="contract-head">
-          <span class="contract-name">${c.type.replace(/_/g, ' ')}</span>
+          <span class="contract-name">${formatContractName(c.type)}</span>
           <span class="contract-stage-badge">S${c.stage}/${c.totalStages}</span>
         </div>
         <div class="contract-stage-name">${c.stageName}</div>
@@ -740,14 +807,14 @@ function syncContractsPanel() {
         `${v.met ? '✓' : '✗'} ${reqLabel(k)}: ${v.current}/${v.required}</span>`
       ).join('');
     const statusLabel = c.requirementsMet
-      ? `<span style="color:var(--gold)">READY</span>`
-      : `<span style="color:var(--ink-dim)">IN PROGRESS</span>`;
+      ? `<span style="color:var(--gold)">Ready</span>`
+      : `<span style="color:var(--ink-dim)">In Progress</span>`;
     const earnedNote = c.earnedRevenue > 0
       ? `<div class="contract-earned">+${fmt(c.earnedRevenue)}/mo earned</div>` : '';
 
     return `<div class="contract-card">
       <div class="contract-head">
-        <span class="contract-name">${c.type.replace(/_/g, ' ')}</span>
+        <span class="contract-name">${formatContractName(c.type)}</span>
         <span class="contract-stage-badge">S${c.stage}/${c.totalStages}</span>
       </div>
       <div class="contract-stage-name">${c.stageName}</div>
@@ -761,7 +828,7 @@ function syncContractsPanel() {
       <div class="contract-reqs">${reqs}</div>
       <div class="contract-revenue">+${fmt(c.pendingRevenue)}/month pending</div>
       ${earnedNote}
-      <button class="contract-decline" data-scenario-id="${c.id}">CANCEL CONTRACT</button>
+      <button class="contract-decline" data-scenario-id="${c.id}">Cancel Contract</button>
     </div>`;
   }).join('');
 
@@ -769,6 +836,128 @@ function syncContractsPanel() {
   panel.querySelectorAll('.contract-decline').forEach(btn => {
     btn.onclick = () => showDeclineModal(btn.dataset.scenarioId);
   });
+}
+
+// ── Contracts dialog (status-bar "Contracts" button, Scenario Mode only) ──
+// Purely a picker/launcher: lists every SCENARIOS entry with its current
+// state and an Activate/Deactivate action. Doesn't replace the contracts
+// panel above, which keeps showing live progress for anything ACTIVE/PLACEMENT.
+
+let _contractsDialog = null;
+
+function ensureContractsDialog() {
+  if (_contractsDialog) return;
+  _contractsDialog = document.createElement('div');
+  _contractsDialog.id = 'contracts-dialog';
+  _contractsDialog.addEventListener('click', e => {
+    if (e.target === _contractsDialog) closeContractsDialog();
+  });
+  document.body.appendChild(_contractsDialog);
+}
+
+function isContractsDialogOpen() {
+  return _contractsDialog?.style.display === 'flex';
+}
+
+function closeContractsDialog() {
+  if (_contractsDialog) _contractsDialog.style.display = 'none';
+}
+
+// fingerprint so the open dialog only rebuilds (and re-wires buttons) when
+// something it's showing actually changes, same rationale as the contracts panel
+function contractsDialogFingerprint() {
+  const status = scenarioManager.getContractStatus();
+  return Object.keys(SCENARIOS).map(type => {
+    const live = status.find(c => c.type === type);
+    const bl = state.scenarios.contractBlacklist[type];
+    return `${type}:${live ? live.status + ':' + live.stage : 'none'}:${bl ? bl.until : ''}`;
+  }).join('|');
+}
+
+function renderContractsDialogRows() {
+  const status = scenarioManager.getContractStatus();
+  return Object.values(SCENARIOS).map(bp => {
+    const type = bp.type;
+    const name = formatContractName(type);
+    const live = status.find(c => c.type === type);
+    const bl = state.scenarios.contractBlacklist[type];
+    const blacklisted = bl && bl.until > state.month;
+
+    let stateLabel, actionHtml;
+    if (live) {
+      stateLabel = live.status === 'PLACEMENT'
+        ? `<span style="color:var(--gold)">Placing zone</span>`
+        : `<span style="color:var(--gold)">Active — Stage ${live.stage}/${live.totalStages}</span>`;
+      actionHtml = `<button class="btn-danger contracts-dialog-deactivate" data-id="${live.id}">Deactivate</button>`;
+    } else if (blacklisted) {
+      const remaining = Math.max(1, Math.round((bl.until - state.month) / 12));
+      stateLabel = `<span style="color:var(--ink-dim)">Blacklisted — ${remaining} year${remaining === 1 ? '' : 's'} left</span>`;
+      actionHtml = `<button disabled>Activate</button>`;
+    } else {
+      stateLabel = `<span style="color:var(--ink-mid)">Available</span>`;
+      actionHtml = `<button class="btn-confirm-action contracts-dialog-activate" data-type="${type}">Activate</button>`;
+    }
+
+    return `<div class="contracts-dialog-row">
+      <div class="contracts-dialog-row-head">
+        <span class="contract-name">${name}</span>
+        ${stateLabel}
+      </div>
+      ${actionHtml}
+    </div>`;
+  }).join('');
+}
+
+function wireContractsDialog() {
+  _contractsDialog.querySelectorAll('.contracts-dialog-activate').forEach(btn => {
+    btn.onclick = () => {
+      const scenario = scenarioManager.activateContract(btn.dataset.type);
+      if (!scenario) return;
+      closeContractsDialog();
+      // The player already chose to activate this contract from the dialog —
+      // skip the offer/accept confirmation step and go straight into tile
+      // placement instead of showing the offer modal again.
+      const idx = state.pendingOffers.indexOf(scenario.id);
+      if (idx !== -1) state.pendingOffers.splice(idx, 1);
+      scenarioManager.acceptOffer(scenario.id);
+      if (!state.paused) { togglePause(); _pausedForContract = true; }
+    };
+  });
+  _contractsDialog.querySelectorAll('.contracts-dialog-deactivate').forEach(btn => {
+    btn.onclick = () => { closeContractsDialog(); showDeclineModal(btn.dataset.id); };
+  });
+  const close = _contractsDialog.querySelector('#contracts-dialog-close');
+  if (close) close.onclick = closeContractsDialog;
+}
+
+let _contractsDialogFP = '';
+function rebuildContractsDialog() {
+  ensureContractsDialog();
+  _contractsDialog.innerHTML = `
+    <div class="contract-modal-panel contracts-dialog-panel">
+      <div class="contract-modal-title">Contracts</div>
+      <div class="contracts-dialog-list">${renderContractsDialogRows()}</div>
+      <div class="contract-modal-footer">
+        <button id="contracts-dialog-close">Close</button>
+      </div>
+    </div>`;
+  wireContractsDialog();
+  _contractsDialogFP = contractsDialogFingerprint();
+}
+
+function openContractsDialog() {
+  rebuildContractsDialog();
+  _contractsDialog.style.display = 'flex';
+}
+
+// called each frame — only rebuilds while the dialog is actually open, and
+// only when something it displays has changed (new Active status, blacklist
+// countdown ticking down another month, etc.)
+function syncContractsDialog() {
+  if (!isContractsDialogOpen()) return;
+  const fp = contractsDialogFingerprint();
+  if (fp === _contractsDialogFP) return;
+  rebuildContractsDialog();
 }
 
 // ── Contract modal (shared overlay) ──────────────────────────────
@@ -801,16 +990,16 @@ export function showDeclineModal(scenarioId) {
   const scenario = scenarioManager.getScenario(scenarioId);
   if (!scenario) return;
   const p = scenario.currentStage.penalties.ifDeclined;
-  const typeName = scenario.type.replace(/_/g, ' ');
+  const typeName = formatContractName(scenario.type);
   const blacklistYears = p.contractBlacklist
     ? Math.round(p.contractBlacklist / 12) : 0;
 
   openContractModal(`
     <div class="contract-modal-panel">
-      <div class="contract-modal-title">⚠ CANCEL CONTRACT?</div>
+      <div class="contract-modal-title">⚠ Cancel Contract?</div>
       <div class="contract-modal-subtitle">${typeName} — ${scenario.currentStage.name}</div>
 
-      <div class="contract-modal-section">CONSEQUENCES</div>
+      <div class="contract-modal-section">Consequences</div>
       <div class="contract-modal-row consequence">Lost Revenue: $${(p.revenue || 0).toLocaleString()}</div>
       <div class="contract-modal-row consequence">Prestige: ${p.prestige || 0}</div>
       <div class="contract-modal-row consequence">Population Loss: −${Math.abs(p.populationLoss || 0).toLocaleString()}</div>
@@ -819,8 +1008,8 @@ export function showDeclineModal(scenarioId) {
       <div class="contract-modal-warning">This is permanent and cannot be undone.</div>
 
       <div class="contract-modal-footer">
-        <button class="btn-confirm-action" id="cm-cancel">KEEP CONTRACT</button>
-        <button class="btn-danger" id="cm-confirm">CANCEL CONTRACT — I'M SURE</button>
+        <button class="btn-confirm-action" id="cm-cancel">Keep Contract</button>
+        <button class="btn-danger" id="cm-confirm">Cancel Contract — I'm Sure</button>
       </div>
     </div>
   `);
@@ -839,19 +1028,19 @@ export function showRenegotiationModal(scenarioId) {
   if (!scenario || !scenario.renegotiationOffer) return;
   const offer    = scenario.renegotiationOffer;
   const stage    = scenario.currentStage;
-  const typeName = scenario.type.replace(/_/g, ' ');
+  const typeName = formatContractName(scenario.type);
 
   openContractModal(`
     <div class="contract-modal-panel">
-      <div class="contract-modal-title">📋 RENEGOTIATION OFFER</div>
+      <div class="contract-modal-title">📋 Renegotiation Offer</div>
       <div class="contract-modal-subtitle">${typeName} — Stage ${scenario.currentStageIndex + 1} Failed</div>
 
       ${offer.message ? `<div class="contract-modal-quote">"${offer.message}"</div>` : ''}
 
-      <div class="contract-modal-section">OLD TERMS</div>
+      <div class="contract-modal-section">Old Terms</div>
       <div class="contract-modal-row term-old">Revenue: $${stage.rewards.revenue.toLocaleString()}/month</div>
 
-      <div class="contract-modal-section">NEW TERMS</div>
+      <div class="contract-modal-section">New Terms</div>
       <div class="contract-modal-row term-new">Revenue: $${offer.newRevenue.toLocaleString()}/month</div>
       <div class="contract-modal-row term-new">Extra time: +${offer.newDeadline} months</div>
 
@@ -891,7 +1080,7 @@ export function showContractOfferModal(scenarioId) {
   const scenario = scenarioManager.getScenario(scenarioId);
   if (!scenario || scenario.status !== 'OFFERED') return;
   const stage    = scenario.currentStage;
-  const typeName = scenario.type.replace(/_/g, ' ');
+  const typeName = formatContractName(scenario.type);
   const years    = Math.round(stage.monthsUntilDeadline / 12);
   const p        = stage.penalties.ifDeclined;
   const blacklistYears = p.contractBlacklist ? Math.round(p.contractBlacklist / 12) : 0;
@@ -902,7 +1091,7 @@ export function showContractOfferModal(scenarioId) {
 
   openContractModal(`
     <div class="contract-modal-panel">
-      <div class="contract-modal-title">Contract offer</div>
+      <div class="contract-modal-title">Contract Offer</div>
       <div class="contract-modal-subtitle">${typeName}</div>
       <div class="contract-modal-meta">Stage ${scenario.currentStageIndex + 1} of ${scenario.stages.length} — ${stage.name}</div>
       <div class="contract-modal-meta">Deadline: ${stage.monthsUntilDeadline} months (${years} years)</div>
@@ -910,11 +1099,11 @@ export function showContractOfferModal(scenarioId) {
       <div class="contract-modal-section">Requirements</div>
       ${reqRows}
 
-      <div class="contract-modal-section">Rewards on completion</div>
+      <div class="contract-modal-section">Rewards on Completion</div>
       <div class="contract-modal-row offer-reward">+$${stage.rewards.revenue.toLocaleString()}/month revenue</div>
       <div class="contract-modal-row offer-reward">+${stage.rewards.jobs} jobs · +${stage.rewards.prestige} prestige</div>
 
-      <div class="contract-modal-section">Effects if declined</div>
+      <div class="contract-modal-section">Effects if Declined</div>
       <div class="contract-modal-row consequence">Fine: $${(p.revenue || 0).toLocaleString()}</div>
       <div class="contract-modal-row consequence">Prestige: ${p.prestige || 0} · Pop: −${Math.abs(p.populationLoss || 0).toLocaleString()}</div>
       ${blacklistYears ? `<div class="contract-modal-row consequence">No ${typeName} contracts for ${blacklistYears} years</div>` : ''}
@@ -969,10 +1158,10 @@ function syncPlacementBanner() {
 
   const size     = pm.size || 3;
   const scenario = scenarioManager.getScenario(pm.scenarioId);
-  const typeName = scenario ? scenario.type.replace(/_/g, ' ') : '';
+  const typeName = scenario ? formatContractName(scenario.type) : '';
 
   _placementBanner.innerHTML = `
-    <div class="pb-title">📍 PLACE ${typeName.toUpperCase()} ZONE</div>
+    <div class="pb-title">📍 Place ${typeName} Zone</div>
     <div class="pb-count">${size}×${size} zone — click anywhere on the map</div>
     <div class="pb-hint">Move your cursor over the grid · click to stamp the zone</div>
     <div class="pb-actions">
@@ -996,14 +1185,14 @@ function buildContractInspectorHTML(scenario) {
       })()
     : { met: false, details: {} };
 
-  const typeName  = scenario.type.replace(/_/g, ' ');
+  const typeName  = formatContractName(scenario.type);
   const stage     = scenario.currentStage;
   const deadline  = Math.ceil(scenario.monthsRemaining);
   const pct       = Math.max(0, Math.min(100, (deadline / stage.monthsUntilDeadline) * 100));
   const barColor  = deadline <= 12 ? 'var(--warn)' : deadline <= 36 ? 'var(--gold)' : 'var(--ink-mid)';
   const status    = scenario.stageStatus === 'REQUIREMENTS_MET'
-    ? '<span style="color:var(--gold)">READY ✓</span>'
-    : '<span style="color:var(--ink-dim)">IN PROGRESS</span>';
+    ? '<span style="color:var(--gold)">Ready ✓</span>'
+    : '<span style="color:var(--ink-dim)">In Progress</span>';
 
   // Get live requirement details from the status cache
   const contractStatus = scenarioManager.getContractStatus().find(c => c.id === scenario.id);
@@ -1052,8 +1241,14 @@ export function resetGameUI() {
   // Reset contract-offer pause tracking
   _pausedForContract = false;
 
-  // Close any open contract modal
+  // Close any open contract modal / contracts dialog
   closeContractModal();
+  closeContractsDialog();
+  _contractsDialogFP = '';
+
+  // GAME MODE: force the next syncControls() tick to re-evaluate the Admin
+  // accordion's default-open state for this (possibly new) city/mode.
+  _lastMode = null;
 }
 
 /* --- init + the single per-frame entry point main calls --- */
@@ -1076,6 +1271,7 @@ export function syncUI() {
   updateInspector();
   syncPersistentWarnings();
   syncContractsPanel();  /* SCENARIOS */
+  syncContractsDialog(); /* SCENARIOS: status-bar Contracts picker, no-op while closed */
   syncPlacementBanner(); /* SCENARIOS: tile placement overlay */
 
   // SCENARIOS: auto-confirm placement triggered by single click in input.js

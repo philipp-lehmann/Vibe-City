@@ -225,7 +225,27 @@ export class ScenarioManager {
     this._state.scenarios.completed = this.completedScenarios;
   }
 
+  /**
+   * Player-initiated activation (Scenario Mode). Same as addScenario() but
+   * called directly from the contracts dialog instead of the old RNG offer
+   * loop. Returns null if blacklisted, already active, or already
+   * OFFERED/PLACEMENT for this type; otherwise queues the usual offer modal.
+   */
+  activateContract(type) {
+    const blueprint = SCENARIOS[type];
+    if (!blueprint) return null;
+    if (this.activeScenarios.some(s => s.type === type)) return null; // one per type at a time
+    return this.addScenario(blueprint); // existing method — pushes to pendingOffers, UI shows the offer modal
+  }
+
   // ── Queries ──────────────────────────────────────────────────────
+
+  /** Sum of rewards.demandBoost across all currently-ACTIVE contract stages. */
+  getActiveDemandBoost() {
+    return this.activeScenarios
+      .filter(s => s.status === 'ACTIVE')
+      .reduce((sum, s) => sum + (s.currentStage.rewards.demandBoost || 0), 0);
+  }
 
   getScenario(id) {
     return this.activeScenarios.find(s => s.id === id) ||

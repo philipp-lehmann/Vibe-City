@@ -25,7 +25,7 @@ export const SCENARIOS = {
           water: { type: 'infrastructure' },
           happiness: { minValue: 55, type: 'city_stat' }
         },
-        rewards: { revenue: 120000, jobs: 60, prestige: 8 },
+        rewards: { revenue: 120000, jobs: 60, prestige: 8, demandBoost: 0.12 },
         penalties: {
           ifFailed: {
             revenue: 1320000, prestige: -15, populationLoss: -1600,
@@ -52,7 +52,7 @@ export const SCENARIOS = {
           water: { type: 'infrastructure' },
           labor: { skilled: 250, type: 'workforce_available' }
         },
-        rewards: { revenue: 10000, jobs: 100, prestige: 12 },
+        rewards: { revenue: 10000, jobs: 100, prestige: 12, demandBoost: 0.18 },
         penalties: {
           ifFailed: {
             revenue: 55000, prestige: -10, populationLoss: -800,
@@ -78,7 +78,7 @@ export const SCENARIOS = {
           road: { quality: 'highway', type: 'connectivity' },
           happiness: { minValue: 65, type: 'city_stat' }
         },
-        rewards: { revenue: 180000, jobs: 100, prestige: 20 },
+        rewards: { revenue: 180000, jobs: 100, prestige: 20, demandBoost: 0.25 },
         penalties: {
           ifFailed: {
             revenue: 810000, prestige: -20, populationLoss: -1600,
@@ -111,7 +111,7 @@ export const SCENARIOS = {
           power: { amount: 30, type: 'infrastructure' },
           road: { quality: 'high', type: 'connectivity' }
         },
-        rewards: { revenue: 45000, jobs: 180, prestige: 5 },
+        rewards: { revenue: 45000, jobs: 180, prestige: 5, demandBoost: 0.15 },
         penalties: {
           ifFailed: {
             revenue: 200000, prestige: -8, populationLoss: -400,
@@ -139,7 +139,7 @@ export const SCENARIOS = {
           tiles: { count: 9, size: 3, type: 'placement', position: null },
           happiness: { minValue: 50, type: 'city_stat' }
         },
-        rewards: { revenue: 25000, jobs: 40, prestige: 5 },
+        rewards: { revenue: 25000, jobs: 40, prestige: 5, demandBoost: 0.08 },
         penalties: {
           ifFailed: {
             revenue: 100000, prestige: -5, populationLoss: -200,
@@ -161,7 +161,7 @@ export const SCENARIOS = {
           tiles: { count: 16, size: 4, type: 'placement', position: null },
           happiness: { minValue: 60, type: 'city_stat' }
         },
-        rewards: { revenue: 25000, jobs: 40, prestige: 6 },
+        rewards: { revenue: 25000, jobs: 40, prestige: 6, demandBoost: 0.10 },
         penalties: {
           ifFailed: {
             prestige: -5, populationLoss: -200,

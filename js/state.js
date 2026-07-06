@@ -7,7 +7,7 @@
    factory, grid init, bounds helpers, pure state mutators, and the
    drag-geometry selector (shared by renderer preview + input commit).
    ================================================================ */
-import { MAP_SIZES, DEFAULT_MAP, T } from './config.js';
+import { MAP_SIZES, DEFAULT_MAP, DEFAULT_MODE, T } from './config.js';
 import { generateTerrain, TERRAIN, isWaterTerrain, coastPass } from './terrain.js'; // TERRAIN / TERRAIN TOOLS
 
 // --- tile factory: keeps every tile's shape consistent ---
@@ -56,6 +56,7 @@ export const state = {
   pop: 0,
   month: 0,                       // months since start
   cityName: 'New Terminus',
+  mode: DEFAULT_MODE,             // GAME MODE: 'freeplay' | 'scenario' — fixed at city creation
   demand: { R: 0.5, C: 0.2, I: 0.3 },
   tool: 'road',                   // current tool id
   paused: false,
@@ -244,6 +245,7 @@ export function serializeSave(thumb){
       funds: state.funds, pop: state.pop, month: state.month,
       taxPct: state.taxPct, taxRate: state.taxRate, happiness: state.happiness,
       speedIdx: state.speedIdx, demand: { ...state.demand }, cityName: state.cityName,
+      mode: state.mode,   // GAME MODE
       gridWidth: state.gridWidth, gridHeight: state.gridHeight,   // MAP SIZE
       bridges: state.bridges,   // BRIDGES: persist bridge entities
       milestones: state.milestones,
@@ -306,6 +308,9 @@ export function applySave(blob){
   state.happiness= s.happiness?? 70;
   state.speedIdx = s.speedIdx ?? state.speedIdx;
   state.cityName = s.cityName || blob.meta?.cityName || 'New Terminus';
+  // GAME MODE: default old saves without this field to Free Play so nothing
+  // retroactively locks demand behind a contract system that wasn't there before.
+  state.mode = s.mode === 'scenario' ? 'scenario' : DEFAULT_MODE;
   if(s.demand) state.demand = { ...state.demand, ...s.demand };
   state.bridges   = Array.isArray(s.bridges)   ? s.bridges   : [];   // BRIDGES: restore entities
   state.milestones = Array.isArray(s.milestones) ? s.milestones : [];
@@ -337,7 +342,7 @@ export function loadGame(slot){ return applySave(readSave(slot)); }
 // reset to a fresh city (clears grid, reseeds a coal plant like first boot)
 // MAP SIZE: optional sizeKey selects grid dimensions before init
 // WATER AMOUNT: optional waterPct (0..1) targets that fraction of the map as water
-export function newGame(name, sizeKey, waterPct){
+export function newGame(name, sizeKey, waterPct, mode){
   if(sizeKey) setMapSize(sizeKey);
   initGrid();
   // TERRAIN: generate once per new game from a fresh random seed
@@ -345,6 +350,7 @@ export function newGame(name, sizeKey, waterPct){
   state.funds=50000; state.pop=0; state.month=0;
   state.taxPct=8; state.taxRate=0.08; state.happiness=70;
   state.cityName = name || 'New Terminus';
+  state.mode = mode === 'scenario' ? 'scenario' : DEFAULT_MODE;   // GAME MODE: fixed for the life of this city
   state.demand = { R:0.5, C:0.2, I:0.3 };
   state.outsideConnections = 0;
   state.bridges = [];     // BRIDGES

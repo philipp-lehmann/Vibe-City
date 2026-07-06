@@ -6,10 +6,12 @@
    model, and the fire disaster. User-facing messages are emitted
    via state.pushNotice (drained by ui), never via the DOM.
    ================================================================ */
-import { T, isZone, conducts, clamp, lerp } from './config.js';   // MAP SIZE: GRID now runtime
+import { T, isZone, conducts, clamp, lerp,
+         SCENARIO_DEMAND_CAP_POP, SCENARIO_DEMAND_PENALTY_SCALE, SCENARIO_DEMAND_PENALTY_MAX
+       } from './config.js';   // MAP SIZE: GRID now runtime
 import { state, tileAt, makeTile, pushNotice, requestFlash, pushHistory } from './state.js';
 import { TERRAIN } from './terrain.js';   // TERRAIN TOOLS: terrain land-value effects
-import { scenarioManager, SCENARIOS } from './scenario.js';         // SCENARIOS
+import { scenarioManager } from './scenario.js';         // SCENARIOS
 
 const POP_MILESTONES = [
   [10_000,  '10,000 residents — Village!'],
@@ -307,31 +309,12 @@ export function monthlyTick(){
 
   if(state.funds < 0) pushNotice('TREASURY OVERDRAWN! Raise income or cut upkeep.');
 
-  // SCENARIOS: apply recurring contract revenue, tick deadlines, offer new contracts
+  // SCENARIOS: apply recurring contract revenue and tick deadlines. Contracts
+  // are player-initiated only (scenarioManager.activateContract(), wired from
+  // the status-bar Contracts dialog) and only exist in Scenario Mode — no RNG
+  // offers in either mode anymore.
   state.funds += state.revenue.monthly;
-  scenarioManager.tick(1);   // 1 month elapsed
-
-  // Randomly offer new contracts (5% chance per month, max 3 active at once)
-  // Don't queue a new offer while one is pending acceptance or tile placement
-  const noPendingOffer = !scenarioManager.activeScenarios.some(
-    s => s.status === 'OFFERED' || s.status === 'PLACEMENT'
-  );
-    if (state.revenue.monthly >= 0 &&   // don't offer during a fiscal crisis
-      state.pop >= 10000 && // only offer contract when population is over 10k
-      noPendingOffer &&
-      scenarioManager.activeScenarios.length < 3 &&
-      Math.random() < 0.03) {         // ~3% per month so offers feel rare
-    const activeTypes = new Set(scenarioManager.activeScenarios.map(s => s.type));
-    const available = Object.values(SCENARIOS).filter(bp => {
-      if (activeTypes.has(bp.type)) return false;   // one per type at a time
-      const bl = state.scenarios.contractBlacklist[bp.type];
-      return !bl || bl.until <= state.month;
-    });
-    if (available.length > 0) {
-      const bp = available[Math.floor(Math.random() * available.length)];
-      scenarioManager.addScenario(bp);
-    }
-  }
+  if (state.mode === 'scenario') scenarioManager.tick(1);   // 1 month elapsed
 }
 
 /* --- (legacy helper, retained) pumps within radius 4 provide water --- */
@@ -372,6 +355,22 @@ export function updateDemand(resPop, resJobPop, comCap, indCap){
   // ROAD CONNECTORS: no off-map link -> R demand forced to 0; extra links -> +10%
   if(state.outsideConnections===0) dR = 0;
   else if(state.outsideConnections>1) dR *= 1.1;
+
+  // SCENARIO MODE: demand collapses past the population cap unless offset by
+  // active contracts. The penalty scales with how far pop is past the cap,
+  // regardless of how many contracts are active; each active contract stage
+  // adds a flat demandBoost on top, so multiple contracts stack additively.
+  if (state.mode === 'scenario') {
+    const overage = Math.max(0, state.pop - SCENARIO_DEMAND_CAP_POP);
+    const penalty = Math.min(
+      SCENARIO_DEMAND_PENALTY_MAX,
+      overage / SCENARIO_DEMAND_PENALTY_SCALE
+    );
+    const boost = scenarioManager.getActiveDemandBoost();
+    dR = dR * (1 - penalty) + boost;
+    dC = dC * (1 - penalty) + boost;
+    dI = dI * (1 - penalty) + boost;
+  }
 
   const noise=()=> (Math.random()-0.5)*0.08;
   state.demand.R = clamp(lerp(state.demand.R, dR+noise(), 0.4), -1, 1);
