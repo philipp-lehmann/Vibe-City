@@ -529,7 +529,7 @@ function slotCard(slot, entry) {
   info.className = 'slot-load';
   info.title = `Load this ${escapeHtml(entry.cityName || 'City')}`;
   info.innerHTML = `<span class="slot-name">${escapeHtml(entry.cityName || 'City')}</span>
-    <span class="slot-meta">${fmtDate(entry.month || 0)}<br>pop ${(entry.pop || 0).toLocaleString()}</span>
+    <span class="slot-meta">${fmtDate(entry.month || 0)}<br>Pop. ${(entry.pop || 0).toLocaleString()}</span>
     ${slotThumbHtml(entry.thumb)}`;
   info.onclick = () => doLoadSlot(slot, entry);
   card.appendChild(info);
@@ -540,7 +540,9 @@ function slotCard(slot, entry) {
   if (bSave.disabled) bSave.title = 'Start or load a city first';
   bSave.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
   const bDel = document.createElement('button'); bDel.className = 'btn-danger'; bDel.textContent = 'Delete';
-  bDel.onclick = () => { if (confirm('Delete save "' + (entry.cityName || slot) + '"?')) { deleteSave(slot); renderSlots(); } };
+  // NOTE: native window.confirm() is unreliable inside the Tauri webview (silently
+  // returns false with no dialog on some platforms), so use our own modal instead.
+  bDel.onclick = () => showDeleteSaveModal(slot, entry.cityName);
   row.appendChild(bSave); row.appendChild(bDel);
   card.appendChild(row);
   return card;
@@ -992,6 +994,27 @@ function openContractModal(html) {
 }
 
 // ── Decline confirmation modal ────────────────────────────────────
+
+function showDeleteSaveModal(slot, cityName) {
+  openContractModal(`
+    <div class="contract-modal-panel">
+      <div class="contract-modal-title">⚠ Delete Save?</div>
+      <div class="contract-modal-subtitle">${escapeHtml(cityName || slot)}</div>
+
+      <div class="contract-modal-warning">This is permanent and cannot be undone.</div>
+
+      <div class="contract-modal-footer">
+        <button class="btn-confirm-action" id="cm-cancel">Keep Save</button>
+        <button class="btn-danger" id="cm-confirm">Delete Save</button>
+      </div>
+    </div>
+  `);
+
+  _contractModal.querySelector('#cm-cancel').onclick  = closeContractModal;
+  _contractModal.querySelector('#cm-confirm').onclick = () => {
+    deleteSave(slot); renderSlots(); closeContractModal();
+  };
+}
 
 export function showDeclineModal(scenarioId) {
   const scenario = scenarioManager.getScenario(scenarioId);
