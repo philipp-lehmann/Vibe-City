@@ -846,6 +846,7 @@ function rebuildContractsDialog() {
 function openContractsDialog() {
   rebuildContractsDialog();
   _contractsDialog.style.display = 'flex';
+  if (!state.paused) togglePause();   // pause while browsing; stays paused after Close
 }
 
 // called each frame — only rebuilds while the dialog is actually open, and
@@ -940,6 +941,7 @@ function rebuildCreditsDialog() {
 function openCreditsDialog() {
   rebuildCreditsDialog();
   _creditsDialog.style.display = 'flex';
+  if (!state.paused) togglePause();   // pause while browsing; stays paused after Close
 }
 
 function syncCreditsDialog() {
