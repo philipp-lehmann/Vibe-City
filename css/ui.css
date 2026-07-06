@@ -25,6 +25,18 @@
   --stat-happiness: #ffd23f;
   --stat-funds: #2bd1d4;
 
+  /* TERRAIN: canvas ground colors — read into renderer.js via
+     getComputedStyle(document.documentElement), same pattern as --stat-*
+     above. These paint the isometric map itself, not DOM chrome. */
+  --terr-water: #0b2843;
+  --terr-shallows: #1a546f;
+  --terr-wetland: #36492f;
+  --terr-lowland: #122310;
+  --terr-highland: #3b4a24;
+  --terr-hill: #5a4a32;
+  --terr-road: #2a2a30;
+  --terr-park: #15521f;
+
   /* Typography */
   --font-xs: 10px;
   /* cost labels, hints */

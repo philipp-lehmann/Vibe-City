@@ -131,23 +131,41 @@ function diamond(sx,sy){
   ctx.closePath();
 }
 
-// TERRAIN: base ground colours by terrain type (drawn beneath zones/buildings)
-const TERR_COL = {
-  [TERRAIN.WETLAND]: '#36492f',
-  [TERRAIN.LOWLAND]: '#1f3a1c',
-  [TERRAIN.HIGHLAND]:'#3b4a24',
-  [TERRAIN.HILL]:    '#5a4a32',
-};
+// TERRAIN: base ground colours by terrain type (drawn beneath zones/buildings).
+// Values live as CSS custom properties on :root (css/ui.css) so the palette can
+// be retuned from CSS alone; read once and cached, since :root vars don't
+// change at runtime (same pattern as ui.js's getStatColors()).
+let _terrColorCache = null;
+function getTerrColors(){
+  if(_terrColorCache) return _terrColorCache;
+  const cs = getComputedStyle(document.documentElement);
+  const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
+  const wetland  = v('--terr-wetland',  '#36492f');
+  const lowland  = v('--terr-lowland',  '#1f3a1c');
+  const highland = v('--terr-highland', '#3b4a24');
+  const hill     = v('--terr-hill',     '#5a4a32');
+  _terrColorCache = {
+    water:    v('--terr-water',    '#113b4f'),
+    shallows: v('--terr-shallows', '#2f7a9c'),
+    road:     v('--terr-road',     '#2a2a30'),
+    park:     v('--terr-park',     '#15521f'),
+    lowland,   // also the fallback for an unrecognized terrain id
+    land: {
+      [TERRAIN.WETLAND]: wetland, [TERRAIN.LOWLAND]: lowland,
+      [TERRAIN.HIGHLAND]: highland, [TERRAIN.HILL]: hill,
+    },
+  };
+  return _terrColorCache;
+}
 function groundColor(t){
-  // TERRAIN: water/shallows shimmer between two tones every 2 seconds
-  if(t.terrain===TERRAIN.WATER || t.terrain===TERRAIN.SHALLOWS){
-    const phase = Math.floor(performance.now()/2000) % 2;
-    if(t.terrain===TERRAIN.WATER)    return phase ? '#13314e' : '#163a5c';
-    return phase ? '#2a6f8f' : '#2f7a9c';
-  }
-  if(t.type===T.ROAD) return '#2a2a30';
-  if(t.type===T.PARK) return '#15521f';
-  return TERR_COL[t.terrain] ?? '#1f3a1c';   // land terrain tint
+  const c = getTerrColors();
+  // NOTE: both deep water and shallows share tile.type T.WATER — only
+  // t.terrain (TERRAIN.WATER vs TERRAIN.SHALLOWS) tells them apart.
+  if(t.terrain===TERRAIN.WATER)    return c.water;
+  if(t.terrain===TERRAIN.SHALLOWS) return c.shallows;
+  if(t.type===T.ROAD) return c.road;
+  if(t.type===T.PARK) return c.park;
+  return c.land[t.terrain] ?? c.lowland;   // land terrain tint
 }
 
 /* ===== ASSET RENDERER ================================================
@@ -362,13 +380,6 @@ function drawGroundTile(sx,sy,t,gx,gy){
   // COAST FIX: sandy fringe only on land (coast-flagged) tiles — never on
   // shallows or deep water (both are type WATER), which get tint only.
   if(t.coast && t.type!==T.WATER && gx!==undefined) drawCoastFringe(sx,sy,gx,gy);
-
-  if(t.type===T.WATER){
-    ctx.strokeStyle='rgba(60,140,200,0.4)';
-    ctx.beginPath();
-    ctx.moveTo(sx-hw*0.4, sy+hh); ctx.lineTo(sx, sy+hh*0.7);
-    ctx.stroke();
-  }
 }
 
 // TERRAIN TOOLS: draw a thin sandy fringe (+ wave line) on each diamond edge that
