@@ -12,7 +12,7 @@ import { state, makeTile, inBounds, setTool, togglePause, rotateView,
          genBridgeId, findBridge, bulldozeCost } from './state.js';   // ROAD CONNECTORS / EXIT FIX / BRIDGES
 import { view, screenToIso, stepZoom } from './renderer.js';   // ZOOM LEVELS
 import { isWaterTerrain, TERRAIN, coastPass } from './terrain.js';   // ROAD CONNECTORS / WATER TOOL / TERRAIN TOOLS
-import { propagatePower, propagateWater } from './simulation.js';   // WATER TOOL: live propagation
+import { propagatePower, propagateWater, computeRoadAccess } from './simulation.js';   // WATER TOOL: live propagation
 
 // TERRAIN TOOLS: paintable terrain types -> {terrain id, landscaping cost, swatch}
 export const TERRAIN_TOOLS = {
@@ -27,11 +27,42 @@ const isTerrainTool = id => Object.prototype.hasOwnProperty.call(TERRAIN_TOOLS, 
 
 let dragging=false, dragBtn=0, lastPaint='';
 
+// SCENARIOS: returns true if placing toolId on tile t should be blocked.
+// WILDLIFE_RESERVE tiles permit terrain tools and road placement only.
+function contractBlocks(t, toolId){
+  if(!t.contractLocked) return false;
+  if(t.contractType==='WILDLIFE_RESERVE'){
+    return !(isTerrainTool(toolId) || toolId==='road');
+  }
+  return true;  // all other contract types block everything
+}
+
 // --- single-tile placement (used by non-drag tools and per-tile paint) ---
 function placeTool(gx,gy){
   if(!inBounds(gx,gy)) return;
+
+  // PLACEMENT MODE: single click stamps the NxN block and signals auto-confirm.
+  // The block is clamped so it never goes off-grid (same logic as renderer preview).
+  if(state.placementMode){
+    const pm   = state.placementMode;
+    const size = pm.size || 3;
+    const half = Math.floor(size / 2);
+    const gw   = state.gridWidth, gh = state.gridHeight;
+    const ox   = Math.max(0, Math.min(gx - half, gw - size));
+    const oy   = Math.max(0, Math.min(gy - half, gh - size));
+    const tiles = [];
+    for(let dy = 0; dy < size; dy++)
+      for(let dx = 0; dx < size; dx++)
+        tiles.push([ox + dx, oy + dy]);
+    pm.selectedTiles  = tiles;
+    pm.readyToConfirm = true;   // drained by syncUI() next frame
+    return;
+  }
+
   // TERRAIN TOOLS: terrain brushes paint per tile; recompute is flushed on mouseup
   if(isTerrainTool(state.tool)){
+    const t=state.grid[gy][gx];
+    if(contractBlocks(t, state.tool)){ pushNotice('⛔ Contract tile — cannot terraform here.'); return; }
     const key=gx+','+gy+':'+state.tool; if(key===lastPaint) return;
     if(paintTerrain(gx,gy,state.tool)) lastPaint=key;
     return;
@@ -39,6 +70,7 @@ function placeTool(gx,gy){
   const t=state.grid[gy][gx];
   const tool=TOOLS.find(x=>x.id===state.tool);
 
+  if(contractBlocks(t, tool.id)){ pushNotice('⛔ Contract tile — cannot build here.'); return; } // SCENARIOS
   if(tool.id==='bull'){
     if(t.type!==T.GRASS && t.type!==T.WATER){
       const wasRoad=t.type===T.ROAD;
@@ -107,8 +139,11 @@ function commitDrag(){
     const line=dragTiles();
     if(line.some(([x,y])=> state.grid[y][x].type===T.WATER)){ commitBridgeDrag(line); return; }
   }
-  // TERRAIN TOOLS: cannot build on hills (or water)
-  let buildable=dragTiles().filter(([x,y])=> state.grid[y][x].type===T.GRASS && state.grid[y][x].terrain!==TERRAIN.HILL);
+  // TERRAIN TOOLS: cannot build on hills (or water); contract tiles block unless permitted
+  let buildable=dragTiles().filter(([x,y])=>{
+    const t=state.grid[y][x];
+    return t.type===T.GRASS && t.terrain!==TERRAIN.HILL && !contractBlocks(t, d.tool);
+  });
   if(!buildable.length) return;
 
   // EXIT FIX: drop edge road tiles that would sit within 4 of an existing exit
@@ -200,6 +235,7 @@ function removeBridgeSpan(bridgeId){
 function bulldoze(gx,gy){
   if(!inBounds(gx,gy)) return;
   const t=state.grid[gy][gx];
+  if(contractBlocks(t,'bull')){ pushNotice('⛔ Contract tile — cannot bulldoze.'); return; }  // SCENARIOS
   // BRIDGES: bulldozing any bridge tile removes the whole span and refunds 50%
   if(t.bridge && t.bridgeId!=null){ state.funds += removeBridgeSpan(t.bridgeId); return; }
   if(t.type!==T.GRASS && t.type!==T.WATER){
@@ -297,6 +333,7 @@ function eraseDrag(){
   let roadTouched=false;
   for(const [x,y] of cells){
     const t=state.grid[y][x];
+    if(contractBlocks(t, tool)) continue;   // SCENARIOS: respect contract locks
     if(tool==='res'||tool==='com'||tool==='ind'){
       if(t.type===T.RES||t.type===T.COM||t.type===T.IND) revertToGrass(x,y);   // zones only, keep roads/terrain
     } else if(tool==='road'){
@@ -313,6 +350,13 @@ export function initInput(){
   view.addEventListener('mousedown',e=>{
     const [gx,gy]=pickFromEvent(e);
     dragging=true; dragBtn=e.button; lastPaint='';
+
+    // PLACEMENT MODE: only left-click tile selection; ignore right-click and drag tools
+    if(state.placementMode){
+      if(e.button===0) placeTool(gx,gy);
+      return;
+    }
+
     if(e.button===2){
       // RIGHTCLICK DRAG: context-aware clearing. Zone/road tools erase via the
       // drag-preview region (axis-lock/preview); water brush + bulldozer/other
@@ -354,6 +398,9 @@ export function initInput(){
     }
     // WATER TOOL: flush road recompute + power/water propagation once per stroke
     if(terrainDirty){ afterTerrainChange(); terrainDirty=false; }   // TERRAIN TOOLS
+    // SCENARIOS: when paused, re-propagate power & road so contract requirements
+    // update immediately after the player places infrastructure
+    if(state.paused){ propagatePower(); computeRoadAccess(); }
     dragging=false; lastPaint='';
   });
 

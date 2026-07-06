@@ -7,7 +7,7 @@
    factory, grid init, bounds helpers, pure state mutators, and the
    drag-geometry selector (shared by renderer preview + input commit).
    ================================================================ */
-import { MAP_SIZES, DEFAULT_MAP, T } from './config.js';
+import { MAP_SIZES, DEFAULT_MAP, DEFAULT_MODE, T } from './config.js';
 import { generateTerrain, TERRAIN, isWaterTerrain, coastPass } from './terrain.js'; // TERRAIN / TERRAIN TOOLS
 
 // --- tile factory: keeps every tile's shape consistent ---
@@ -32,7 +32,11 @@ export function makeTile(type){
     moisture: 0.5,   // 0..1 simplex moisture
     bridge: false,   // TERRAIN: road tile is a bridge over water
     bridgeId: null,  // BRIDGES: id of the bridge entity this tile belongs to
-    coast: false     // TERRAIN TOOLS: water-adjacent shoreline flag (auto-computed)
+    coast: false,    // TERRAIN TOOLS: water-adjacent shoreline flag (auto-computed)
+    // SCENARIOS: contract that owns this tile (set by ScenarioManager.placeScenario)
+    contractId:     null,
+    contractType:   null,
+    contractLocked: false   // locked tiles cannot be bulldozed or built over
   };
 }
 
@@ -52,6 +56,7 @@ export const state = {
   pop: 0,
   month: 0,                       // months since start
   cityName: 'New Terminus',
+  mode: DEFAULT_MODE,             // GAME MODE: 'freeplay' | 'scenario' — fixed at city creation
   demand: { R: 0.5, C: 0.2, I: 0.3 },
   tool: 'road',                   // current tool id
   paused: false,
@@ -67,11 +72,27 @@ export const state = {
   fireEnds: 0,
   notices: [],                    // pending toast messages (drained by ui)
   flash: null,                    // pending status-bar flash (drained by ui)
+  pendingOffers: [],              // SCENARIOS: contract IDs queued for player acceptance
+  pendingPlacements: [],          // SCENARIOS: contract IDs needing tile placement for a new stage
+  placementMode: null,            // SCENARIOS: { scenarioId, required, selectedTiles: [[x,y]] }
   powerPlantCount: 0,             // updated by propagatePower each tick
+  powerCapacity: 0,               // SCENARIOS: total power units generated (300 per plant)
+  powerUsed: 0,                   // SCENARIOS: total power units consumed (1 per powered tile)
   milestones: [],                 // population thresholds already celebrated, e.g. [10000]
   history: { pop: [], happiness: [], funds: [] },  // STATISTICS: rolling monthly samples (sparklines + stats panel)
   statsAutoPause: false,          // STATISTICS: pause the sim while the stats panel is open
   statsVisible: { pop: true, happiness: true, funds: true },   // STATISTICS: which lines show on the panel's combined chart
+  // SCENARIOS: active/completed contracts and blacklist
+  scenarios: {
+    active:    [],
+    completed: [],
+    jobs:      0,    // total jobs added by completed scenario stages
+    contractBlacklist: {}   // { [type]: { until: month, reason: string } }
+  },
+  // SCENARIOS: recurring monthly revenue from active contracts
+  revenue: { monthly: 0, lost: 0 },
+  // SCENARIOS: city prestige/reputation (modified by contract outcomes)
+  prestige: 0,
 };
 
 // --- grid init: all grass; TERRAIN: water/relief now come from generateTerrain ---
@@ -224,10 +245,29 @@ export function serializeSave(thumb){
       funds: state.funds, pop: state.pop, month: state.month,
       taxPct: state.taxPct, taxRate: state.taxRate, happiness: state.happiness,
       speedIdx: state.speedIdx, demand: { ...state.demand }, cityName: state.cityName,
+      mode: state.mode,   // GAME MODE
       gridWidth: state.gridWidth, gridHeight: state.gridHeight,   // MAP SIZE
       bridges: state.bridges,   // BRIDGES: persist bridge entities
       milestones: state.milestones,
-      history: state.history    // STATISTICS: persist sparkline/stats-panel history
+      history: state.history,   // STATISTICS: persist sparkline/stats-panel history
+      // SCENARIOS
+      scenarios: {
+        active:            state.scenarios.active.map(s => ({
+          id: s.id, type: s.type, status: s.status,
+          currentStageIndex: s.currentStageIndex,
+          monthsRemaining: s.monthsRemaining,
+          stageStatus: s.stageStatus,
+          tiles: s.tiles,
+          completedStages: s.completedStages,
+          acceptanceHistory: s.acceptanceHistory,
+          renegotiationOffer: s.renegotiationOffer
+        })),
+        completed:         state.scenarios.completed,
+        jobs:              state.scenarios.jobs,
+        contractBlacklist: state.scenarios.contractBlacklist
+      },
+      revenue:  { ...state.revenue },
+      prestige: state.prestige
     },
     meta: { cityName: state.cityName, ts: Date.now(), thumb: thumb || null,
             month: state.month, pop: state.pop }
@@ -268,6 +308,9 @@ export function applySave(blob){
   state.happiness= s.happiness?? 70;
   state.speedIdx = s.speedIdx ?? state.speedIdx;
   state.cityName = s.cityName || blob.meta?.cityName || 'New Terminus';
+  // GAME MODE: default old saves without this field to Free Play so nothing
+  // retroactively locks demand behind a contract system that wasn't there before.
+  state.mode = s.mode === 'scenario' ? 'scenario' : DEFAULT_MODE;
   if(s.demand) state.demand = { ...state.demand, ...s.demand };
   state.bridges   = Array.isArray(s.bridges)   ? s.bridges   : [];   // BRIDGES: restore entities
   state.milestones = Array.isArray(s.milestones) ? s.milestones : [];
@@ -278,6 +321,20 @@ export function applySave(blob){
   if(!state.history.pop.length) pushHistory();
   coastPass(state.grid);   // TERRAIN TOOLS: recompute shoreline flags after load
   recomputeAllRoads();   // ROAD CONNECTORS: rebuild masks + outside count on load
+  // SCENARIOS: restore contract state (older saves without this key get fresh defaults)
+  if (s.scenarios) {
+    state.scenarios.active              = s.scenarios.active    || [];
+    state.scenarios.completed           = s.scenarios.completed || [];
+    state.scenarios.jobs                = s.scenarios.jobs      || 0;
+    state.scenarios.contractBlacklist   = s.scenarios.contractBlacklist || {};
+  } else {
+    state.scenarios = { active: [], completed: [], jobs: 0, contractBlacklist: {} };
+  }
+  state.revenue  = s.revenue  ? { ...s.revenue  } : { monthly: 0, lost: 0 };
+  state.prestige = s.prestige ?? 0;
+  state.pendingOffers    = [];   // SCENARIOS: never restore mid-offer/placement state
+  state.pendingPlacements = [];
+  state.placementMode    = null;
   return true;
 }
 export function loadGame(slot){ return applySave(readSave(slot)); }
@@ -285,7 +342,7 @@ export function loadGame(slot){ return applySave(readSave(slot)); }
 // reset to a fresh city (clears grid, reseeds a coal plant like first boot)
 // MAP SIZE: optional sizeKey selects grid dimensions before init
 // WATER AMOUNT: optional waterPct (0..1) targets that fraction of the map as water
-export function newGame(name, sizeKey, waterPct){
+export function newGame(name, sizeKey, waterPct, mode){
   if(sizeKey) setMapSize(sizeKey);
   initGrid();
   // TERRAIN: generate once per new game from a fresh random seed
@@ -293,11 +350,19 @@ export function newGame(name, sizeKey, waterPct){
   state.funds=50000; state.pop=0; state.month=0;
   state.taxPct=8; state.taxRate=0.08; state.happiness=70;
   state.cityName = name || 'New Terminus';
+  state.mode = mode === 'scenario' ? 'scenario' : DEFAULT_MODE;   // GAME MODE: fixed for the life of this city
   state.demand = { R:0.5, C:0.2, I:0.3 };
   state.outsideConnections = 0;
   state.bridges = [];     // BRIDGES
   state.milestones = [];
   state.history = { pop: [], happiness: [], funds: [] };   // STATISTICS
   pushHistory();   // seed one sample so the sparklines/panel aren't empty at month 0
+  // SCENARIOS: reset contract state on new game
+  state.scenarios = { active: [], completed: [], jobs: 0, contractBlacklist: {} };
+  state.revenue   = { monthly: 0, lost: 0 };
+  state.prestige  = 0;
+  state.pendingOffers    = [];
+  state.pendingPlacements = [];
+  state.placementMode    = null;
   // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }

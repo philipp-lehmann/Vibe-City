@@ -6,9 +6,12 @@
    model, and the fire disaster. User-facing messages are emitted
    via state.pushNotice (drained by ui), never via the DOM.
    ================================================================ */
-import { T, isZone, conducts, clamp, lerp } from './config.js';   // MAP SIZE: GRID now runtime
+import { T, isZone, conducts, clamp, lerp,
+         SCENARIO_DEMAND_CAP_POP, SCENARIO_DEMAND_PENALTY_SCALE, SCENARIO_DEMAND_PENALTY_MAX
+       } from './config.js';   // MAP SIZE: GRID now runtime
 import { state, tileAt, makeTile, pushNotice, requestFlash, pushHistory } from './state.js';
 import { TERRAIN } from './terrain.js';   // TERRAIN TOOLS: terrain land-value effects
+import { scenarioManager } from './scenario.js';         // SCENARIOS
 
 const POP_MILESTONES = [
   [10_000,  '10,000 residents — Village!'],
@@ -31,6 +34,7 @@ export function propagatePower(){
     }
   }
   state.powerPlantCount = plants;
+  state.powerCapacity   = capacity;
 
   let used = 0;
   const N=[[1,0],[-1,0],[0,1],[0,-1]];
@@ -43,6 +47,14 @@ export function propagatePower(){
       if(conducts(t.type)){ t.powered=true; used++; queue.push([nx,ny]); }
     }
   }
+  state.powerUsed = used;
+}
+
+// SCENARIOS: spare power units available on the grid (capacity - consumed).
+// Each plant contributes 300 units; req.amount in scenario blueprints is
+// compared directly to this value (treat 1 unit ≈ 1 MW for game purposes).
+export function availablePowerCapacity(){
+  return state.powerCapacity - state.powerUsed;
 }
 
 /* --- Water propagation: floods from every road-connected pump. --- */
@@ -296,6 +308,13 @@ export function monthlyTick(){
   tickFire();
 
   if(state.funds < 0) pushNotice('TREASURY OVERDRAWN! Raise income or cut upkeep.');
+
+  // SCENARIOS: apply recurring contract revenue and tick deadlines. Contracts
+  // are player-initiated only (scenarioManager.activateContract(), wired from
+  // the status-bar Contracts dialog) and only exist in Scenario Mode — no RNG
+  // offers in either mode anymore.
+  state.funds += state.revenue.monthly;
+  if (state.mode === 'scenario') scenarioManager.tick(1);   // 1 month elapsed
 }
 
 /* --- (legacy helper, retained) pumps within radius 4 provide water --- */
@@ -336,6 +355,22 @@ export function updateDemand(resPop, resJobPop, comCap, indCap){
   // ROAD CONNECTORS: no off-map link -> R demand forced to 0; extra links -> +10%
   if(state.outsideConnections===0) dR = 0;
   else if(state.outsideConnections>1) dR *= 1.1;
+
+  // SCENARIO MODE: demand collapses past the population cap unless offset by
+  // active contracts. The penalty scales with how far pop is past the cap,
+  // regardless of how many contracts are active; each active contract stage
+  // adds a flat demandBoost on top, so multiple contracts stack additively.
+  if (state.mode === 'scenario') {
+    const overage = Math.max(0, state.pop - SCENARIO_DEMAND_CAP_POP);
+    const penalty = Math.min(
+      SCENARIO_DEMAND_PENALTY_MAX,
+      overage / SCENARIO_DEMAND_PENALTY_SCALE
+    );
+    const boost = scenarioManager.getActiveDemandBoost();
+    dR = dR * (1 - penalty) + boost;
+    dC = dC * (1 - penalty) + boost;
+    dI = dI * (1 - penalty) + boost;
+  }
 
   const noise=()=> (Math.random()-0.5)*0.08;
   state.demand.R = clamp(lerp(state.demand.R, dR+noise(), 0.4), -1, 1);

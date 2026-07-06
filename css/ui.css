@@ -8,12 +8,15 @@
   --bg: #121212;
   --panel: #141414;
   --panel2: #161616;
+  --panel3: #333333;
+  --input: #0a0a14;
   --ink: #e8e8e8;
   /* neutral monochrome accent */
   --ink-dim: #707070;
   --ink-mid: #aaaaaa;
   --warn: #ff5b3b;
   --gold: #ffd23f;
+  --success: #3aca21;
   --line: #161616;
 
   /* STATISTICS: per-metric identity colors — shared by the statusbar
@@ -21,6 +24,18 @@
   --stat-pop: #e8e8e8;
   --stat-happiness: #ffd23f;
   --stat-funds: #2bd1d4;
+
+  /* TERRAIN: canvas ground colors — read into renderer.js via
+     getComputedStyle(document.documentElement), same pattern as --stat-*
+     above. These paint the isometric map itself, not DOM chrome. */
+  --terr-water: #0b2843;
+  --terr-shallows: #1a546f;
+  --terr-wetland: #36492f;
+  --terr-lowland: #122310;
+  --terr-highland: #3b4a24;
+  --terr-hill: #5a4a32;
+  --terr-road: #2a2a30;
+  --terr-park: #15521f;
 
   /* Typography */
   --font-xs: 10px;
@@ -697,17 +712,15 @@ button:hover {
   padding: var(--sp-2) 10px;
 }
 
-#size-row, #water-row {
+#mode-row, #size-row, #water-row {
   display: flex;
-  gap: 10px;
-  margin: 10px 0 14px;
+  background-color: var(--panel3);
 }
 
 .size-card {
   flex: 1;
   cursor: pointer;
-  background: var(--panel2);
-  border: var(--border);
+  background: var(--input);
   color: var(--ink-mid);
   padding: var(--sp-3);
   display: flex;
@@ -723,12 +736,17 @@ button:hover {
 }
 
 .size-card-preview {
-  background: #05050c;
   border: var(--border-dim);
   background-image:
     linear-gradient(var(--line) 1px, transparent 1px),
     linear-gradient(90deg, var(--line) 1px, transparent 1px);
   /* background-size set inline — dynamic per map size */
+}
+
+.size-card.active {
+  color: var(--ink);
+  border: var(--border-dim);
+  background-color: var(--panel3);
 }
 
 .modal-actions {
@@ -755,6 +773,253 @@ button:hover {
   color: var(--warn);
   border: 1px solid #5a2018;
   padding: var(--sp-2) 10px;
+}
+
+/* ── SCENARIOS: contract name/decline (used by the inspector tooltip and
+   the contracts dialog — the old side panel of cards was removed in favor
+   of the bottom-left inspector, which already shows live contract detail
+   for a hovered contract tile) ─────────────────────────────────────── */
+
+.contract-name {
+  color: var(--ink);
+  font-size: var(--font-md);
+  letter-spacing: 0.5px;
+}
+
+.contract-decline {
+  font-size: var(--font-xs);
+  color: var(--warn);
+  border-color: #5a2018;
+  padding: 2px var(--sp-2);
+  width: 100%;
+}
+
+.contract-decline:hover {
+  background: #3a120c;
+  color: #fff;
+}
+
+/* ── SCENARIOS: contract + renegotiation modals ───────────────── */
+
+#contract-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: none;
+  background: rgba(5, 5, 12, 0.85);
+  align-items: center;
+  justify-content: center;
+}
+
+.contract-modal-panel {
+  background: var(--panel);
+  border: var(--border-dim);
+  padding: var(--sp-5);
+  width: 420px;
+  max-width: 94vw;
+  color: var(--ink);
+  font-size: var(--font-sm);
+  font-family: inherit;
+  border-radius: var(--radius-md);
+  line-height: 1.6;
+}
+
+.contract-modal-title {
+  font-size: var(--font-lg);
+  color: var(--ink);
+  margin-bottom: var(--sp-1);
+  border-bottom: var(--border-panel);
+  padding-bottom: var(--sp-2);
+}
+
+.contract-modal-subtitle {
+  color: var(--ink-mid);
+  font-size: var(--font-lg);
+  margin: var(--sp-4) var(--sp-0);
+}
+
+.contract-modal-section {
+  color: var(--ink-dim);
+  font-size: var(--font-base);
+  margin: var(--sp-3) 0 var(--sp-1);
+}
+
+.contract-modal-row {
+  padding: 2px 0;
+  font-size: var(--font-base);
+  color: var(--ink-mid);
+}
+
+.contract-modal-row.consequence {
+  color: var(--warn);
+}
+
+.contract-modal-row.term-old {
+  color: var(--ink-dim);
+  text-decoration: line-through;
+}
+
+.contract-modal-row.term-new {
+  color: var(--gold);
+}
+
+.contract-modal-quote {
+  color: var(--ink-dim);
+  font-style: italic;
+  margin: var(--sp-3) 0;
+  padding-left: var(--sp-3);
+  border-left: 2px solid var(--ink-dim);
+}
+
+.contract-modal-warning {
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+  margin-top: var(--sp-4);
+}
+
+.contract-modal-footer {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: var(--border-panel);
+}
+
+.contract-modal-footer button {
+  flex: 1;
+  padding: var(--sp-2);
+}
+
+.btn-danger {
+  color: var(--warn);
+  border-color: #5a2018;
+}
+
+.btn-danger:hover {
+  background: #3a120c;
+  color: #fff;
+}
+
+.btn-confirm-action {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+}
+
+.btn-confirm-action:hover {
+  border-color: var(--ink);
+  background: #2a2a2a;
+}
+
+/* ── SCENARIOS: placement banner ──────────────────────────────── */
+
+#placement-banner {
+  display: none;
+  position: fixed;
+  top: 46px;              /* just below status bar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 205;
+  background: var(--panel);
+  border: 2px solid #ff8c00;
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-5);
+  color: var(--ink);
+  font-size: var(--font-sm);
+  font-family: inherit;
+  text-align: center;
+  min-width: 320px;
+  box-shadow: 0 0 20px rgba(255,140,0,0.25);
+}
+
+#placement-banner.active { display: block; }
+
+#placement-banner .pb-title {
+  color: #ff8c00;
+  font-size: var(--font-xs);
+  letter-spacing: 1px;
+  margin-bottom: var(--sp-2);
+}
+
+#placement-banner .pb-count {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  margin-bottom: var(--sp-1);
+}
+
+#placement-banner .pb-hint {
+  color: var(--ink-dim);
+  font-size: var(--font-xs);
+  margin-bottom: var(--sp-3);
+}
+
+#placement-banner .pb-actions {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: center;
+}
+
+#placement-banner .pb-actions button {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--font-xs);
+}
+
+#placement-banner .pb-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── SCENARIOS: offer modal additions ─────────────────────────── */
+
+.contract-modal-meta {
+  color: var(--ink-dim);
+  font-size: var(--font-sm);
+  margin-bottom: 2px;
+}
+
+.contract-modal-row.offer-req { color: var(--ink-mid); }
+.contract-modal-row.offer-reward { color: var(--gold); }
+
+/* ── SCENARIOS: contracts dialog (status-bar Contracts button) ──── */
+
+#contracts-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 208;
+  display: none;
+  background: rgba(5, 5, 12, 0.82);
+  align-items: center;
+  justify-content: center;
+}
+
+.contracts-dialog-panel {
+  width: 460px;
+}
+
+.contracts-dialog-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.contracts-dialog-row {
+  border: var(--border-panel);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.contracts-dialog-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-1);
+  font-size: var(--font-sm);
+}
+
+.contracts-dialog-row button {
+  width: 100%;
+  font-size: var(--font-sm);
+  padding: var(--sp-1) var(--sp-2);
 }
 
 /* DEMAND SYSTEM: tax slider control */
