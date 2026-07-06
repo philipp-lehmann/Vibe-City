@@ -517,6 +517,8 @@ function slotCard(slot, entry) {
     const b = document.createElement('button');
     b.className = 'btn-confirm-action';
     b.textContent = 'Save Here';
+    b.disabled = !gameStarted;   // SAVE SYSTEM: nothing live to save until a city is started/loaded
+    if (b.disabled) b.title = 'Start or load a city first';
     b.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
     card.appendChild(d);
     d.appendChild(b);
@@ -525,7 +527,7 @@ function slotCard(slot, entry) {
 
   const info = document.createElement('div');
   info.className = 'slot-load';
-  info.title = 'Load this city';
+  info.title = `Load this ${escapeHtml(entry.cityName || 'City')}`;
   info.innerHTML = `<span class="slot-name">${escapeHtml(entry.cityName || 'City')}</span>
     <span class="slot-meta">${fmtDate(entry.month || 0)}<br>pop ${(entry.pop || 0).toLocaleString()}</span>
     ${slotThumbHtml(entry.thumb)}`;
@@ -534,6 +536,8 @@ function slotCard(slot, entry) {
 
   const row = document.createElement('div'); row.className = 'slot-actions';
   const bSave = document.createElement('button'); bSave.className = 'btn-confirm-action'; bSave.textContent = 'Save';
+  bSave.disabled = !gameStarted;   // SAVE SYSTEM: nothing live to save until a city is started/loaded
+  if (bSave.disabled) bSave.title = 'Start or load a city first';
   bSave.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
   const bDel = document.createElement('button'); bDel.className = 'btn-danger'; bDel.textContent = 'Delete';
   bDel.onclick = () => { if (confirm('Delete save "' + (entry.cityName || slot) + '"?')) { deleteSave(slot); renderSlots(); } };

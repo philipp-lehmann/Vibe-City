@@ -556,6 +556,18 @@ button:hover {
   border-color: var(--ink-mid);
 }
 
+button:disabled {
+  opacity: 0.4;
+  border-color: var(--ink-dim);
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+  background: none;
+}
+
 .admin {
   color: var(--ink-mid);
   border-color: var(--ink-dim);
