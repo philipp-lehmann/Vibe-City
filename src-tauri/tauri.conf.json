@@ -3,7 +3,9 @@
   "productName": "Vibe City",
   "identifier": "ch.redefine.vibecity",
   "build": {
-    "frontendDist": "../"
+    "frontendDist": "dist",
+    "beforeDevCommand": { "script": "bash scripts/sync-tauri-dist.sh", "cwd": ".." },
+    "beforeBuildCommand": { "script": "bash scripts/sync-tauri-dist.sh", "cwd": ".." }
   },
   "app": {
     "windows": [

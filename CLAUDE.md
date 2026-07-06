@@ -8,6 +8,18 @@ Vanilla JS/HTML/CSS isometric city builder. No build step. ES modules only.
 npx serve .   # then open localhost:3000
 ```
 
+### Desktop build (Tauri)
+
+```bash
+cd src-tauri
+cargo tauri dev     # or: cargo tauri build
+```
+
+`tauri.conf.json`'s `frontendDist` points at `src-tauri/dist/` (git-ignored), not the repo root — Tauri
+refuses to bundle a frontendDist that itself contains `src-tauri/`/`target/`. `beforeDevCommand`/
+`beforeBuildCommand` run `scripts/sync-tauri-dist.sh`, which copies `index.html`, `css/`, `js/`,
+`assets/` into `src-tauri/dist/` automatically — no manual step needed, and no compile step, just a copy.
+
 ## Architecture
 
 ### Module responsibilities
