@@ -8,6 +8,8 @@
   --bg: #121212;
   --panel: #141414;
   --panel2: #161616;
+  --panel3: #333333;
+  --input: #0a0a14;
   --ink: #e8e8e8;
   /* neutral monochrome accent */
   --ink-dim: #707070;
@@ -698,17 +700,15 @@ button:hover {
   padding: var(--sp-2) 10px;
 }
 
-#size-row, #water-row {
+#mode-row, #size-row, #water-row {
   display: flex;
-  gap: 10px;
-  margin: 10px 0 14px;
+  background-color: var(--panel3);
 }
 
 .size-card {
   flex: 1;
   cursor: pointer;
-  background: var(--panel2);
-  border: var(--border);
+  background: var(--input);
   color: var(--ink-mid);
   padding: var(--sp-3);
   display: flex;
@@ -724,12 +724,17 @@ button:hover {
 }
 
 .size-card-preview {
-  background: #05050c;
   border: var(--border-dim);
   background-image:
     linear-gradient(var(--line) 1px, transparent 1px),
     linear-gradient(90deg, var(--line) 1px, transparent 1px);
   /* background-size set inline — dynamic per map size */
+}
+
+.size-card.active {
+  color: var(--ink);
+  border: var(--border-dim);
+  background-color: var(--panel3);
 }
 
 .modal-actions {

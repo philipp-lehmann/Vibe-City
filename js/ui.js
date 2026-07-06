@@ -614,7 +614,7 @@ function buildSizeModal() {
     const card = document.createElement('button');
     card.dataset.mode = key;
     card.className = 'size-card';
-    card.innerHTML = `<b>${m.label}</b><span class="size-dim">${m.desc}</span>`;
+    card.innerHTML = `<b>${m.label}</b>`;
     card.onclick = () => { pickedMode = key; highlightMode(); };
     modeRow.appendChild(card);
   });
@@ -659,25 +659,20 @@ function buildSizeModal() {
 function highlightSize() {
   sizeModal.querySelectorAll('[data-size]').forEach(c => {
     const on = c.dataset.size === pickedSize;
-    c.style.borderColor = on ? 'var(--ink)' : 'var(--line)';
-    c.style.color = on ? 'var(--ink)' : 'var(--ink-mid)';
-    c.style.background = on ? '#2a2a2a' : 'var(--panel2)';
+    c.classList = on ? 'size-card active' : 'size-card';
   });
 }
 function highlightWater() {
   sizeModal.querySelectorAll('[data-water]').forEach(c => {
     const on = c.dataset.water === pickedWater;
-    c.style.borderColor = on ? 'var(--ink)' : 'var(--line)';
-    c.style.color = on ? 'var(--ink)' : 'var(--ink-mid)';
-    c.style.background = on ? '#2a2a2a' : 'var(--panel2)';
+    c.classList = on ? 'size-card active' : 'size-card';
+
   });
 }
 function highlightMode() {
   sizeModal.querySelectorAll('[data-mode]').forEach(c => {
     const on = c.dataset.mode === pickedMode;
-    c.style.borderColor = on ? 'var(--ink)' : 'var(--line)';
-    c.style.color = on ? 'var(--ink)' : 'var(--ink-mid)';
-    c.style.background = on ? '#2a2a2a' : 'var(--panel2)';
+    c.classList = on ? 'size-card active' : 'size-card';
   });
 }
 function doNewGame() {
