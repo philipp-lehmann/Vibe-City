@@ -555,14 +555,24 @@ button:hover {
   border-color: var(--ink-mid);
 }
 
+.admin {
+  color: var(--ink-mid);
+  border-color: var(--ink-dim);
+}
+
+.admin:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
 .disaster {
   color: var(--warn);
-  border-color: #5a2018;
+  border-color: var(--ink-dim);
 }
 
 .disaster:hover {
-  color: #fff;
-  background: #3a120c;
+  color: var(--warn);
+  border-color: var(--warn);
 }
 
 /* --- Notification centre --- */
@@ -981,7 +991,7 @@ button:hover {
 
 /* ── SCENARIOS: contracts dialog (status-bar Contracts button) ──── */
 
-#contracts-dialog {
+#contracts-dialog, #credits-dialog {
   position: fixed;
   inset: 0;
   z-index: 208;

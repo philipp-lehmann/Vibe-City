@@ -40,6 +40,16 @@ export const SCENARIO_DEMAND_CAP_POP = 15000;       // population above which th
 export const SCENARIO_DEMAND_PENALTY_SCALE = 30000; // "meters" the overage against — larger = gentler curve
 export const SCENARIO_DEMAND_PENALTY_MAX = 0.9;     // hard ceiling so demand never goes fully to zero/negative-only from this alone
 
+// CREDITS: fixed loan offerings available from the Admin panel's Credits
+// button. Each entry can only have one loan outstanding at a time (see
+// state.takeLoan). rate is total interest over the life of the loan (not
+// annualized) — repayment is a flat monthly amount for termMonths.
+export const LOANS = {
+  starter:   { id:'starter',   label:'Starter Loan',   principal:50000,  termMonths:24, rate:0.10 },
+  growth:    { id:'growth',    label:'Growth Loan',    principal:150000, termMonths:48, rate:0.20 },
+  emergency: { id:'emergency', label:'Emergency Loan', principal:15000,  termMonths:6,  rate:0.05 },
+};
+
 export const TILE_W = 64;   // base diamond width  (2:1 ratio)
 export const TILE_H = 32;   // base diamond height
 export const ELEV   = 8;    // pixels of "lift" per elevation unit

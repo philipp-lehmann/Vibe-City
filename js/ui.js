@@ -6,11 +6,11 @@
    status flash, and per-frame syncUI() that applies state -> DOM.
    ================================================================ */
 import { MAP_SIZES, WATER_LEVELS, DEFAULT_WATER, GAME_MODES, DEFAULT_MODE, SCENARIO_DEMAND_CAP_POP,
-         T, TOOLS, FACES, SHORT_MONTHS, isZone } from './config.js';   // MAP SIZE / WATER AMOUNT / GAME MODE
+         T, TOOLS, FACES, SHORT_MONTHS, isZone, LOANS } from './config.js';   // MAP SIZE / WATER AMOUNT / GAME MODE / CREDITS
 import {
   state, tileAt, setTool, togglePause, rotateView,
-  listSaves, saveGame, loadGame, deleteSave, newGame
-} from './state.js'; // SAVE SYSTEM
+  listSaves, saveGame, loadGame, deleteSave, newGame, takeLoan
+} from './state.js'; // SAVE SYSTEM / CREDITS
 import { igniteFire } from './simulation.js';
 import { scenarioManager, SCENARIOS } from './scenario.js';              // SCENARIOS
 import {
@@ -396,6 +396,7 @@ export function wireControls() {
   $('btn-saves').onclick = openSaves;
   $('btn-newgame').onclick = doNewGame;
   $('btn-contracts').onclick = openContractsDialog;   // SCENARIOS: Admin accordion button, Scenario Mode only
+  $('btn-credits').onclick = openCreditsDialog;       // CREDITS: Admin accordion button, any mode
 }
 
 // GAME MODE: force the Admin accordion section open (used once when a Scenario
@@ -514,7 +515,7 @@ function slotCard(slot, entry) {
     ? `<img src="${entry.thumb}" style="width:100%;height:84px;object-fit:contain;image-rendering:pixelated;background:#05050c;">`
     : `<div style="height:84px;background:#05050c;"></div>`;
   card.innerHTML = `<b style="color:var(--ink);">${escapeHtml(entry.cityName || 'City')}</b>
-    <div style="color:var(--ink-dim);font-size:var(--font-sm)">${fmtDate(entry.month || 0)} · pop ${(entry.pop || 0).toLocaleString()}</div>
+    <div style="color:var(--ink-dim);font-size:var(--font-sm)">${fmtDate(entry.month || 0)}<br>pop ${(entry.pop || 0).toLocaleString()}</div>
     ${img}`;
   const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:var(--sp-1);';
 
@@ -857,6 +858,97 @@ function syncContractsDialog() {
   rebuildContractsDialog();
 }
 
+/* ===== CREDITS: loan-offers dialog (Admin panel "Credits" button) ====
+   Same picker/launcher pattern as the Contracts dialog above: lists every
+   LOANS entry with its current state (available / active w/ remaining
+   balance) and a Take Loan / Active action. Each entry allows only one
+   outstanding loan at a time (state.takeLoan enforces this). ========== */
+
+let _creditsDialog = null;
+
+function ensureCreditsDialog() {
+  if (_creditsDialog) return;
+  _creditsDialog = document.createElement('div');
+  _creditsDialog.id = 'credits-dialog';
+  _creditsDialog.addEventListener('click', e => {
+    if (e.target === _creditsDialog) closeCreditsDialog();
+  });
+  document.body.appendChild(_creditsDialog);
+}
+
+function isCreditsDialogOpen() { return _creditsDialog?.style.display === 'flex'; }
+function closeCreditsDialog() { if (_creditsDialog) _creditsDialog.style.display = 'none'; }
+
+function creditsDialogFingerprint() {
+  return state.loans.active.map(l => `${l.type}:${l.monthsRemaining}`).join('|') + '|' + state.funds;
+}
+
+function renderCreditsDialogRows() {
+  return Object.values(LOANS).map(cfg => {
+    const active = state.loans.active.find(l => l.type === cfg.id);
+    const totalOwed = Math.round(cfg.principal * (1 + cfg.rate));
+    const monthlyPayment = Math.round(totalOwed / cfg.termMonths);
+
+    let stateLabel, actionHtml;
+    if (active) {
+      stateLabel = `<span style="color:var(--gold)">Active — ${active.monthsRemaining} mo left, $${active.monthlyPayment.toLocaleString()}/mo</span>`;
+      actionHtml = `<button disabled>Active</button>`;
+    } else {
+      stateLabel = `<span style="color:var(--ink-mid)">Available</span>`;
+      actionHtml = `<button class="btn-confirm-action credits-dialog-take" data-type="${cfg.id}">Take Loan</button>`;
+    }
+
+    return `<div class="contracts-dialog-row">
+      <div class="contracts-dialog-row-head">
+        <span class="contract-name">${cfg.label}</span>
+        ${stateLabel}
+      </div>
+      <div class="contract-modal-row">$${cfg.principal.toLocaleString()} · ${cfg.termMonths} months · ${Math.round(cfg.rate*100)}% interest · $${monthlyPayment.toLocaleString()}/mo</div>
+      ${actionHtml}
+    </div>`;
+  }).join('');
+}
+
+function wireCreditsDialog() {
+  _creditsDialog.querySelectorAll('.credits-dialog-take').forEach(btn => {
+    btn.onclick = () => {
+      if (takeLoan(btn.dataset.type)) {
+        flashStatus(`Took out a ${LOANS[btn.dataset.type].label}.`);
+        rebuildCreditsDialog();
+      }
+    };
+  });
+  const close = _creditsDialog.querySelector('#credits-dialog-close');
+  if (close) close.onclick = closeCreditsDialog;
+}
+
+let _creditsDialogFP = '';
+function rebuildCreditsDialog() {
+  ensureCreditsDialog();
+  _creditsDialog.innerHTML = `
+    <div class="contract-modal-panel contracts-dialog-panel">
+      <div class="contract-modal-title">Credits</div>
+      <div class="contracts-dialog-list">${renderCreditsDialogRows()}</div>
+      <div class="contract-modal-footer">
+        <button id="credits-dialog-close">Close</button>
+      </div>
+    </div>`;
+  wireCreditsDialog();
+  _creditsDialogFP = creditsDialogFingerprint();
+}
+
+function openCreditsDialog() {
+  rebuildCreditsDialog();
+  _creditsDialog.style.display = 'flex';
+}
+
+function syncCreditsDialog() {
+  if (!isCreditsDialogOpen()) return;
+  const fp = creditsDialogFingerprint();
+  if (fp === _creditsDialogFP) return;
+  rebuildCreditsDialog();
+}
+
 // ── Contract modal (shared overlay) ──────────────────────────────
 
 let _contractModal = null;
@@ -1138,6 +1230,10 @@ export function resetGameUI() {
   closeContractsDialog();
   _contractsDialogFP = '';
 
+  // CREDITS: close any open Credits dialog (loans themselves reset via newGame/applySave)
+  closeCreditsDialog();
+  _creditsDialogFP = '';
+
   // GAME MODE: force the next syncControls() tick to re-evaluate the Admin
   // accordion's default-open state for this (possibly new) city/mode.
   _lastMode = null;
@@ -1163,6 +1259,7 @@ export function syncUI() {
   updateInspector();
   syncPersistentWarnings();
   syncContractsDialog(); /* SCENARIOS: status-bar Contracts picker, no-op while closed */
+  syncCreditsDialog();   /* CREDITS: Admin panel Credits picker, no-op while closed */
   syncPlacementBanner(); /* SCENARIOS: tile placement overlay */
 
   // SCENARIOS: auto-confirm placement triggered by single click in input.js

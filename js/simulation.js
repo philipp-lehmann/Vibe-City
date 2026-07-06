@@ -315,6 +315,17 @@ export function monthlyTick(){
   // offers in either mode anymore.
   state.funds += state.revenue.monthly;
   if (state.mode === 'scenario') scenarioManager.tick(1);   // 1 month elapsed
+
+  // CREDITS: service any active loans — flat monthly payment, auto-clears at term end
+  for (let i = state.loans.active.length - 1; i >= 0; i--) {
+    const loan = state.loans.active[i];
+    state.funds -= loan.monthlyPayment;
+    loan.monthsRemaining--;
+    if (loan.monthsRemaining <= 0) {
+      state.loans.active.splice(i, 1);
+      pushNotice(`${loan.label} paid off.`);
+    }
+  }
 }
 
 /* --- (legacy helper, retained) pumps within radius 4 provide water --- */

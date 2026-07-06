@@ -7,7 +7,7 @@
    factory, grid init, bounds helpers, pure state mutators, and the
    drag-geometry selector (shared by renderer preview + input commit).
    ================================================================ */
-import { MAP_SIZES, DEFAULT_MAP, DEFAULT_MODE, T } from './config.js';
+import { MAP_SIZES, DEFAULT_MAP, DEFAULT_MODE, T, LOANS } from './config.js';   // CREDITS
 import { generateTerrain, TERRAIN, isWaterTerrain, coastPass } from './terrain.js'; // TERRAIN / TERRAIN TOOLS
 
 // --- tile factory: keeps every tile's shape consistent ---
@@ -93,6 +93,9 @@ export const state = {
   revenue: { monthly: 0, lost: 0 },
   // SCENARIOS: city prestige/reputation (modified by contract outcomes)
   prestige: 0,
+  // CREDITS: outstanding loans taken from the Admin panel's Credits dialog.
+  // Each LOANS entry (see config.js) can only have one active loan at a time.
+  loans: { active: [] },
 };
 
 // --- grid init: all grass; TERRAIN: water/relief now come from generateTerrain ---
@@ -182,6 +185,25 @@ export function rotateView(d){ state.rot = (state.rot + d + 4) % 4; }
 export function pushNotice(msg){ state.notices.push(msg); }
 export function requestFlash(msg){ state.flash = msg; }
 
+/* ===== CREDITS: loans ==================================================
+   Fixed offerings (config.LOANS), one outstanding loan per offering at a
+   time. Taking a loan credits the principal immediately; simulation.js
+   deducts a flat monthlyPayment each tick until the term ends. ========== */
+export function isLoanActive(type){ return state.loans.active.some(l => l.type === type); }
+
+export function takeLoan(type){
+  const cfg = LOANS[type];
+  if(!cfg || isLoanActive(type)) return false;   // unknown type or already outstanding
+  const totalOwed = Math.round(cfg.principal * (1 + cfg.rate));
+  state.loans.active.push({
+    type, label: cfg.label, principal: cfg.principal, rate: cfg.rate,
+    termMonths: cfg.termMonths, monthsRemaining: cfg.termMonths,
+    monthlyPayment: Math.round(totalOwed / cfg.termMonths), totalOwed
+  });
+  state.funds += cfg.principal;
+  return true;
+}
+
 /* ===== STATISTICS: rolling history for the statusbar sparklines + the
    Statistics panel. Simulation calls pushHistory() once per monthly tick;
    ui.js only ever reads state.history. ===================================== */
@@ -267,7 +289,8 @@ export function serializeSave(thumb){
         contractBlacklist: state.scenarios.contractBlacklist
       },
       revenue:  { ...state.revenue },
-      prestige: state.prestige
+      prestige: state.prestige,
+      loans:    { active: state.loans.active.map(l => ({ ...l })) }   // CREDITS
     },
     meta: { cityName: state.cityName, ts: Date.now(), thumb: thumb || null,
             month: state.month, pop: state.pop }
@@ -332,6 +355,8 @@ export function applySave(blob){
   }
   state.revenue  = s.revenue  ? { ...s.revenue  } : { monthly: 0, lost: 0 };
   state.prestige = s.prestige ?? 0;
+  // CREDITS: restore outstanding loans (older saves without this key get none)
+  state.loans = { active: Array.isArray(s.loans?.active) ? s.loans.active.map(l => ({ ...l })) : [] };
   state.pendingOffers    = [];   // SCENARIOS: never restore mid-offer/placement state
   state.pendingPlacements = [];
   state.placementMode    = null;
@@ -364,5 +389,6 @@ export function newGame(name, sizeKey, waterPct, mode){
   state.pendingOffers    = [];
   state.pendingPlacements = [];
   state.placementMode    = null;
+  state.loans = { active: [] };   // CREDITS
   // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }
