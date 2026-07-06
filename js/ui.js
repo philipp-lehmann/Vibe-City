@@ -735,104 +735,6 @@ function formatContractName(type) {
     .join(' ');
 }
 
-// ── Contracts panel ───────────────────────────────────────────────
-
-let _contractsPanelFP = '';   // fingerprint — only rebuild DOM when data changes
-
-function syncContractsPanel() {
-  const panel = $('contracts-panel');
-  if (!panel) return;
-
-  // GAME MODE: contracts only exist in Scenario Mode — Free Play shows nothing.
-  if (state.mode !== 'scenario') {
-    if (panel.innerHTML !== '') panel.innerHTML = '';
-    _contractsPanelFP = '';
-    return;
-  }
-
-  const contracts = scenarioManager.getContractStatus();
-
-  // Cheap fingerprint — avoids destroying button elements every frame (which
-  // swallows click events before they fire, the same bug as the placement banner).
-  const fp = contracts.map(c =>
-    `${c.id}:${c.status}:${c.deadlineIn}:${c.stageStatus}:` +
-    Object.entries(c.requirementDetails).map(([k, v]) => `${k}=${v.current}`).join(',')
-  ).join('|');
-  if (fp === _contractsPanelFP) return;
-  _contractsPanelFP = fp;
-
-  if (contracts.length === 0) {
-    panel.innerHTML = '';
-    return;
-  }
-
-  const fmt = n => '$' + Math.abs(n).toLocaleString();
-  const REQ_LABELS = {
-    tiles:        'Zone tiles',
-    power_access: 'Power access',
-    power:        'Spare power',
-    water:        'Water coverage',
-    happiness:    'Happiness',
-    labor:        'Available workers',
-    road:         'Road access'
-  };
-  const reqLabel = k => REQ_LABELS[k] || (k.charAt(0).toUpperCase() + k.slice(1));
-
-  panel.innerHTML = contracts.map(c => {
-    // PLACEMENT scenarios show a special "placing zone" card
-    if (c.status === 'PLACEMENT') {
-      return `<div class="contract-card contract-placement">
-        <div class="contract-head">
-          <span class="contract-name">${formatContractName(c.type)}</span>
-          <span class="contract-stage-badge">S${c.stage}/${c.totalStages}</span>
-        </div>
-        <div class="contract-stage-name">${c.stageName}</div>
-        <div class="contract-reqs"><span class="req-unmet">📍 Placing zone: ${c.tilesSelected}/${c.tilesRequired} tiles</span></div>
-      </div>`;
-    }
-
-    const pct = Math.max(4, Math.min(100, (c.deadlineIn / c.maxDeadline) * 100));
-    const barColor = c.deadlineIn <= 12 ? 'var(--warn)'
-                   : c.deadlineIn <= 36 ? 'var(--gold)'
-                   : 'var(--ink-mid)';
-    // v is now { met, current, required } — show "Power: 3/8" style
-    const reqs = Object.entries(c.requirementDetails)
-      .map(([k, v]) =>
-        `<span class="${v.met ? 'req-met' : 'req-unmet'}" title="${reqLabel(k)}">` +
-        `${v.met ? '✓' : '✗'} ${reqLabel(k)}: ${v.current}/${v.required}</span>`
-      ).join('');
-    const statusLabel = c.requirementsMet
-      ? `<span style="color:var(--gold)">Ready</span>`
-      : `<span style="color:var(--ink-dim)">In Progress</span>`;
-    const earnedNote = c.earnedRevenue > 0
-      ? `<div class="contract-earned">+${fmt(c.earnedRevenue)}/mo earned</div>` : '';
-
-    return `<div class="contract-card">
-      <div class="contract-head">
-        <span class="contract-name">${formatContractName(c.type)}</span>
-        <span class="contract-stage-badge">S${c.stage}/${c.totalStages}</span>
-      </div>
-      <div class="contract-stage-name">${c.stageName}</div>
-      <div class="contract-bar">
-        <div class="contract-bar-fill" style="width:${pct}%;background:${barColor}"></div>
-      </div>
-      <div class="contract-deadline">
-        <span>${c.deadlineIn} months</span>
-        ${statusLabel}
-      </div>
-      <div class="contract-reqs">${reqs}</div>
-      <div class="contract-revenue">+${fmt(c.pendingRevenue)}/month pending</div>
-      ${earnedNote}
-      <button class="contract-decline" data-scenario-id="${c.id}">Cancel Contract</button>
-    </div>`;
-  }).join('');
-
-  // Wire decline buttons (rebuilt every sync, so re-wire each time)
-  panel.querySelectorAll('.contract-decline').forEach(btn => {
-    btn.onclick = () => showDeclineModal(btn.dataset.scenarioId);
-  });
-}
-
 // ── Contracts dialog (status-bar "Contracts" button, Scenario Mode only) ──
 // Purely a picker/launcher: lists every SCENARIOS entry with its current
 // state and an Activate/Deactivate action. Doesn't replace the contracts
@@ -1224,11 +1126,6 @@ export function resetGameUI() {
   const log = $('notif-log');
   if (log) log.innerHTML = '';
 
-  // Clear contracts panel and reset fingerprint so it rebuilds immediately
-  const panel = $('contracts-panel');
-  if (panel) panel.innerHTML = '';
-  _contractsPanelFP = '';
-
   // Reset placement banner
   if (_placementBanner) { _placementBanner.classList.remove('active'); }
   _placementLastSid = null;
@@ -1265,7 +1162,6 @@ export function syncUI() {
   syncTools();
   updateInspector();
   syncPersistentWarnings();
-  syncContractsPanel();  /* SCENARIOS */
   syncContractsDialog(); /* SCENARIOS: status-bar Contracts picker, no-op while closed */
   syncPlacementBanner(); /* SCENARIOS: tile placement overlay */
 

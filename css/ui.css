@@ -763,98 +763,15 @@ button:hover {
   padding: var(--sp-2) 10px;
 }
 
-/* ── SCENARIOS: contracts panel ───────────────────────────────── */
-
-#contracts-panel {
-  position: absolute;
-  top: var(--sp-9);
-  left: 162px;          /* right edge of the left panel (152px) + gap */
-  width: 220px;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-  pointer-events: none; /* children re-enable as needed */
-}
-
-.contract-card {
-  background: var(--panel);
-  border: var(--border-panel);
-  border-radius: var(--radius-md);
-  padding: var(--sp-3);
-  font-size: var(--font-sm);
-  line-height: 1.5;
-  pointer-events: auto;
-}
-
-.contract-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 2px;
-}
+/* ── SCENARIOS: contract name/decline (used by the inspector tooltip and
+   the contracts dialog — the old side panel of cards was removed in favor
+   of the bottom-left inspector, which already shows live contract detail
+   for a hovered contract tile) ─────────────────────────────────────── */
 
 .contract-name {
   color: var(--ink);
   font-size: var(--font-md);
   letter-spacing: 0.5px;
-}
-
-.contract-stage-badge {
-  color: var(--ink-dim);
-  font-size: var(--font-sm);
-}
-
-.contract-stage-name {
-  color: var(--ink-mid);
-  font-size: var(--font-sm);
-  margin-bottom: var(--sp-2);
-}
-
-/* deadline progress bar */
-.contract-bar {
-  height: 4px;
-  background: var(--panel2);
-  border: var(--border);
-  border-radius: 2px;
-  margin-bottom: var(--sp-1);
-  overflow: hidden;
-}
-
-.contract-bar-fill {
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.contract-deadline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--ink-dim);
-  font-size: var(--font-xs);
-  margin-bottom: var(--sp-1);
-}
-
-.contract-reqs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-1);
-  font-size: var(--font-sm);
-  margin-bottom: var(--sp-1);
-}
-
-.req-met   { color: var(--success); }
-.req-unmet { color: var(--warn); }
-
-.contract-revenue {
-  color: var(--ink-mid);
-  font-size: var(--font-xs);
-  margin-bottom: var(--sp-2);
-}
-
-.contract-earned {
-  color: var(--gold);
-  font-size: var(--font-xs);
 }
 
 .contract-decline {
@@ -1091,13 +1008,6 @@ button:hover {
   width: 100%;
   font-size: var(--font-sm);
   padding: var(--sp-1) var(--sp-2);
-}
-
-/* ── SCENARIOS: placement state card in contracts panel ────────── */
-
-.contract-card.contract-placement {
-  border-color: rgba(255,140,0,0.4);
-  background: rgba(255,140,0,0.04);
 }
 
 /* DEMAND SYSTEM: tax slider control */
