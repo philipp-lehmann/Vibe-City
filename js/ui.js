@@ -260,10 +260,67 @@ function initStatsPanel() {
   window.addEventListener('resize', () => { if (isStatsPanelOpen()) positionStatsPanel(); });
 }
 
-/* --- tile inspector for the hovered tile --- */
+// CONTRACT FOCUS: terminal contracts (completed/declined/failed) keep their
+// tiles locked forever, but there's nothing left to negotiate — show a plain
+// summary instead of the live progress view, and no Decline button.
+const TERMINAL_STATUS_LABEL = {
+  COMPLETED:             '<span style="color:var(--gold)">Completed ✓</span>',
+  DECLINED:              '<span style="color:var(--warn)">Declined</span>',
+  FAILED_CONTRACT_ENDED: '<span style="color:var(--warn)">Contract Ended</span>',
+};
+function buildTerminalContractHTML(scenario) {
+  const typeName = formatContractName(scenario.type);
+  const label = TERMINAL_STATUS_LABEL[scenario.status] || scenario.status;
+  const revenueRow = scenario.status === 'COMPLETED'
+    ? `<span class="k">Revenue:</span> <span class="v">+$${scenario.currentStage.rewards.revenue.toLocaleString()}/month</span><br>`
+    : '';
+  return `
+    <div class="ttl">${typeName}</div>
+    <div id="insp-body">
+      <span class="k">Status:</span> ${label}<br>
+      ${revenueRow}
+      <span class="k">Tile locked</span> <span class="v">— cannot bulldoze</span>
+    </div>`;
+}
+
+// CONTRACT FOCUS: renders the contract inspector view. ACTIVE contracts get
+// the live progress view + a Decline button; terminal contracts (completed/
+// declined/ended) get a short summary instead. Shared by the pinned-selection
+// path and the plain-hover path below.
+function renderContractInspector(panel, scenario) {
+  panel.style.display = '';
+  if (scenario.status !== 'ACTIVE') {
+    panel.innerHTML = buildTerminalContractHTML(scenario);
+    return;
+  }
+  panel.innerHTML = buildContractInspectorHTML(scenario);
+  const declineBtn = document.createElement('button');
+  declineBtn.textContent = 'Decline contract';
+  declineBtn.className = 'btn-danger contract-decline';
+  declineBtn.style.marginTop = 'var(--sp-2)';
+  declineBtn.onclick = () => showDeclineModal(scenario.id);
+  panel.querySelector('#insp-body').appendChild(declineBtn);
+}
+
+/* --- tile inspector for the hovered (or pinned) tile --- */
 export function updateInspector() {
-  const { x, y } = state.hover;
   const panel = $('inspector');
+
+  // CONTRACT FOCUS: a pinned contract keeps the inspector open on that contract
+  // regardless of hover, until the player clicks elsewhere or presses ESC. Any
+  // status counts (not just ACTIVE) — completed/declined tiles stay locked
+  // forever and should still be inspectable, just without the live progress view.
+  if (state.selectedContractId) {
+    const scenario = scenarioManager.getScenario(state.selectedContractId);
+    if (scenario) {
+      renderContractInspector(panel, scenario);
+      return;
+    }
+    // truly gone — drop the stale pin
+    state.selectedContractId = null;
+  }
+
+  const { x, y } = state.hover;
   const t = tileAt(x, y);
   if (!t) { panel.style.display = 'none'; return; }
   panel.style.display = '';
@@ -271,14 +328,8 @@ export function updateInspector() {
   // SCENARIOS: contract tile — show contract info instead of standard tile info
   if (t.contractId) {
     const scenario = scenarioManager.getScenario(t.contractId);
-    if (scenario && scenario.status === 'ACTIVE') {
-      panel.innerHTML = buildContractInspectorHTML(scenario);
-      const declineBtn = document.createElement('button');
-      declineBtn.textContent = 'Decline contract';
-      declineBtn.className = 'contract-decline';
-      declineBtn.style.marginTop = 'var(--sp-2)';
-      declineBtn.onclick = () => showDeclineModal(t.contractId);
-      panel.querySelector('#insp-body').appendChild(declineBtn);
+    if (scenario) {
+      renderContractInspector(panel, scenario);
       return;
     }
   }
@@ -396,7 +447,7 @@ export function wireControls() {
   $('btn-saves').onclick = openSaves;
   $('btn-newgame').onclick = doNewGame;
   $('btn-contracts').onclick = openContractsDialog;   // SCENARIOS: Admin accordion button, Scenario Mode only
-  $('btn-credits').onclick = openCreditsDialog;       // CREDITS: Admin accordion button, any mode
+  $('btn-loans').onclick = openCreditsDialog;         // CREDITS: Admin accordion button, any mode
 }
 
 // GAME MODE: force the Admin accordion section open (used once when a Scenario
@@ -623,7 +674,7 @@ function buildSizeModal() {
     </div>
     <div class="modal-actions">
       <button id="size-confirm" class="btn-confirm">Start</button>
-      <button id="size-cancel" class="btn-cancel">Cancel</button>
+      <button id="size-cancel">Cancel</button>
     </div>`;
   sizeModal.appendChild(panel);
   document.body.appendChild(sizeModal);

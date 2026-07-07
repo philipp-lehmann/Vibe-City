@@ -314,6 +314,14 @@ export function render(){
         ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1.5; ctx.stroke();
       }
 
+      // CONTRACT FOCUS: highlight every tile belonging to the pinned contract
+      if(state.selectedContractId && t.contractId===state.selectedContractId){
+        diamond(sx,sy);
+        ctx.fillStyle='rgba(255,210,63,0.22)';
+        ctx.fill();
+        ctx.strokeStyle='rgba(255,210,63,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
+      }
+
       // PLACEMENT MODE: highlight the NxN block under the cursor
       if(state.placementMode && state.hover.x !== undefined){
         const pm   = state.placementMode;

@@ -68,6 +68,7 @@ export const state = {
   speedIdx: 1,
   cam: { x:0, y:0 },              // pan offset (centering handled at draw)
   hover: { x:-1, y:-1 },
+  selectedContractId: null,      // CONTRACT FOCUS: pinned contract — inspector stays open + area highlighted until deselected
   fireActive: false,
   fireEnds: 0,
   notices: [],                    // pending toast messages (drained by ui)
@@ -360,6 +361,7 @@ export function applySave(blob){
   state.pendingOffers    = [];   // SCENARIOS: never restore mid-offer/placement state
   state.pendingPlacements = [];
   state.placementMode    = null;
+  state.selectedContractId = null;   // CONTRACT FOCUS: never restore a pinned selection
   return true;
 }
 export function loadGame(slot){ return applySave(readSave(slot)); }
@@ -389,6 +391,7 @@ export function newGame(name, sizeKey, waterPct, mode){
   state.pendingOffers    = [];
   state.pendingPlacements = [];
   state.placementMode    = null;
+  state.selectedContractId = null;   // CONTRACT FOCUS
   state.loans = { active: [] };   // CREDITS
   // NO INITIAL PLANT: new cities start empty — player builds their own power plant
 }

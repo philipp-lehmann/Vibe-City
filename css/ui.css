@@ -578,14 +578,17 @@ button:disabled:hover {
   border-color: var(--ink);
 }
 
-.disaster {
+/* "Harmful" action style — destructive/irreversible actions (Ignite Fire,
+   Delete Save, Decline/Cancel Contract). See .contract-decline for the
+   size-constrained variant used inline in the inspector. */
+.btn-danger {
   color: var(--warn);
-  border-color: var(--ink-dim);
+  border-color: #5a2018;
 }
 
-.disaster:hover {
-  color: var(--warn);
-  border-color: var(--warn);
+.btn-danger:hover {
+  background: #3a120c;
+  color: #fff;
 }
 
 /* --- Notification centre --- */
@@ -902,16 +905,6 @@ button:disabled:hover {
   padding: var(--sp-2);
 }
 
-.btn-cancel {
-  font-family: inherit;
-  font-size: var(--font-base);
-  cursor: pointer;
-  background: var(--panel2);
-  color: var(--warn);
-  border: 1px solid #5a2018;
-  padding: var(--sp-2) 10px;
-}
-
 /* ── SCENARIOS: contract name/decline (used by the inspector tooltip and
    the contracts dialog — the old side panel of cards was removed in favor
    of the bottom-left inspector, which already shows live contract detail
@@ -923,17 +916,11 @@ button:disabled:hover {
   letter-spacing: 0.5px;
 }
 
+/* Layout-only — pair with .btn-danger for the harmful-action color/hover treatment */
 .contract-decline {
   font-size: var(--font-xs);
-  color: var(--warn);
-  border-color: #5a2018;
   padding: 2px var(--sp-2);
   width: 100%;
-}
-
-.contract-decline:hover {
-  background: #3a120c;
-  color: #fff;
 }
 
 /* ── SCENARIOS: contract + renegotiation modals ───────────────── */
@@ -1025,16 +1012,6 @@ button:disabled:hover {
 .contract-modal-footer button {
   flex: 1;
   padding: var(--sp-2);
-}
-
-.btn-danger {
-  color: var(--warn);
-  border-color: #5a2018;
-}
-
-.btn-danger:hover {
-  background: #3a120c;
-  color: #fff;
 }
 
 .btn-confirm-action {

@@ -357,6 +357,14 @@ export function initInput(){
       return;
     }
 
+    // CONTRACT FOCUS: left-click a contract tile pins the inspector on that
+    // contract and highlights its whole area; left-click anywhere else (or ESC)
+    // clears the pin. Doesn't interfere with whatever tool action also fires below.
+    if(e.button===0){
+      const t = inBounds(gx,gy) ? state.grid[gy][gx] : null;
+      state.selectedContractId = (t && t.contractId) || null;
+    }
+
     if(e.button===2){
       // RIGHTCLICK DRAG: context-aware clearing. Zone/road tools erase via the
       // drag-preview region (axis-lock/preview); water brush + bulldozer/other
@@ -413,6 +421,7 @@ export function initInput(){
   // keyboard
   window.addEventListener('keydown',e=>{
     if(e.code==='Space'){ e.preventDefault(); togglePause(); }
+    if(e.key==='Escape'){ state.selectedContractId = null; }   // CONTRACT FOCUS: unpin inspector
     if(e.key==='q'||e.key==='Q') rotateView(-1);
     if(e.key==='e'||e.key==='E') rotateView(1);
     const n=parseInt(e.key);
