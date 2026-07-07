@@ -164,6 +164,28 @@ body {
   background: var(--panel2);
 }
 
+/* --- SAVE SYSTEM: date group doubles as a play/pause toggle --- */
+#statusbar .grp:has(#s-date) {
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+}
+
+#statusbar .grp:has(#s-date):hover {
+  background: var(--panel2);
+}
+
+/* CITY IDENTITY: city name opens the rename dialog */
+#s-name {
+  cursor: pointer;
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+}
+
+#s-name:hover {
+  background: var(--panel2);
+  color: var(--ink);
+}
+
 canvas.spark {
   width: 36px;
   height: 16px;
@@ -738,6 +760,10 @@ button:disabled:hover {
   outline: none;
 }
 
+.modal-input.row {
+  width: 100%;
+}
+
 .modal-input:focus {
   border: var(--border-panel-selected);
 }
@@ -898,10 +924,16 @@ button:disabled:hover {
   padding: var(--sp-2) 10px;
 }
 
-#mode-row, #size-row, #water-row {
+#mode-row, #size-row, #water-row, #emoji-row, #rename-emoji-row {
   display: flex;
   background-color: var(--input);
   border-radius: var(--radius-md);
+}
+
+/* CITY IDENTITY: emoji picker cards (New Game dialog + rename dialog) */
+.emoji-card {
+  font-size: 22px;
+  padding: var(--sp-2);
 }
 
 .size-card {

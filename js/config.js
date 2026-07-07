@@ -85,6 +85,11 @@ export const MONTHS = ['January','February','March','April','May','June','July',
 export const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 export const FACES  = ['N','E','S','W'];   // view rotation labels
 
+// CITY IDENTITY: small skyline-emoji selection assignable to a city, picked at
+// creation and changeable later from the rename dialog. Persisted on state/save.
+export const CITY_EMOJIS = ['🌃', '🌆', '🏙️', '🌉', '🌁'];
+export const DEFAULT_CITY_EMOJI = CITY_EMOJIS[0];
+
 // --- pure predicates ---
 export const isZone   = t => t===T.RES || t===T.COM || t===T.IND;
 // tiles that conduct power: plant, powerlines, roads, parks, pumps, and any zone
