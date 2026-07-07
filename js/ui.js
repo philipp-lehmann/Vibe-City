@@ -539,6 +539,9 @@ const liveThumb = () => { try { return $('minimap').toDataURL(); } catch { retur
 
 // build the (hidden) modal overlay once
 let modal = null;
+// PAUSE ON DIALOG: New Game only ever opens on top of an already-open Saves
+// dialog (see doNewGame), so pausing/resuming here covers both.
+let _pausedForSavesModal = false;
 function buildSavesModal() {
   modal = document.createElement('div');
   modal.id = 'saves-modal';
@@ -566,9 +569,19 @@ function buildSavesModal() {
   $('saves-import').onclick = () => $('saves-import-file').click();
   $('saves-import-file').onchange = handleImportFile;
 }
-function openSaves() { if (!modal) buildSavesModal(); renderSlots(); modal.style.display = 'flex'; }
+function openSaves() {
+  if (!modal) buildSavesModal();
+  renderSlots();
+  modal.style.display = 'flex';
+  // PAUSE ON DIALOG: don't clobber a pause the player already set themselves
+  if (!state.paused) { togglePause(); _pausedForSavesModal = true; }
+}
 // STARTUP: during the launch screen the modal stays open until a city is chosen
-function closeSaves() { if (startupMode && !gameStarted) return; if (modal) modal.style.display = 'none'; }
+function closeSaves() {
+  if (startupMode && !gameStarted) return;
+  if (modal) modal.style.display = 'none';
+  if (_pausedForSavesModal && state.paused) { togglePause(); _pausedForSavesModal = false; }
+}
 
 // name/stats/thumbnail is one clickable target that loads the slot (bordered on
 // hover — see .slot-load in ui.css); Save/Delete remain explicit buttons below.
@@ -1437,6 +1450,7 @@ export function resetGameUI() {
 
   // Reset contract-offer pause tracking
   _pausedForContract = false;
+  _pausedForSavesModal = false;
 
   // Close any open contract modal / contracts dialog
   closeContractModal();
