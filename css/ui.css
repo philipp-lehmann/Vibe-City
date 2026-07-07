@@ -799,10 +799,6 @@ button:disabled:hover {
   justify-content: center;
 }
 
-.save-slot > button {
-  /* align-self: stretch; */
-}
-
 .slot-load {
   cursor: pointer;
   display: flex;
