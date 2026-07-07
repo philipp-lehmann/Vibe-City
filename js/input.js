@@ -72,6 +72,19 @@ function placeTool(gx,gy){
 
   if(contractBlocks(t, tool.id)){ pushNotice('⛔ Contract tile — cannot build here.'); return; } // SCENARIOS
   if(tool.id==='bull'){
+    // TERRAIN TOOLS: bare natural terrain (hill/highland = T.GRASS, shallows/water
+    // = T.WATER, no building on it) — dozer flattens straight to buildable lowland
+    // at the normal per-tile bulldoze price (not the $60-120 terrain-brush prices).
+    const bareRelief = t.type===T.GRASS && (t.terrain===TERRAIN.HILL || t.terrain===TERRAIN.HIGHLAND || t.terrain===TERRAIN.WETLAND);
+    const bareWater  = t.type===T.WATER;   // covers both WATER and SHALLOWS terrain (bridges are T.ROAD, unaffected)
+    if(bareRelief || bareWater){
+      if(spend(bulldozeCost(t))){
+        const nt=makeTile(T.GRASS);
+        nt.terrain=TERRAIN.LOWLAND; nt.elevation=t.elevation; nt.moisture=t.moisture;
+        state.grid[gy][gx]=nt; terrainDirty=true;
+      }
+      return;
+    }
     if(t.type!==T.GRASS && t.type!==T.WATER){
       const wasRoad=t.type===T.ROAD;
       if(spend(bulldozeCost(t))){ state.grid[gy][gx]=makeTile(T.GRASS);   // wetland costs 2x
@@ -238,6 +251,21 @@ function bulldoze(gx,gy){
   if(contractBlocks(t,'bull')){ pushNotice('⛔ Contract tile — cannot bulldoze.'); return; }  // SCENARIOS
   // BRIDGES: bulldozing any bridge tile removes the whole span and refunds 50%
   if(t.bridge && t.bridgeId!=null){ state.funds += removeBridgeSpan(t.bridgeId); return; }
+  // TERRAIN TOOLS: bare natural terrain (hill/highland = T.GRASS, shallows/water
+  // = T.WATER, no building on it) — dozer flattens straight to buildable lowland
+  // at the normal per-tile bulldoze price (not the $60-120 terrain-brush prices).
+  {
+    const bareRelief = t.type===T.GRASS && (t.terrain===TERRAIN.HILL || t.terrain===TERRAIN.HIGHLAND);
+    const bareWater  = t.type===T.WATER;   // covers both WATER and SHALLOWS terrain (bridges already returned above)
+    if(bareRelief || bareWater){
+      if(spend(bulldozeCost(t))){
+        const nt=makeTile(T.GRASS);
+        nt.terrain=TERRAIN.LOWLAND; nt.elevation=t.elevation; nt.moisture=t.moisture;
+        state.grid[gy][gx]=nt; terrainDirty=true;
+      }
+      return;
+    }
+  }
   if(t.type!==T.GRASS && t.type!==T.WATER){
     const wasRoad=t.type===T.ROAD;
     if(spend(bulldozeCost(t))){ state.grid[gy][gx]=makeTile(T.GRASS);   // wetland costs 2x
