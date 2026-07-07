@@ -5,7 +5,7 @@
    commit, and screen->grid picking. Mutates state and emits notices/
    flash; it does not update HUD/panel DOM (ui.js does that each frame).
    ================================================================ */
-import { T, TOOLS } from './config.js';
+import { T, TOOLS, FOREST_MAX_DENSITY } from './config.js';
 import { state, makeTile, inBounds, setTool, togglePause, rotateView,
          pushNotice, requestFlash, dragTiles,
          updateRoadsAround, recomputeAllRoads, isEdge,
@@ -101,11 +101,24 @@ function placeTool(gx,gy){
   if(t.type===T.WATER){ return; }
   const key=gx+','+gy+':'+tool.id;
   if(key===lastPaint) return;
+
+  // FOREST: unlike every other tool, clicking an already-forested tile grows
+  // it in place (density 1..FOREST_MAX_DENSITY) instead of being rejected by
+  // the "must be bare grass" rule below. Each click — including each density
+  // increment — costs tool.cost, same as planting fresh.
+  if(tool.id==='forest' && t.type===T.FOREST){
+    if(t.forestDensity>=FOREST_MAX_DENSITY){ requestFlash('Forest already fully grown here.'); return; }
+    if(spend(tool.cost)){ t.forestDensity=Math.min(FOREST_MAX_DENSITY, t.forestDensity+1); lastPaint=key; }
+    return;
+  }
+
   // TERRAIN TOOLS: hills (and water) are non-buildable / non-routable
   if(t.type!==T.GRASS || t.terrain===TERRAIN.HILL){ return; }
 
   if(spend(tool.cost)){
-    state.grid[gy][gx]=makeTile(tool.tile); lastPaint=key;
+    state.grid[gy][gx]=makeTile(tool.tile);
+    if(tool.id==='forest') state.grid[gy][gx].forestDensity=1;   // FOREST: seed as a single tree
+    lastPaint=key;
     if(tool.tile===T.ROAD) updateRoadsAround(gx,gy);   // ROAD CONNECTORS
   }
 }

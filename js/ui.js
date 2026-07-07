@@ -360,13 +360,17 @@ export function updateInspector() {
   const names = {
     [T.GRASS]: 'Grassland', [T.WATER]: 'Water', [T.ROAD]: 'Road',
     [T.POWERLINE]: 'Power Line', [T.POWERPLANT]: 'Coal Plant', [T.PUMP]: 'Water Pump',
-    [T.PARK]: 'Park', [T.RES]: 'Residential', [T.COM]: 'Commercial', [T.IND]: 'Industrial'
+    [T.PARK]: 'Park', [T.RES]: 'Residential', [T.COM]: 'Commercial', [T.IND]: 'Industrial',
+    [T.FOREST]: 'Forest'
   };
   panel.querySelector('.ttl').textContent = names[t.type] || 'Tile';
   const dens = ['Low', 'Medium', 'High'][t.level] || 'Low';
   let rows = `<span class="k">Coords:</span> <span class="v">${x},${y}</span><br>`;
   rows += `<span class="k">Type:</span> <span class="v">${names[t.type]}</span><br>`;
-  if (isZone(t.type)) {
+  if (t.type === T.FOREST) {
+    // FOREST: own branch — no power/water/road fields, just tree density
+    rows += `<span class="k">Density:</span> <span class="v">${t.forestDensity}/10</span>`;
+  } else if (isZone(t.type)) {
     rows += `<span class="k">Density:</span> <span class="v">${dens}</span><br>`;
     rows += `<span class="k">Population:</span> <span class="v">${t.pop}</span><br>`;
     rows += `<span class="k">Power:</span> <span class="${t.powered ? 'pwr-ok' : 'pwr-no'}">${t.powered ? 'YES' : 'NO'}</span>`;
@@ -797,7 +801,7 @@ function renderSlots() {
     info.className = 'slot-load';
     info.title = 'Load autosave';
     info.innerHTML = `${slotThumbHtml(a.thumb)}
-      <span class="slot-meta"><span class="slot-name">Autosave</span> ${a.cityEmoji || DEFAULT_CITY_EMOJI} ${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span>`;
+      <span class="slot-meta"><span class="slot-name">Autosave ${a.cityEmoji || DEFAULT_CITY_EMOJI} ${escapeHtml(a.cityName || '')} </span><br> ${fmtDate(a.month || 0)} · Pop. ${(a.pop || 0).toLocaleString()}</span>`;
     info.onclick = () => doLoadSlot('autosave', a);
     row.appendChild(info);
     box.appendChild(row);

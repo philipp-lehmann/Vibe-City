@@ -6,7 +6,7 @@
    sort, ground/building/overlay sprites, drag preview, minimap, and
    the toolbar icon drawer used by ui.
    ================================================================ */
-import { TILE_W, TILE_H, ELEV, T, TOOLS, isZone, clamp } from './config.js';   // MAP SIZE: GRID now runtime
+import { TILE_W, TILE_H, ELEV, T, TOOLS, isZone, clamp, FOREST_MAX_DENSITY, FOREST_TIER_COUNT } from './config.js';   // MAP SIZE: GRID now runtime
 import { state, tileAt, dragTiles } from './state.js';
 import { TERRAIN } from './terrain.js';   // TERRAIN
 import { getAsset } from './assets.js';   // ASSET RENDERER
@@ -440,6 +440,7 @@ function drawTileContent(sx,sy,t,gx,gy){
     case T.POWERPLANT: drawPowerPlantTile(sx,sy,t); drawSmoke(sx,sy,118); break; // ASSET RENDERER
     case T.PUMP:       drawPumpTile(sx,sy,t); break;                            // ASSET RENDERER
     case T.PARK:       drawPark(sx,sy); break;
+    case T.FOREST:     drawForest(sx,sy,t); break;   // FOREST
     case T.RES:        drawZoneBuilding(sx,sy,t,gx,gy,'R'); break; // BUILDING SPRITES
     case T.COM:        drawZoneBuilding(sx,sy,t,gx,gy,'C'); break; // BUILDING SPRITES
     case T.IND:        drawZoneBuilding(sx,sy,t,gx,gy,'I'); break; // BUILDING SPRITES
@@ -1205,13 +1206,48 @@ function drawPumpTile(sx,sy,t){
 }
 /* ===== end UTILITY BUILDINGS =========================================== */
 
+// ASSET RENDERER: parks were a bare canvas circle+trunk ("artificial"-looking
+// doodle) — prefer the landscaped park.svg sprite; fall back to the old
+// doodle if the asset failed to load.
 function drawPark(sx,sy){
   const z=state.zoom, hh=(TILE_H/2)*z;
+  const img=getAsset('park');
+  if(img){ blitAsset(img, sx, sy+2*hh); return; }
   ctx.fillStyle='#0c8a2a';
   ctx.beginPath();
   ctx.arc(sx, sy+hh*0.9, 6*z, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle='#5a3a1a';
   ctx.fillRect(sx-1*z, sy+hh*0.9, 2*z, 5*z);
+}
+
+/* ===== FOREST ==========================================================
+   t.forestDensity (1..FOREST_MAX_DENSITY) is bucketed into FOREST_TIER_COUNT
+   sprite tiers (forest_1.svg .. forest_5.svg, a single tree -> a dense
+   cluster). Falls back to a simple procedural cluster of canvas-drawn pines
+   if the sprite failed to load, scaled by the same tier so a missing asset
+   set still visibly grows with density.
+   ===================================================================== */
+function forestAssetKey(t){
+  const tier = Math.min(FOREST_TIER_COUNT,
+    Math.max(1, Math.ceil((t.forestDensity||1) / FOREST_MAX_DENSITY * FOREST_TIER_COUNT)));
+  return 'forest_'+tier;
+}
+function drawForest(sx,sy,t){
+  const z=state.zoom, hh=(TILE_H/2)*z;
+  const img=getAsset(forestAssetKey(t));
+  if(img){ blitAsset(img, sx, sy+2*hh); return; }
+
+  // fallback: procedural pine cluster, count scales with density
+  const n=Math.max(1, Math.round((t.forestDensity||1)/2));
+  const offsets=[[0,0],[-8,2],[7,-3],[-4,-8],[5,7],[-11,-5],[10,4],[0,-10],[-6,9]];
+  for(let i=0;i<n && i<offsets.length;i++){
+    const [ox,oy]=offsets[i];
+    const cx=sx+ox*z, cy=sy+hh*0.95+oy*z*0.4;
+    ctx.fillStyle='#154d1f';
+    ctx.beginPath(); ctx.moveTo(cx-6*z, cy); ctx.lineTo(cx+6*z, cy); ctx.lineTo(cx, cy-14*z); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#5a3a1a';
+    ctx.fillRect(cx-1*z, cy, 2*z, 4*z);
+  }
 }
 
 function drawSmoke(sx,sy,riseY=30){
@@ -1436,6 +1472,11 @@ export function drawToolIcon(c,tool){
     case 'park':
       c.fillStyle='#1e8'; c.beginPath(); c.arc(12,12,7,0,7); c.fill();
       c.fillStyle='#5a3a1a'; c.fillRect(11,12,2,6); break;
+    case 'forest':
+      c.fillStyle=tool.color;
+      c.beginPath(); c.moveTo(7,17); c.lineTo(13,17); c.lineTo(10,9); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(15,19); c.lineTo(21,19); c.lineTo(18,11); c.closePath(); c.fill();
+      c.fillStyle='#5a3a1a'; c.fillRect(9,17,2,4); c.fillRect(17,19,2,3); break;
     case 'bull':
       c.fillStyle='#c33'; c.fillRect(4,12,12,6);
       c.fillStyle='#c33'; c.fillRect(16,8,4,10); break;

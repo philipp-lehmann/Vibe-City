@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="128" height="112"><defs/><g>
+<polygon points="64.00,40.00 104.00,62.00 64.00,84.00 24.00,62.00" fill="#2f8a3c" stroke="#123a17" stroke-opacity="0.4" stroke-width="1.5"/>
+<polygon points="50.00,52.00 56.00,55.00 40.00,68.00 34.00,65.00" fill="#c9b98a"/>
+<polygon points="78.00,55.00 84.00,52.00 94.00,58.00 88.00,61.00" fill="#c9b98a"/>
+<rect x="58.00" y="66.00" width="12.00" height="3.00" fill="#6b4a2a"/>
+<rect x="59.00" y="69.00" width="1.60" height="5.00" fill="#3a2a18"/>
+<rect x="68.40" y="69.00" width="1.60" height="5.00" fill="#3a2a18"/>
+<ellipse cx="40.00" cy="78.00" rx="11.90" ry="3.82" fill="rgb(0,0,0)" fill-opacity="0.16"/>
+<rect x="37.79" y="64.95" width="4.42" height="11.05" fill="#4a3218"/>
+<circle cx="40.00" cy="55.60" r="12.75" fill="#2f8a3c" fill-opacity="1"/>
+<circle cx="34.90" cy="50.50" r="7.65" fill="#2f8a3c" fill-opacity="1"/>
+<circle cx="45.95" cy="51.35" r="6.80" fill="#2f8a3c" fill-opacity="1"/>
+<ellipse cx="90.00" cy="78.00" rx="12.60" ry="4.05" fill="rgb(0,0,0)" fill-opacity="0.16"/>
+<rect x="87.66" y="64.30" width="4.68" height="11.70" fill="#4a3218"/>
+<circle cx="90.00" cy="54.40" r="13.50" fill="#1f6b2b" fill-opacity="1"/>
+<circle cx="84.60" cy="49.00" r="8.10" fill="#1f6b2b" fill-opacity="1"/>
+<circle cx="96.30" cy="49.90" r="7.20" fill="#1f6b2b" fill-opacity="1"/>
+</g></svg>

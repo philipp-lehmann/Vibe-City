@@ -45,12 +45,18 @@ const UTILITY_KEYS = [
   'contract_datacentre', 'contract_shippingcentre', 'contract_wildlife'
 ];
 
+// FOREST: 5 density tiers (bucketed from t.forestDensity 1-10, see renderer.js
+// forestAssetKey) + the landscaped park sprite. Both are "natural feature"
+// tiles, grouped in their own folder rather than buildings/utilities.
+const NATURE_KEYS = ['park', 'forest_1', 'forest_2', 'forest_3', 'forest_4', 'forest_5'];
+
 // key -> folder, so getAsset callers only ever deal in bare keys
 const MANIFEST = [
   ...BUILDING_KEYS.map(k => ['buildings', k]),
   ...UTILITY_KEYS.map(k => ['utilities', k]),
   ...TERRAIN_KEYS.map(k => ['terrain', k]),
   ...ROAD_KEYS.map(k => ['roads', k]),
+  ...NATURE_KEYS.map(k => ['nature', k]),
 ];
 
 const cache = new Map();        // key -> HTMLImageElement (only successful loads)

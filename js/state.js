@@ -26,6 +26,10 @@ export function makeTile(type){
     elev: 0,         // elevation units for rendering
     pollution: 0,    // DEMAND SYSTEM: industrial pollution at this tile
     jobsNearby: true,// DEMAND SYSTEM: road-reachable C/I within commute radius
+    // FOREST: tree density 0-10, only meaningful when type===T.FOREST. Kept
+    // separate from `level` (which feeds generic zone/land-value math) so
+    // planting trees never accidentally affects unrelated systems.
+    forestDensity: 0,
     // TERRAIN: procedural base layer (set by applyTerrain on new game)
     terrain: TERRAIN.LOWLAND,
     elevation: 0.5,  // 0..1 simplex elevation

@@ -184,6 +184,14 @@ export function computeHappiness(){
   state.happiness = Math.max(0, Math.min(100, Math.round(72 + taxAdj - jobPenalty - polPenalty)));
 }
 
+// FOREST: proximity to trees does NOT raise nearby land value the way a park
+// does — a "wild" forest isn't landscaped amenity space, it's just trees. Kept
+// as a named constant (currently 0) rather than omitting the branch entirely,
+// so this is a deliberate placeholder: a future pass may want forest to matter
+// for land value in its own way (e.g. only past some density, or split by
+// zone type) rather than reusing the flat park bonus below.
+const FOREST_LANDVALUE_BONUS = 0;
+
 /* --- Land value: parks/water/roads raise value; pollution lowers it. --- */
 export function computeLandValue(){
   for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
@@ -193,7 +201,8 @@ export function computeLandValue(){
       const n=tileAt(x+dx,y+dy); if(!n) continue;
       const d=Math.abs(dx)+Math.abs(dy);
       const w=(3-d); if(w<=0) continue;
-      if(n.type===T.PARK)  v+=6*w;
+      if(n.type===T.PARK)   v+=6*w;                    // parks are landscaped amenity space -> raise nearby R/C/I appeal
+      if(n.type===T.FOREST) v+=FOREST_LANDVALUE_BONUS*w;   // FOREST: intentionally no boost (yet) — see constant above
       if(n.type===T.WATER) v+=3*w;
       if(n.type===T.PUMP)  v+=2*w;
       if(n.terrain===TERRAIN.HILL) v+=4*w;   // TERRAIN TOOLS: hills raise nearby value (2-tile)

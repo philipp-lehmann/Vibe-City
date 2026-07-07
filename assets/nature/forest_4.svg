@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="128" height="140"><defs/><g>
+<ellipse cx="38.00" cy="124.00" rx="13.60" ry="4.25" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="35.45" y="108.40" width="5.10" height="13.60" fill="#4a3218"/>
+<polygon points="19.30,110.10 56.70,110.10 38.00,93.10" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.02"/>
+<polygon points="23.55,99.90 52.45,99.90 38.00,81.20" fill="#154d1f" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.02"/>
+<polygon points="28.65,89.70 47.35,89.70 38.00,71.00" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.02"/>
+<ellipse cx="66.00" cy="120.00" rx="15.20" ry="4.75" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="63.15" y="102.80" width="5.70" height="15.20" fill="#4a3218"/>
+<polygon points="45.10,104.70 86.90,104.70 66.00,85.70" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.14"/>
+<polygon points="49.85,93.30 82.15,93.30 66.00,72.40" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.14"/>
+<polygon points="55.55,81.90 76.45,81.90 66.00,61.00" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.14"/>
+<ellipse cx="52.00" cy="104.00" rx="12.80" ry="4.00" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="49.60" y="89.20" width="4.80" height="12.80" fill="#4a3218"/>
+<polygon points="34.40,90.80 69.60,90.80 52.00,74.80" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.96"/>
+<polygon points="38.40,81.20 65.60,81.20 52.00,63.60" fill="#154d1f" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.96"/>
+<polygon points="43.20,71.60 60.80,71.60 52.00,54.00" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.96"/>
+<ellipse cx="82.00" cy="110.00" rx="14.40" ry="4.50" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="79.30" y="93.60" width="5.40" height="14.40" fill="#4a3218"/>
+<polygon points="62.20,95.40 101.80,95.40 82.00,77.40" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.08"/>
+<polygon points="66.70,84.60 97.30,84.60 82.00,64.80" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.08"/>
+<polygon points="72.10,73.80 91.90,73.80 82.00,54.00" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.08"/>
+<ellipse cx="96.00" cy="124.00" rx="12.00" ry="3.75" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="93.75" y="110.00" width="4.50" height="12.00" fill="#4a3218"/>
+<polygon points="79.50,111.50 112.50,111.50 96.00,96.50" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.8999999999999999"/>
+<polygon points="83.25,102.50 108.75,102.50 96.00,86.00" fill="#154d1f" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.8999999999999999"/>
+<polygon points="87.75,93.50 104.25,93.50 96.00,77.00" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.8999999999999999"/>
+<ellipse cx="26.00" cy="110.00" rx="11.20" ry="3.50" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="23.90" y="96.80" width="4.20" height="11.20" fill="#4a3218"/>
+<polygon points="10.60,98.20 41.40,98.20 26.00,84.20" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.84"/>
+<polygon points="14.10,89.80 37.90,89.80 26.00,74.40" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.84"/>
+<polygon points="18.30,81.40 33.70,81.40 26.00,66.00" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.84"/>
+</g></svg>

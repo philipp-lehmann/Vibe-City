@@ -63,20 +63,36 @@ export const ELEV   = 8;    // pixels of "lift" per elevation unit
 // --- tile type ids ---
 export const T = {
   GRASS:0, WATER:1, ROAD:2, POWERLINE:3, POWERPLANT:4, PUMP:5, PARK:6,
-  RES:7, COM:8, IND:9
+  RES:7, COM:8, IND:9, FOREST:10
 };
+
+// FOREST: clicking a forest tile stacks tree density instead of replacing the
+// tile (see input.js placeTool). Density is stored on the tile as
+// t.forestDensity (state.js makeTile), separate from the generic `level`
+// field so it never leaks into the zone density / land-value math that
+// already reads t.level for every tile (simulation.js computeLandValue).
+export const FOREST_MAX_DENSITY = 10;      // 1 = a single tree, 10 = dense forest
+export const FOREST_TIER_COUNT  = 5;       // number of distinct sprite tiers covering 1..10
 
 // --- tool catalogue: id, tile placed, label, build cost, monthly upkeep, icon colour ---
 export const TOOLS = [
-  { id:'res',   tile:T.RES,        label:'Resid',      cost:100, up:5,  color:'#7caa6b' },
-  { id:'com',   tile:T.COM,        label:'Comm',       cost:100, up:5,  color:'#8a5cf6' },
-  { id:'ind',   tile:T.IND,        label:'Indus',      cost:100, up:5,  color:'#d9a72c' },
-  { id:'road',  tile:T.ROAD,       label:'Road',       cost:10,  up:5,  color:'#777' },
-  { id:'power', tile:T.POWERLINE,  label:'P.Line',     cost:5,   up:5,  color:'#caa' },
-  { id:'plant', tile:T.POWERPLANT, label:'Powerplant', cost:3000,up:50, color:'#555' },
-  { id:'pump',  tile:T.PUMP,       label:'Water',      cost:500, up:15, color:'#2bd' },
-  { id:'park',  tile:T.PARK,       label:'Park',       cost:50,  up:2,  color:'#1e8' },
-  { id:'bull',  tile:null,         label:'Dozer',      cost:10,  up:0,  color:'#c33' },
+  { id:'res',    tile:T.RES,        label:'Resid',      cost:100, up:5,  color:'#7caa6b' },
+  { id:'com',    tile:T.COM,        label:'Comm',       cost:100, up:5,  color:'#8a5cf6' },
+  { id:'ind',    tile:T.IND,        label:'Indus',      cost:100, up:5,  color:'#d9a72c' },
+  { id:'road',   tile:T.ROAD,       label:'Road',       cost:10,  up:5,  color:'#777' },
+  { id:'power',  tile:T.POWERLINE,  label:'P.Line',     cost:5,   up:5,  color:'#caa' },
+  { id:'plant',  tile:T.POWERPLANT, label:'Powerplant', cost:3000,up:50, color:'#555' },
+  { id:'pump',   tile:T.PUMP,       label:'Water',      cost:500, up:15, color:'#2bd' },
+  { id:'park',   tile:T.PARK,       label:'Park',       cost:50,  up:2,  color:'#1e8' },
+  { id:'bull',   tile:null,         label:'Dozer',      cost:10,  up:0,  color:'#c33' },
+  // FOREST: appended last (not slotted next to 'park') so it doesn't shift
+  // 'bull' off its number-key hotkey — input.js binds tools 1:1 to digit keys
+  // via TOOLS[n-1], and only 1-9 are reachable from a single keypress, so the
+  // 10th entry in this array simply has no keyboard shortcut. Dozer is far
+  // more muscle-memory-bound than a brand new tool, so it keeps key 9.
+  // No upkeep — trees don't cost anything to maintain once planted. Cost is
+  // charged per click, including each density increment (see input.js).
+  { id:'forest', tile:T.FOREST,     label:'Forest',     cost:20,  up:0,  color:'#0b5e1e' },
 ];
 
 // --- calendar & facing labels ---
