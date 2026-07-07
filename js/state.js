@@ -96,7 +96,7 @@ export const state = {
   revenue: { monthly: 0, lost: 0 },
   // SCENARIOS: city prestige/reputation (modified by contract outcomes)
   prestige: 0,
-  // CREDITS: outstanding loans taken from the Admin panel's Credits dialog.
+  // LOANS: outstanding loans taken from the Admin panel's Credits dialog.
   // Each LOANS entry (see config.js) can only have one active loan at a time.
   loans: { active: [] },
 };

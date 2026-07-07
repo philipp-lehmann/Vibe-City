@@ -92,17 +92,6 @@ body {
   user-select: none;
 }
 
-/* faint scanline overlay for the CRT feel */
-#scanlines {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 9999;
-  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 2px,
-      rgba(0, 0, 0, 0.12) 3px, rgba(0, 0, 0, 0.12) 3px);
-  mix-blend-mode: multiply;
-}
-
 #app {
   position: relative;
   width: 100vw;
@@ -117,6 +106,15 @@ body {
   cursor: crosshair;
 }
 
+/* Panel icon */
+.panel-icon {
+  cursor: pointer;
+  /* background-color: red; */
+  font-size: var(--font-lg);
+  line-height: var(--font-md);
+  padding: var(--sp-1);
+}
+
 /* --- Status bar (top) --- */
 #statusbar {
   position: absolute;
@@ -127,6 +125,7 @@ body {
   background: var(--panel2);
   border-bottom: var(--border-panel);
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: var(--sp-4);
   padding: 0 var(--sp-4);
@@ -143,10 +142,12 @@ body {
 #statusbar b {
   color: var(--ink);
   font-weight: normal;
+  
 }
 
 #statusbar .grp {
   white-space: nowrap;
+  cursor: pointer;
 }
 
 /* --- STATISTICS: per-metric statusbar sparkline + click-to-open trigger --- */
@@ -176,7 +177,8 @@ canvas.spark {
 #stats-panel {
   position: fixed;
   top: var(--sp-9);
-  left: 200px;
+  left: 50%;
+  transform: translateX(-50%);
   display: none;
   flex-direction: column;
   width: 448px;
@@ -203,15 +205,11 @@ canvas.spark {
   align-items: center;
   cursor: pointer;
   justify-content: space-between;
-  color: var(--ink-dim);
+  color: var(--ink);
   font-size: var(--font-sm);
   border-bottom: var(--border);
   padding-bottom: var(--sp-1);
   margin-bottom: var(--sp-1);
-}
-
-.stats-head:hover {
-  color: var(--ink);
 }
 
 .ap-header {
@@ -223,12 +221,6 @@ canvas.spark {
   user-select: none;
   font-size: var(--font-sm);
   color: var(--ink-dim);
-}
-
-#stats-close {
-  color: var(--ink-dim);
-  cursor: pointer;
-  font-size: var(--font-sm);
 }
 
 .stats-head:hover #stats-close {
@@ -421,22 +413,15 @@ canvas.spark {
   color: var(--ink);
 }
 
-#inspector .insp-close {
+#inspector #insp-close {
   display: none;
-  background: none;
-  border: none;
-  color: var(--ink-dim);
-  font-size: var(--font-lg);
-  line-height: 1;
-  padding: 0 2px;
-  cursor: pointer;
 }
 
-#inspector.pinned .insp-close {
+#inspector.pinned #insp-close {
   display: block;
 }
 
-#inspector.pinned .insp-close:hover {
+#inspector:hover #insp-close {
   color: var(--warn);
 }
 
@@ -626,8 +611,7 @@ button:disabled:hover {
 #notif-center {
   position: absolute;
   top: var(--sp-9);
-  left: 50%;
-  transform: translateX(-50%);
+  left: 164px;
   width: 260px;
   z-index: 60;
   background: var(--panel);

@@ -278,7 +278,7 @@ function buildTerminalContractHTML(scenario) {
   return `
     <div class="insp-header">
       <div class="ttl">${typeName}</div>
-      <button class="insp-close" title="Close">✕</button>
+      <span id="insp-close" class="panel-icon" title="Close">✕</span>
     </div>
     <div id="insp-body">
       <span class="k">Status:</span> ${label}<br>
@@ -290,7 +290,7 @@ function buildTerminalContractHTML(scenario) {
 // TILE FOCUS: the panel's close (x) button clears the pin — same behavior
 // wherever it appears (static shell, contract view, or terminal summary).
 function wireInspClose(panel) {
-  const btn = panel.querySelector('.insp-close');
+  const btn = panel.querySelector('#insp-close');
   if (btn) btn.onclick = () => { state.pinnedTile = null; };
 }
 
@@ -1012,7 +1012,7 @@ function rebuildCreditsDialog() {
   ensureCreditsDialog();
   _creditsDialog.innerHTML = `
     <div class="contract-modal-panel contracts-dialog-panel">
-      <div class="contract-modal-title">Credits</div>
+      <div class="contract-modal-title">Loans</div>
       <div class="contracts-dialog-list">${renderCreditsDialogRows()}</div>
       <div class="contract-modal-footer">
         <button id="credits-dialog-close">Close</button>
@@ -1302,7 +1302,7 @@ function buildContractInspectorHTML(scenario) {
   return `
     <div class="insp-header">
       <div class="ttl">${typeName}</div>
-      <button class="insp-close" title="Close">✕</button>
+      <span id="insp-close" class="panel-icon" title="Close">✕</span>
     </div>
     <div id="insp-body">
       <span class="k">Stage:</span> <span class="v">${scenario.currentStageIndex + 1}/${scenario.stages.length} — ${stage.name}</span><br>

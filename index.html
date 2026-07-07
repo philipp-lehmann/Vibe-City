@@ -18,15 +18,23 @@
 
     <!-- ===== STATUS BAR ===== -->
     <div id="statusbar">
-      <button id="btn-saves">Menu</button>
-      <button id="btn-newgame">New City</button>
-      <span id="s-name">New Terminus</span>
-      <span class="grp"><span class="lbl">Date</span> <b id="s-date">January 1900</b></span>
-      <!-- STATISTICS: each stat owns its own trend sparkline; clicking the label opens the Statistics panel -->
-      <span class="grp"><span class="lbl" data-stats-trigger="population">Population</span> <b id="s-pop">0</b><canvas class="spark" id="spark-pop" width="36" height="16"></canvas></span>
-      <span class="grp"><span class="lbl" data-stats-trigger="funds">Funds</span> <b id="s-funds">$50,000</b><canvas class="spark" id="spark-funds" width="36" height="16"></canvas></span>
-      <span class="grp"><span class="lbl" data-stats-trigger="happyness">Happyness</span> <b id="s-happy">70</b><canvas class="spark" id="spark-happy" width="36" height="16"></canvas></span><!-- DEMAND SYSTEM -->
-
+      <div id="statusbar-left">
+        <button id="btn-saves">Menu</button>
+        <button id="btn-newgame">New City</button>
+      </div>
+      <div id="statusbar-center">
+        <span id="s-name">New Terminus</span>
+        <span class="grp"><span class="lbl">Date</span> <b id="s-date">January 1900</b></span>
+        <!-- STATISTICS: each stat owns its own trend sparkline; clicking the label opens the Statistics panel -->
+        <span class="grp"><span class="lbl" data-stats-trigger="population">Population</span> <b id="s-pop">0</b><canvas
+            class="spark" id="spark-pop" width="36" height="16"></canvas></span>
+        <span class="grp"><span class="lbl" data-stats-trigger="funds">Funds</span> <b id="s-funds">$50,000</b><canvas
+            class="spark" id="spark-funds" width="36" height="16"></canvas></span>
+        <span class="grp"><span class="lbl" data-stats-trigger="happyness">Happyness</span> <b
+            id="s-happy">70</b><canvas class="spark" id="spark-happy" width="36"
+            height="16"></canvas></span><!-- DEMAND SYSTEM -->
+      </div>
+      <div id="statusbar-right">-</div>
     </div>
 
     <!-- ===== NOTIFICATION CENTRE ===== -->
@@ -34,7 +42,7 @@
       <div id="notif-header">
         <span class="ttl">Messages</span>
         <span id="notif-badge"></span>
-        <span id="notif-arrow">▾</span>
+        <span id="notif-arrow" class="panel-icon">▾</span>
       </div>
       <div id="notif-body">
         <div id="notif-persistent"></div>
@@ -47,7 +55,7 @@
     <div id="stats-panel">
       <div id="stats-head" class="stats-head">
         <span class="ttl">Statistics</span>
-        <span id="stats-close" title="Close">✕</span>
+        <span id="stats-close" title="Close" class="panel-icon">✕</span>
       </div>
       <canvas id="stats-chart" width="400" height="200"></canvas>
       <div class="stat-row" data-stat="pop">
@@ -80,19 +88,19 @@
     <!-- ===== LEFT PANEL ===== -->
     <div id="left-panel">
       <div class="ap-section">
-        <div class="ap-header"><span>Tools</span><span class="ap-arrow">▴</span></div>
+        <div class="ap-header"><span>Tools</span><span class="ap-arrow panel-icon">▴</span></div>
         <div class="ap-body open">
           <div class="ap-inner" id="tool-body"></div>
         </div>
       </div>
       <div class="ap-section">
-        <div class="ap-header"><span>Terrain</span><span class="ap-arrow">▴</span></div>
+        <div class="ap-header"><span>Terrain</span><span class="ap-arrow panel-icon">▴</span></div>
         <div class="ap-body open">
           <div class="ap-inner" id="terrain-body"></div>
         </div>
       </div>
       <div class="ap-section">
-        <div class="ap-header"><span>Demand</span><span class="ap-arrow">▴</span></div>
+        <div class="ap-header"><span>Demand</span><span class="ap-arrow panel-icon">▴</span></div>
         <div class="ap-body open">
           <div class="ap-inner">
             <div class="drow"><span class="dlab" style="color:#7caa6b">R</span>
@@ -129,7 +137,7 @@
     <!-- ===== ADMIN PANEL ===== -->
     <div id="admin-panel">
       <div class="ap-section" id="ap-admin">
-        <div class="ap-header"><span>Admin</span><span class="ap-arrow">▾</span></div>
+        <div class="ap-header"><span>Admin</span><span class="ap-arrow panel-icon">▾</span></div>
         <div class="ap-body">
           <div class="ap-inner">
             <div id="taxbox">
@@ -139,12 +147,12 @@
             <!-- GAME MODE: only shown/visible in Scenario Mode -->
             <button id="btn-contracts" style="display:none;" class="admin">Contracts</button>
             <!-- CREDITS: available in any mode, opens the loan-offers dialog -->
-            <button id="btn-loans" class="admin">Credits</button>
+            <button id="btn-loans" class="admin">Loans</button>
           </div>
         </div>
       </div>
       <div class="ap-section">
-        <div class="ap-header"><span>Events</span><span class="ap-arrow">▾</span></div>
+        <div class="ap-header"><span>Events</span><span class="ap-arrow panel-icon">▾</span></div>
         <div class="ap-body">
           <div class="ap-inner">
             <button class="btn-danger" id="btn-fire">Ignite Fire</button>
@@ -152,7 +160,7 @@
         </div>
       </div>
       <div class="ap-section">
-        <div class="ap-header"><span>Help</span><span class="ap-arrow">▾</span></div>
+        <div class="ap-header"><span>Help</span><span class="ap-arrow panel-icon">▾</span></div>
         <div class="ap-body">
           <div class="ap-inner">
             <div class="hint">L-click place · R-click bulldoze<br>drag to paint · wheel zoom · Q/E rotate</div>
@@ -165,7 +173,7 @@
     <div id="inspector">
       <div class="insp-header">
         <div class="ttl">Inspector</div>
-        <button id="insp-close" class="insp-close" title="Close">✕</button>
+        <span id="insp-close" class="panel-icon" title="Close">✕</span>
       </div>
       <div id="insp-body">Hover a tile…</div>
     </div>
@@ -173,7 +181,7 @@
     <!-- ===== MINIMAP ===== -->
     <div id="minimap-wrap">
       <canvas id="minimap" width="120" height="120"></canvas>
-      
+
       <div class="pb-row">
         <button id="btn-rot-l">⤷</button>
         <span id="s-face">N</span>
