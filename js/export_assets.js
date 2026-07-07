@@ -101,11 +101,11 @@ function buildAssetList(){
                  ['commercial',  T.COM, 'C'],
                  ['industrial',  T.IND, 'I']];
   const densities = [['low', 0], ['mid', 1], ['high', 2]];
-  const variants  = [['a', 0], ['b', 1], ['c', 2]];   // gx selects seed%3 -> k=0/1/2
+  const variants  = [['a', 0], ['b', 1], ['c', 2]];   // seedOverride picks k=0/1/2 directly
   for(const [zname, type] of zones){
     for(const [dname, level] of densities){
       const h = BUILDING[dname], sy = baseSy(h);
-      for(const [vname, gx] of variants){
+      for(const [vname, seed] of variants){
         const kind = type === T.RES ? 'R' : type === T.COM ? 'C' : 'I';
         assets.push({
           name: `${zname}_${dname}_${vname}.svg`, w: CANVAS_W, h,

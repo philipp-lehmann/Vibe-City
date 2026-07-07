@@ -207,7 +207,7 @@ function roadAssetKey(t){
 function buildingAssetKey(t,gx,gy,kind){
   const zone = ZONE_ASSET[kind];
   const dens = DENSITY_ASSET[t.level] || 'low';
-  const variant = String.fromCharCode(97 + (((gx*31+gy*17)%3)+3)%3);   // a/b/c
+  const variant = String.fromCharCode(97 + tileSeed(gx,gy)%3);   // a/b/c
   return `${zone}_${dens}_${variant}`;
 }
 // bridge tile -> span vs directional ramp (matches drawBridgeTile's detection)
@@ -727,6 +727,32 @@ const DARK_WIN = '#23232b';   // unlit window
 const FRAC = [0.40, 0.65, 0.96];          // tile-height fraction per density level
 const HPX  = [34, 60, 92];                // pixel height per density level (×zoom)
 
+/* ===== PER-TILE SEED ====================================================
+   Building variant/window-jitter used to be keyed off `gx*31+gy*17`, which
+   is linear in gx,gy — its value mod 3 repeats in diagonal bands, so large
+   flat zoned areas visibly tiled the same a/b/c variant in stripes. `tileSeed`
+   instead runs gx,gy (folded in with a hash of the city's name, so different
+   cities/saves get a different-looking distribution) through an integer
+   avalanche mix, which has no such linear structure.
+   ===================================================================== */
+function hashStr(str){
+  let h = 2166136261>>>0;                          // FNV-1a
+  for(let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h,16777619); }
+  return h>>>0;
+}
+let _cityHashName=null, _cityHashVal=0;
+function cityHash(){
+  const name = state.cityName || '';
+  if(name!==_cityHashName){ _cityHashName=name; _cityHashVal=hashStr(name); }
+  return _cityHashVal;
+}
+function tileSeed(gx,gy){
+  let h = (Math.imul(gx,374761393) ^ Math.imul(gy,668265263) ^ cityHash()) >>> 0;
+  h = Math.imul(h ^ (h>>>13), 1274126177);
+  h ^= h>>>16;
+  return h>>>0;
+}
+
 // construction timer: tile object -> sim month first seen (survives leveling,
 // resets when a tile is bulldozed/replaced because that makes a new object).
 const buildAge = new WeakMap();
@@ -772,7 +798,7 @@ function box(sx,sy,u0,v0,u1,v1,base,H,pal,stroke=true){
    and stroke-dasharray are perturbed — all deterministically from the
    seed (constraint 2), so renders/exports stay reproducible.
    ===================================================================== */
-let _stripeSeed = 0;   // set per building by drawZoneBuilding (= gx*31+gy*17)
+let _stripeSeed = 0;   // set per building by drawZoneBuilding (= tileSeed(gx,gy))
 
 // deterministic 0..1 hash from an integer (no global RNG -> reproducible)
 function srand(n){ const x=Math.sin((n>>>0)*12.9898+1.0)*43758.5453; return x-Math.floor(x); }
@@ -872,7 +898,10 @@ function awning(sx,sy,u0,u1,vF,base,col){
 }
 
 // ---- dispatcher -------------------------------------------------------
-function drawZoneBuilding(sx,sy,t,gx,gy,kind){
+// `seedOverride` is an export-tool-only escape hatch (see export_assets.js):
+// it lets the one-time SVG exporter force a specific procedural variant
+// (0/1/2) without depending on tileSeed()'s hash internals.
+function drawZoneBuilding(sx,sy,t,gx,gy,kind,seedOverride){
   // ZOOM LEVELS: at fully-zoomed-out (0.5x) draw only a flat base diamond in zone colour
   if(state.zoom<1){
     diamond(sx,sy);
@@ -896,7 +925,7 @@ function drawZoneBuilding(sx,sy,t,gx,gy,kind){
     else           blitAsset(aimg, sx, sy + 2*hh);
     return;
   }
-  const seed = (gx*31 + gy*17);                          // deterministic variant
+  const seed = seedOverride !== undefined ? seedOverride : tileSeed(gx,gy); // deterministic variant (city-seeded)
   _stripeSeed = seed;                                    // LIT STRIPES: drives dir + jitter
   const P = PAL[kind];
   const lit = t.powered ? P.win : DARK_WIN;
