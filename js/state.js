@@ -318,6 +318,26 @@ export function deleteSave(slot){
   _writeIndex(_readIndex().filter(e=>e.slot!==slot));
 }
 
+// EXPORT/IMPORT: write a previously-exported blob (from another session/machine)
+// straight into a slot. Unlike saveGame(), this never touches live state — the
+// blob's own meta becomes the slot's index entry.
+export function importSave(slot, blob){
+  if(!blob || !Array.isArray(blob.grid) || !Array.isArray(blob.grid[0])) return false;
+  localStorage.setItem(SAVE_PREFIX+slot, JSON.stringify(blob));
+  const idx = _readIndex().filter(e=>e.slot!==slot);
+  const meta = blob.meta || {};
+  idx.push({
+    slot,
+    cityName: meta.cityName || blob.state?.cityName || 'Imported City',
+    month:    meta.month    ?? blob.state?.month    ?? 0,
+    pop:      meta.pop      ?? blob.state?.pop      ?? 0,
+    ts: Date.now(),
+    thumb: meta.thumb || null
+  });
+  _writeIndex(idx);
+  return true;
+}
+
 // restore a blob into live state (rebuilds tiles so any newer fields exist)
 export function applySave(blob){
   if(!blob || !blob.grid) return false;

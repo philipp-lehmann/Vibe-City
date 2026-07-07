@@ -10,7 +10,7 @@ import { MAP_SIZES, WATER_LEVELS, DEFAULT_WATER, GAME_MODES, DEFAULT_MODE, SCENA
          POWERPLANT_CAPACITY, PUMP_CAPACITY } from './config.js';   // MAP SIZE / WATER AMOUNT / GAME MODE / CREDITS / UTILITIES
 import {
   state, tileAt, setTool, togglePause, rotateView,
-  listSaves, saveGame, loadGame, deleteSave, newGame, takeLoan
+  listSaves, saveGame, loadGame, deleteSave, importSave, serializeSave, newGame, takeLoan
 } from './state.js'; // SAVE SYSTEM / CREDITS
 import { igniteFire } from './simulation.js';
 import { scenarioManager, SCENARIOS } from './scenario.js';              // SCENARIOS
@@ -550,12 +550,21 @@ function buildSavesModal() {
       <button id="saves-new" class="border" style="margin-left:auto;">New City</button>
       <button id="saves-close">✕ Close</button>
     </div>
+    <div id="saves-import-banner" class="import-banner" style="display:none;"></div>
     <div id="saves-grid"></div>
-    <div id="saves-auto"></div>`;
+    <div id="saves-auto"></div>
+    <div class="saves-io-row">
+      <button id="saves-export" class="border">Export City</button>
+      <button id="saves-import" class="border">Import City</button>
+    </div>
+    <input type="file" id="saves-import-file" accept="application/json,.json" style="display:none;">`;
   modal.appendChild(panel);
   document.body.appendChild(modal);
   $('saves-close').onclick = closeSaves;
   $('saves-new').onclick = doNewGame;
+  $('saves-export').onclick = downloadLiveSave;
+  $('saves-import').onclick = () => $('saves-import-file').click();
+  $('saves-import-file').onchange = handleImportFile;
 }
 function openSaves() { if (!modal) buildSavesModal(); renderSlots(); modal.style.display = 'flex'; }
 // STARTUP: during the launch screen the modal stays open until a city is chosen
@@ -570,6 +579,72 @@ function doLoadSlot(slot, entry) {
   }
 }
 
+// EXPORT/IMPORT: trigger a browser download of a save blob as a .json file
+function triggerSaveDownload(blob, cityName, month) {
+  const namePart = (cityName || 'city').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'city';
+  const datePart = fmtDate(month || 0).replace(/\s+/g, '');
+  const url = URL.createObjectURL(new window.Blob([JSON.stringify(blob)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `${namePart}_${datePart}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// EXPORT/IMPORT: export the live/current city (not a stored slot) — this is
+// the single Export action in the row below the autosave section.
+function downloadLiveSave() {
+  if (!gameStarted) return;
+  triggerSaveDownload(serializeSave(liveThumb()), state.cityName, state.month);
+}
+
+// EXPORT/IMPORT: a parsed blob awaiting a destination slot, or null when idle
+let pendingImport = null;
+
+function handleImportFile(e) {
+  const file = e.target.files[0];
+  e.target.value = '';   // allow re-selecting the same file later
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let blob;
+    try { blob = JSON.parse(reader.result); } catch { flashStatus('Import failed — not valid JSON'); return; }
+    if (!blob || !Array.isArray(blob.grid)) { flashStatus('Import failed — not a Vibe City save file'); return; }
+    pendingImport = blob;
+    renderSlots();
+  };
+  reader.onerror = () => flashStatus('Import failed — could not read file');
+  reader.readAsText(file);
+}
+
+function cancelImport() { pendingImport = null; renderSlots(); }
+
+function finishImport(slot) {
+  const blob = pendingImport;
+  pendingImport = null;
+  if (importSave(slot, blob)) {
+    renderSlots();
+    flashStatus('Imported ' + (blob.meta?.cityName || blob.state?.cityName || 'city'));
+  } else {
+    flashStatus('Import failed — malformed save file');
+  }
+}
+
+function confirmOverwriteImport(slot, entry) {
+  openContractModal(`
+    <div class="contract-modal-panel">
+      <div class="contract-modal-title">⚠ Overwrite Save?</div>
+      <div class="contract-modal-subtitle">${escapeHtml(entry.cityName || slot)}</div>
+      <div class="contract-modal-warning">Importing here replaces this save and cannot be undone.</div>
+      <div class="contract-modal-footer">
+        <button class="btn-confirm-action" id="cm-cancel">Keep Save</button>
+        <button class="btn-danger" id="cm-confirm">Overwrite</button>
+      </div>
+    </div>
+  `);
+  _contractModal.querySelector('#cm-cancel').onclick  = closeContractModal;
+  _contractModal.querySelector('#cm-confirm').onclick = () => { closeContractModal(); finishImport(slot); };
+}
+
 function slotThumbHtml(thumb) {
   return thumb ? `<img class="slot-thumb" src="${thumb}">` : `<div class="slot-thumb"></div>`;
 }
@@ -577,15 +652,21 @@ function slotThumbHtml(thumb) {
 function slotCard(slot, entry) {
   const card = document.createElement('div');
   card.className = 'save-slot';
+  const picking = !!pendingImport;   // EXPORT/IMPORT: a file is loaded, waiting for a destination slot
   if (!entry) {
     const d = document.createElement('div');
     d.className = 'empty-slot';
     const b = document.createElement('button');
     b.className = 'btn-confirm-action';
-    b.textContent = 'Save Here';
-    b.disabled = !gameStarted;   // SAVE SYSTEM: nothing live to save until a city is started/loaded
-    if (b.disabled) b.title = 'Start or load a city first';
-    b.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
+    if (picking) {
+      b.textContent = 'Import Here';
+      b.onclick = () => finishImport(slot);
+    } else {
+      b.textContent = 'Save Here';
+      b.disabled = !gameStarted;   // SAVE SYSTEM: nothing live to save until a city is started/loaded
+      if (b.disabled) b.title = 'Start or load a city first';
+      b.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
+    }
     card.appendChild(d);
     d.appendChild(b);
     return card;
@@ -593,19 +674,22 @@ function slotCard(slot, entry) {
 
   const info = document.createElement('div');
   info.className = 'slot-load';
-  info.title = `Load this ${escapeHtml(entry.cityName || 'City')}`;
+  info.title = picking
+    ? `Overwrite ${escapeHtml(entry.cityName || 'City')} with the imported save`
+    : `Load this ${escapeHtml(entry.cityName || 'City')}`;
   info.innerHTML = `<span class="slot-name">${escapeHtml(entry.cityName || 'City')}</span>
     <span class="slot-meta">${fmtDate(entry.month || 0)}<br>Pop. ${(entry.pop || 0).toLocaleString()}</span>
     ${slotThumbHtml(entry.thumb)}`;
-  info.onclick = () => doLoadSlot(slot, entry);
+  info.onclick = picking ? () => confirmOverwriteImport(slot, entry) : () => doLoadSlot(slot, entry);
   card.appendChild(info);
 
   const row = document.createElement('div'); row.className = 'slot-actions';
   const bSave = document.createElement('button'); bSave.className = 'btn-confirm-action'; bSave.textContent = 'Save';
-  bSave.disabled = !gameStarted;   // SAVE SYSTEM: nothing live to save until a city is started/loaded
-  if (bSave.disabled) bSave.title = 'Start or load a city first';
+  bSave.disabled = !gameStarted || picking;   // SAVE SYSTEM: nothing live to save until a city is started/loaded
+  if (!gameStarted && !picking) bSave.title = 'Start or load a city first';
   bSave.onclick = () => { saveGame(slot, liveThumb()); renderSlots(); };
   const bDel = document.createElement('button'); bDel.className = 'btn-danger'; bDel.textContent = 'Delete';
+  bDel.disabled = picking;
   // NOTE: native window.confirm() is unreliable inside the Tauri webview (silently
   // returns false with no dialog on some platforms), so use our own modal instead.
   bDel.onclick = () => showDeleteSaveModal(slot, entry.cityName);
@@ -618,6 +702,18 @@ function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;
 function renderSlots() {
   const idx = listSaves();
   const bySlot = {}; idx.forEach(e => bySlot[e.slot] = e);
+  // EXPORT/IMPORT: banner + Cancel while a loaded file is waiting for a slot
+  const banner = $('saves-import-banner');
+  if (pendingImport) {
+    const name = pendingImport.meta?.cityName || pendingImport.state?.cityName || 'city';
+    banner.style.display = 'flex';
+    banner.innerHTML = `<span>Importing <b>${escapeHtml(name)}</b> — click a slot below to place it</span>
+      <button id="import-cancel" class="btn-danger">Cancel</button>`;
+    $('import-cancel').onclick = cancelImport;
+  } else {
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+  }
   const grid = $('saves-grid'); grid.innerHTML = '';
   SAVE_SLOTS.forEach(s => grid.appendChild(slotCard(s, bySlot[s])));
   // reserved autosave row (click name/stats/thumbnail to load — no manual save/delete)
@@ -633,6 +729,12 @@ function renderSlots() {
     info.onclick = () => doLoadSlot('autosave', a);
     row.appendChild(info);
     box.appendChild(row);
+  }
+  // EXPORT/IMPORT: Export reflects the live/current game, not a stored slot
+  const exportBtn = $('saves-export');
+  if (exportBtn) {
+    exportBtn.disabled = !gameStarted;
+    exportBtn.title = gameStarted ? '' : 'Start or load a city first';
   }
 }
 

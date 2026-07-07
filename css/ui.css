@@ -853,6 +853,35 @@ button:disabled:hover {
   gap: var(--sp-3);
 }
 
+/* ── EXPORT/IMPORT: banner shown while a loaded file awaits a slot ── */
+.import-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  background: var(--panel2);
+  border: var(--border-panel);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-3);
+  color: var(--ink-mid);
+  font-size: var(--font-sm);
+}
+
+/* ── EXPORT/IMPORT: action row below the autosave section ─────────── */
+.saves-io-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+.saves-io-row button {
+  flex: 1;
+}
+
+.import-banner b { color: var(--gold); }
+.import-banner button { flex: 0 0 auto; }
+
 .autosave-row .slot-thumb {
   width: 48px;
   aspect-ratio: 1 / 1;
