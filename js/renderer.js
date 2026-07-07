@@ -1335,11 +1335,15 @@ const CONTRACT_MINI = {
   WILDLIFE_RESERVE: '#08752a'
 };
 
+// SCENARIOS: contract tiles show their type color in every overlay EXCEPT the
+// three utility/environmental data overlays — there the tile's actual power /
+// water / pollution reading should show through instead of being masked.
+const CONTRACT_DATA_OVERLAYS = new Set(['power', 'water', 'pollution']);
+
 function miniColor(t,x,y){
   // ROAD CONNECTORS: edge road = outside connection -> bright white in every overlay
   if(t.type===T.ROAD && (x===0||y===0||x===state.gridWidth-1||y===state.gridHeight-1)) return '#ffffff';
-  // SCENARIOS: contract tiles show their type color in every overlay
-  if(t.contractId) return CONTRACT_MINI[t.contractType] || '#4a4a8a';
+  if(t.contractId && !CONTRACT_DATA_OVERLAYS.has(miniOverlay)) return CONTRACT_MINI[t.contractType] || '#4a4a8a';
   const zone = isZone(t.type);
   switch(miniOverlay){
     case 'power':
@@ -1352,15 +1356,14 @@ function miniColor(t,x,y){
       return MGREY;
     case 'pollution':
       if(t.pollution<=0) return MDARK;
-      return _grad([[0,'#2a3a1a'],[0.30,'#9acd32'],[0.60,'#ff8c1a'],[1,'#8b1a1a']], t.pollution/100);
-    case 'land':
+      return _mix(MDARK, '#ff8c1a', t.pollution/100);  // one hue, shaded by severity
+    case 'land value':
       if(!zone && t.type!==T.PARK) return MGREY;       // empty/road neutral grey
-      return _grad([[0,'#8b1a1a'],[0.5,'#ffd23f'],[1,'#2ecf4a']], clamp((t.land-20)/150,0,1));
+      return _mix(MDARK, '#2ecf4a', clamp((t.land-20)/150,0,1));  // one hue, shaded by value
     case 'density': {
       if(!zone || (t.pop===0 && t.level===0)) return MDARK;
-      const hue = t.type===T.RES?'#7caa6b':t.type===T.COM?'#8a5cf6':'#d9a72c';
-      const f=[0.5,0.75,1][t.level]||0.5;             // brightness by density level
-      return _mix('#0a0a10', hue, f);
+      const f=[0.5,0.75,1][t.level]||0.5;             // brightness by density level, same hue for every zone
+      return _mix(MDARK, '#ffd23f', f);
     }
     case 'roads':
       if(t.type===T.ROAD) return MGREY;

@@ -106,15 +106,20 @@ export function computeRoadAccess(){
 /* --- DEMAND SYSTEM: Industrial pollution. Each industrial tile radiates
    pollution over a 3-tile Manhattan radius (stronger when closer). Parks
    counter it: each park within 2 tiles offsets ~one industrial tile's worth.
-   Result is stored per tile as t.pollution and used by land value + growth. --- */
+   AI Data Centre and Shipping Centre contract tiles pollute the same as an
+   industrial tile (server-farm heat/diesel trucking); Wildlife Reserve
+   contract tiles do not. Result is stored per tile as t.pollution and used
+   by land value + growth. --- */
 export const POLL_HEAVY = 5;   // residential can't level past low at/above this
+const POLLUTING_CONTRACTS = new Set(['AI_DATA_CENTRE', 'SHIPPING_CENTRE']);
 export function computePollution(){
   for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
     let raw=0, parkOffset=0;
     for(let dy=-3;dy<=3;dy++) for(let dx=-3;dx<=3;dx++){
       const d=Math.abs(dx)+Math.abs(dy);
       const n=tileAt(x+dx,y+dy); if(!n) continue;
-      if(n.type===T.IND && d<=3) raw += (4-d);          // 3 adjacent .. 1 at edge
+      const pollutes = n.type===T.IND || POLLUTING_CONTRACTS.has(n.contractType);
+      if(pollutes && d<=3) raw += (4-d);                // 3 adjacent .. 1 at edge
       if(n.type===T.PARK && d<=2) parkOffset += 3;        // a park ~= one industry's peak
     }
     state.grid[y][x].pollution = Math.max(0, Math.min(99, raw - parkOffset));
