@@ -187,9 +187,9 @@ function commitBridgeDrag(line){
   const ROADCOST = TOOLS.find(t=>t.id==='road').cost;
   if(line.length<2){ requestFlash('Bridge must start and end on land'); return; }
   const [sx0,sy0]=line[0], [ex0,ey0]=line[line.length-1];
-  // start AND end of the full drag must be land of LOWLAND or higher
-  // TERRAIN TOOLS: bridge ends must be land >= LOWLAND but not a (non-routable) hill
-  const landOK=(x,y)=>{ const t=state.grid[y][x]; return t.type!==T.WATER && t.terrain>=TERRAIN.LOWLAND && t.terrain!==TERRAIN.HILL; };
+  // start AND end of the full drag must be buildable land (wetland/lowland/highland)
+  // TERRAIN TOOLS: bridge ends must be land >= WETLAND but not a (non-routable) hill
+  const landOK=(x,y)=>{ const t=state.grid[y][x]; return t.type!==T.WATER && t.terrain>=TERRAIN.WETLAND && t.terrain!==TERRAIN.HILL; };
   if(!landOK(sx0,sy0) || !landOK(ex0,ey0)){ requestFlash('Bridge must start and end on land'); return; }
   // cannot overlap an existing bridge
   if(line.some(([x,y])=> state.grid[y][x].bridge)){ requestFlash('Bridge overlaps existing bridge'); return; }
