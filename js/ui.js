@@ -298,21 +298,26 @@ function wireInspClose(panel) {
 // the live progress view + a Decline button; terminal contracts (completed/
 // declined/ended) get a short summary instead. Shared by the pinned-selection
 // path and the plain-hover path below.
+//
+// updateInspector() runs every animation frame (~60/sec). Rebuilding
+// panel.innerHTML unconditionally every frame destroys and recreates the
+// Decline button that often too — so a mousedown/mouseup pair almost always
+// straddles a DOM swap, and the click event never fires on either the old
+// (now-detached) button or the new one. Only touch the DOM when the rendered
+// content actually changed, so the button (and its listener) survives frames
+// where nothing new happened.
+let _inspContractHTML = null;
 function renderContractInspector(panel, scenario) {
   panel.style.display = '';
-  if (scenario.status !== 'ACTIVE') {
-    panel.innerHTML = buildTerminalContractHTML(scenario);
-    wireInspClose(panel);
-    return;
-  }
-  panel.innerHTML = buildContractInspectorHTML(scenario);
+  const html = scenario.status === 'ACTIVE'
+    ? buildContractInspectorHTML(scenario)
+    : buildTerminalContractHTML(scenario);
+  if (html === _inspContractHTML) return;   // unchanged — leave the existing DOM (and its listeners) alone
+  _inspContractHTML = html;
+  panel.innerHTML = html;
   wireInspClose(panel);
-  const declineBtn = document.createElement('button');
-  declineBtn.textContent = 'Decline contract';
-  declineBtn.className = 'btn-danger contract-decline';
-  declineBtn.style.marginTop = 'var(--sp-2)';
-  declineBtn.onclick = () => showDeclineModal(scenario.id);
-  panel.querySelector('#insp-body').appendChild(declineBtn);
+  const declineBtn = panel.querySelector('.contract-decline');
+  if (declineBtn) declineBtn.onclick = () => showDeclineModal(scenario.id);
 }
 
 /* --- tile inspector for the hovered (or pinned) tile ---
@@ -1310,6 +1315,7 @@ function buildContractInspectorHTML(scenario) {
       <br>
       <span class="k">Pending:</span> <span class="v">+$${stage.rewards.revenue.toLocaleString()}/month</span><br>
       <span class="k">Tile locked</span> <span class="v">— cannot bulldoze</span>
+      <button class="btn-danger contract-decline" style="margin-top:var(--sp-2)">Decline contract</button>
     </div>`;
 }
 
@@ -1342,6 +1348,11 @@ export function resetGameUI() {
   // GAME MODE: force the next syncControls() tick to re-evaluate the Admin
   // accordion's default-open state for this (possibly new) city/mode.
   _lastMode = null;
+
+  // TILE FOCUS: drop any pin from the previous game + force the inspector's
+  // contract view to rebuild fresh instead of comparing against stale HTML.
+  state.pinnedTile = null;
+  _inspContractHTML = null;
 }
 
 /* --- init + the single per-frame entry point main calls --- */

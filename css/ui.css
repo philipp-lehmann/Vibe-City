@@ -10,7 +10,7 @@
   --panel: #141414;
   --panel2: #161616;
   --panel3: #333333;
-  --input: #0a0a14;
+  --input: #080808;
   --ink: #e8e8e8;
   /* neutral monochrome accent */
   --ink-dim: #707070;
@@ -309,8 +309,8 @@ canvas.spark {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  border: solid 1px transparent;
   background: var(--panel2);
-  border: 0 solid var(--line);
   color: var(--ink-mid);
   cursor: pointer;
   padding: 3px var(--sp-1);
@@ -343,10 +343,10 @@ canvas.spark {
 }
 
 .tool.sel {
-  border-color: var(--ink);
+  border: 1px solid var(--ink);
   background: var(--bg-hover);
   color: var(--ink);
-  box-shadow: 0 0 6px rgba(232, 232, 232, 0.4) inset;
+  /* box-shadow: 0 0 6px rgba(232, 232, 232, 0.4) inset; */
 }
 
 .tool.sel .cost {
@@ -746,11 +746,16 @@ button:disabled:hover {
   flex: 1;
   font-family: inherit;
   font-size: var(--font-base);
-  background: #0a0a14;
+  background: var(--input);
   color: var(--ink);
   border: var(--border-dim);
+  border-radius: var(--radius-sm);
   padding: var(--sp-2) var(--sp-3);
   outline: none;
+}
+
+.modal-input:focus {
+  border: var(--border-panel-selected);
 }
 
 .card {
@@ -819,15 +824,16 @@ button:disabled:hover {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  border: 1px solid transparent;
+  border: var(--border-panel);
+      background: var(--input);
   border-radius: var(--radius-sm);
-  padding: var(--sp-1);
+  padding: var(--sp-4);
   transition: border-color 0.15s ease;
 }
 
 .slot-load:hover, .slot-load:focus-visible {
-  border-color: var(--gold);
-  background-color: var(--bg-hover);
+  border-color: var(--border);
+  /* background-color: var(--bg); */
 }
 
 .slot-thumb {
@@ -885,7 +891,8 @@ button:disabled:hover {
 
 #mode-row, #size-row, #water-row {
   display: flex;
-  background-color: var(--panel3);
+  background-color: var(--input);
+  border-radius: var(--radius-md);
 }
 
 .size-card {
