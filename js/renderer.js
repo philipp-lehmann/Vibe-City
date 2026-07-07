@@ -1362,9 +1362,9 @@ function miniColor(t,x,y){
       const f=[0.5,0.75,1][t.level]||0.5;             // brightness by density level
       return _mix('#0a0a10', hue, f);
     }
-    case 'road':
+    case 'roads':
       if(t.type===T.ROAD) return MGREY;
-      return _roadNear(x,y) ? '#f0f0f0' : '#5a1414';   // in/out of 3-tile road access
+      return _roadNear(x,y) ? '#f0f0f0' : '#222222';   // in/out of 3-tile road access
     case 'commute':
       if(t.type===T.ROAD) return MGREY;
       if(t.type===T.COM || t.type===T.IND) return '#f0f0f0';   // job tiles themselves
