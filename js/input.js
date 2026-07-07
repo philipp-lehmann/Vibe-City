@@ -357,12 +357,15 @@ export function initInput(){
       return;
     }
 
-    // CONTRACT FOCUS: left-click a contract tile pins the inspector on that
-    // contract and highlights its whole area; left-click anywhere else (or ESC)
-    // clears the pin. Doesn't interfere with whatever tool action also fires below.
+    // TILE FOCUS: left-click any tile to pin the inspector on it (contract
+    // tiles also get their whole area highlighted). Clicking the SAME pinned
+    // tile again releases it; clicking a different tile re-pins there instead;
+    // ESC also releases it. Doesn't interfere with whatever tool action also
+    // fires below — this is purely about what the inspector displays.
     if(e.button===0){
-      const t = inBounds(gx,gy) ? state.grid[gy][gx] : null;
-      state.selectedContractId = (t && t.contractId) || null;
+      const p = state.pinnedTile;
+      state.pinnedTile = (inBounds(gx,gy) && !(p && p.x===gx && p.y===gy))
+        ? { x:gx, y:gy } : null;
     }
 
     if(e.button===2){
@@ -421,7 +424,7 @@ export function initInput(){
   // keyboard
   window.addEventListener('keydown',e=>{
     if(e.code==='Space'){ e.preventDefault(); togglePause(); }
-    if(e.key==='Escape'){ state.selectedContractId = null; }   // CONTRACT FOCUS: unpin inspector
+    if(e.key==='Escape'){ state.pinnedTile = null; }   // TILE FOCUS: unpin inspector
     if(e.key==='q'||e.key==='Q') rotateView(-1);
     if(e.key==='e'||e.key==='E') rotateView(1);
     const n=parseInt(e.key);

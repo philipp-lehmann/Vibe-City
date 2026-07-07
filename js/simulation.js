@@ -7,7 +7,8 @@
    via state.pushNotice (drained by ui), never via the DOM.
    ================================================================ */
 import { T, isZone, conducts, clamp, lerp,
-         SCENARIO_DEMAND_CAP_POP, SCENARIO_DEMAND_PENALTY_SCALE, SCENARIO_DEMAND_PENALTY_MAX
+         SCENARIO_DEMAND_CAP_POP, SCENARIO_DEMAND_PENALTY_SCALE, SCENARIO_DEMAND_PENALTY_MAX,
+         POWERPLANT_CAPACITY, PUMP_CAPACITY
        } from './config.js';   // MAP SIZE: GRID now runtime
 import { state, tileAt, makeTile, pushNotice, requestFlash, pushHistory } from './state.js';
 import { TERRAIN } from './terrain.js';   // TERRAIN TOOLS: terrain land-value effects
@@ -29,7 +30,7 @@ export function propagatePower(){
     if(state.grid[y][x].type===T.POWERPLANT){
       state.grid[y][x].powered=true;
       queue.push([x,y]);
-      capacity += 300;                       // each coal plant powers ~300 tiles
+      capacity += POWERPLANT_CAPACITY;
       plants++;
     }
   }
@@ -65,7 +66,7 @@ export function propagateWater(){
   for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
     const t=state.grid[y][x];
     if(t.type===T.PUMP && roadWithin(x, y, 3)){     // pump needs a road within 3 tiles
-      t.water=true; queue.push([x,y]); capacity+=120; // each pump serves ~120 tiles
+      t.water=true; queue.push([x,y]); capacity+=PUMP_CAPACITY;
     }
   }
   let used=0;

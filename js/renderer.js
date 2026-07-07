@@ -276,6 +276,13 @@ export function render(){
   const hw=(TILE_W/2)*z, hh=(TILE_H/2)*z;
 
   const GW=state.gridWidth, GH=state.gridHeight;   // MAP SIZE
+
+  // TILE FOCUS: resolve the pinned tile once per frame. If it's a contract
+  // tile, the whole contract area gets the highlight; otherwise just that tile.
+  const pin = state.pinnedTile;
+  const pinTile = (pin && pin.y < GH && pin.x < GW) ? state.grid[pin.y][pin.x] : null;
+  const pinContractId = pinTile ? pinTile.contractId : null;
+
   for(let s=0; s<=(GW-1)+(GH-1); s++){
     for(let rx=0; rx<GW; rx++){
       const ry=s-rx;
@@ -314,12 +321,18 @@ export function render(){
         ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1.5; ctx.stroke();
       }
 
-      // CONTRACT FOCUS: highlight every tile belonging to the pinned contract
-      if(state.selectedContractId && t.contractId===state.selectedContractId){
+      // TILE FOCUS: pinned tile — whole contract area in gold, or just the
+      // single tile (in cyan, matching the water-overlay hue) otherwise.
+      if(pinContractId && t.contractId===pinContractId){
         diamond(sx,sy);
         ctx.fillStyle='rgba(255,210,63,0.22)';
         ctx.fill();
         ctx.strokeStyle='rgba(255,210,63,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
+      } else if(pin && !pinContractId && pin.x===gx && pin.y===gy){
+        diamond(sx,sy);
+        ctx.fillStyle='rgba(43,180,221,0.28)';
+        ctx.fill();
+        ctx.strokeStyle='rgba(43,180,221,0.95)'; ctx.lineWidth=1.5; ctx.stroke();
       }
 
       // PLACEMENT MODE: highlight the NxN block under the cursor

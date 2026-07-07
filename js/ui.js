@@ -6,7 +6,8 @@
    status flash, and per-frame syncUI() that applies state -> DOM.
    ================================================================ */
 import { MAP_SIZES, WATER_LEVELS, DEFAULT_WATER, GAME_MODES, DEFAULT_MODE, SCENARIO_DEMAND_CAP_POP,
-         T, TOOLS, FACES, SHORT_MONTHS, isZone, LOANS } from './config.js';   // MAP SIZE / WATER AMOUNT / GAME MODE / CREDITS
+         T, TOOLS, FACES, SHORT_MONTHS, isZone, LOANS,
+         POWERPLANT_CAPACITY, PUMP_CAPACITY } from './config.js';   // MAP SIZE / WATER AMOUNT / GAME MODE / CREDITS / UTILITIES
 import {
   state, tileAt, setTool, togglePause, rotateView,
   listSaves, saveGame, loadGame, deleteSave, newGame, takeLoan
@@ -275,12 +276,22 @@ function buildTerminalContractHTML(scenario) {
     ? `<span class="k">Revenue:</span> <span class="v">+$${scenario.currentStage.rewards.revenue.toLocaleString()}/month</span><br>`
     : '';
   return `
-    <div class="ttl">${typeName}</div>
+    <div class="insp-header">
+      <div class="ttl">${typeName}</div>
+      <button class="insp-close" title="Close">✕</button>
+    </div>
     <div id="insp-body">
       <span class="k">Status:</span> ${label}<br>
       ${revenueRow}
       <span class="k">Tile locked</span> <span class="v">— cannot bulldoze</span>
     </div>`;
+}
+
+// TILE FOCUS: the panel's close (x) button clears the pin — same behavior
+// wherever it appears (static shell, contract view, or terminal summary).
+function wireInspClose(panel) {
+  const btn = panel.querySelector('.insp-close');
+  if (btn) btn.onclick = () => { state.pinnedTile = null; };
 }
 
 // CONTRACT FOCUS: renders the contract inspector view. ACTIVE contracts get
@@ -291,9 +302,11 @@ function renderContractInspector(panel, scenario) {
   panel.style.display = '';
   if (scenario.status !== 'ACTIVE') {
     panel.innerHTML = buildTerminalContractHTML(scenario);
+    wireInspClose(panel);
     return;
   }
   panel.innerHTML = buildContractInspectorHTML(scenario);
+  wireInspClose(panel);
   const declineBtn = document.createElement('button');
   declineBtn.textContent = 'Decline contract';
   declineBtn.className = 'btn-danger contract-decline';
@@ -302,30 +315,23 @@ function renderContractInspector(panel, scenario) {
   panel.querySelector('#insp-body').appendChild(declineBtn);
 }
 
-/* --- tile inspector for the hovered (or pinned) tile --- */
+/* --- tile inspector for the hovered (or pinned) tile ---
+   TILE FOCUS: state.pinnedTile (set by a click, cleared by clicking the same
+   tile again / clicking elsewhere / ESC) overrides state.hover as the source
+   of which tile to show, so the panel stays open on a pinned tile of ANY
+   type — power plant, zone, contract, etc. — even after the mouse moves away. */
 export function updateInspector() {
   const panel = $('inspector');
-
-  // CONTRACT FOCUS: a pinned contract keeps the inspector open on that contract
-  // regardless of hover, until the player clicks elsewhere or presses ESC. Any
-  // status counts (not just ACTIVE) — completed/declined tiles stay locked
-  // forever and should still be inspectable, just without the live progress view.
-  if (state.selectedContractId) {
-    const scenario = scenarioManager.getScenario(state.selectedContractId);
-    if (scenario) {
-      renderContractInspector(panel, scenario);
-      return;
-    }
-    // truly gone — drop the stale pin
-    state.selectedContractId = null;
-  }
-
-  const { x, y } = state.hover;
+  panel.classList.toggle('pinned', !!state.pinnedTile);   // TILE FOCUS: brighter border while pinned
+  wireInspClose(panel);   // keeps whatever close (x) button is currently in the DOM working
+  const { x, y } = state.pinnedTile || state.hover;
   const t = tileAt(x, y);
   if (!t) { panel.style.display = 'none'; return; }
   panel.style.display = '';
 
-  // SCENARIOS: contract tile — show contract info instead of standard tile info
+  // SCENARIOS: contract tile — show contract info instead of standard tile info.
+  // Any status counts (not just ACTIVE) — completed/declined tiles stay locked
+  // forever and should still be inspectable, just without the live progress view.
   if (t.contractId) {
     const scenario = scenarioManager.getScenario(t.contractId);
     if (scenario) {
@@ -357,6 +363,10 @@ export function updateInspector() {
     rows += `<span class="k">Power:</span> <span class="${t.powered ? 'pwr-ok' : 'pwr-no'}">${t.powered ? 'ON' : 'OFF'}</span>`;
     if (t.type === T.PUMP) rows += ` <span class="k">Supplying:</span> <span class="${t.water ? 'pwr-ok' : 'pwr-no'}">${t.water ? 'YES' : 'NO (needs road)'}</span>`;
     rows += `<br>`;
+    // UTILITIES: nominal service capacity — same constants the propagation
+    // flood fills use, so this can't drift out of sync with the simulation.
+    if (t.type === T.POWERPLANT) rows += `<span class="k">Capacity:</span> <span class="v">${POWERPLANT_CAPACITY} MW</span><br>`;
+    if (t.type === T.PUMP) rows += `<span class="k">Delivery:</span> <span class="v">${PUMP_CAPACITY} units</span><br>`;
   }
   rows += `<span class="k">Land value:</span> <span class="v">$${t.land}</span>`;
   if (t.onFire > 0) rows += `<br><span class="pwr-no">⚠ ON FIRE</span>`;
@@ -1285,7 +1295,10 @@ function buildContractInspectorHTML(scenario) {
     : '';
 
   return `
-    <div class="ttl">${typeName}</div>
+    <div class="insp-header">
+      <div class="ttl">${typeName}</div>
+      <button class="insp-close" title="Close">✕</button>
+    </div>
     <div id="insp-body">
       <span class="k">Stage:</span> <span class="v">${scenario.currentStageIndex + 1}/${scenario.stages.length} — ${stage.name}</span><br>
       <span class="k">Deadline:</span> <span class="v">${deadline} months</span><br>

@@ -40,6 +40,12 @@ export const SCENARIO_DEMAND_CAP_POP = 15000;       // population above which th
 export const SCENARIO_DEMAND_PENALTY_SCALE = 30000; // "meters" the overage against — larger = gentler curve
 export const SCENARIO_DEMAND_PENALTY_MAX = 0.9;     // hard ceiling so demand never goes fully to zero/negative-only from this alone
 
+// UTILITIES: per-building service capacity, shared by the propagation flood
+// fills (simulation.js) and the tile inspector (ui.js) so the displayed
+// numbers can never drift from what's actually simulated.
+export const POWERPLANT_CAPACITY = 300; // each coal plant powers ~300 tiles (MW-equivalent)
+export const PUMP_CAPACITY       = 120; // each active pump serves ~120 tiles
+
 // CREDITS: fixed loan offerings available from the Admin panel's Credits
 // button. Each entry can only have one loan outstanding at a time (see
 // state.takeLoan). rate is total interest over the life of the loan (not

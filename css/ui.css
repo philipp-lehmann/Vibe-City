@@ -65,6 +65,7 @@
   --radius-md: 0.5rem;
 
   /* Borders */
+  --border-panel-selected: 0.75px solid var(--ink);
   --border-panel: 0.5px solid var(--ink-dim);
   /* panel outlines */
   --border: 1px solid var(--line);
@@ -402,11 +403,41 @@ canvas.spark {
   border-radius: var(--radius-md);
 }
 
-#inspector .ttl {
-  color: var(--ink);
+#inspector.pinned {
+  border: var(--border-panel-selected);
+}
+
+#inspector .insp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
   border-bottom: var(--border);
   padding-bottom: 3px;
   margin-bottom: 5px;
+}
+
+#inspector .ttl {
+  color: var(--ink);
+}
+
+#inspector .insp-close {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  font-size: var(--font-lg);
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+#inspector.pinned .insp-close {
+  display: block;
+}
+
+#inspector.pinned .insp-close:hover {
+  color: var(--warn);
 }
 
 #inspector .k {
@@ -517,7 +548,7 @@ canvas.spark {
 
 .ap-header:hover { color: var(--ink); }
 
-.ap-arrow { font-size: var(--font-xs); }
+.ap-arrow { font-size: var(--font-lg); }
 
 .ap-body {
   max-height: 0;
@@ -634,7 +665,7 @@ button:disabled:hover {
 #notif-arrow {
   margin-left: auto;
   color: var(--ink-dim);
-  font-size: var(--font-xs);
+  font-size: var(--font-lg);
 }
 
 #notif-body {
