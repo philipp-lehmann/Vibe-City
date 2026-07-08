@@ -1,13 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="128"
     height="128">
     <defs />
-<!-- 
-    <rect x="0" y="0" width="128" height="128" stroke="#d8d8d8" />
-    <rect x="64" y="0" width="0.001" height="128" stroke="#d8d8d8" />
-    <rect x="0" y="64" width="128" height="0.001" stroke="#d8d8d8" />
-    new surface exampe -->
-   
-
     <!-- right wall: plain rect, sheared, pivoted on the shared seam -->
     <g style="transform: skewY(-26.565deg) translate(64px, 64px); transform-origin: bottom">
         <rect x="0" y="0" width="32" height="64" fill="#2f2956" stroke="rgb(12,0,40)" />

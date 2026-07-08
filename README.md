@@ -47,6 +47,8 @@ js/
   main.js           bootstrap & game loop
   assets.js         sprite asset registry
   export_assets.js  SVG asset export utility
+scripts/
+  gen-assets/       procedural draft-asset generators (see below)
 ```
 
 ## Map sizes
@@ -72,6 +74,22 @@ js/
 - Autosave + 6 manual save slots to `localStorage`
 - Fire disaster tool
 - SVG asset export
+
+## Generating draft building assets
+
+`scripts/gen-assets/gen-commercial.mjs` procedurally generates commercial
+building SVGs for visual review — ground layout (single tower / twin /
+group-of-three / cluster) followed by a stacked 2-4 block tower per lot,
+with randomized windows, wall/roof shading, and antennas.
+
+```bash
+node scripts/gen-assets/gen-commercial.mjs --count=6 --seed=1
+```
+
+Writes `assets/drafts/commercial/commercial_{low,mid,high}_{01..N}.svg`
+plus an `index.html` contact sheet — open it in a browser to review the
+batch. `assets/drafts/` is gitignored; nothing there is wired into the
+game until you move a chosen file into `assets/buildings/`.
 
 ## Desktop builds (Tauri)
 

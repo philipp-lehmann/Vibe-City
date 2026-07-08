@@ -125,3 +125,35 @@ In `syncPersistentWarnings()` (ui.js), push a string to `active[]`. It appears a
 - Grid → screen: `sx = (gx - gy) * 64`, `sy = (gx + gy) * 52`
 - Rotation applied by remapping grid delta: `rdx = rot===0?dx : rot===1?-dy : rot===2?-dx : dy`
 - Two zoom levels via `cycleZoom()` (renderer.js): Fit → 1× → 2×
+
+## Procedural building asset generation
+
+`scripts/gen-assets/gen-commercial.mjs` — standalone Node script (no deps) that
+batch-generates draft commercial building SVGs, independent of the live
+canvas renderer / `export_assets.js` pipeline. Run with:
+
+```bash
+node scripts/gen-assets/gen-commercial.mjs --count=6 --seed=1
+```
+
+Output goes to `assets/drafts/commercial/` (gitignored — these are review
+drafts, not shipped assets) as `commercial_{low,mid,high}_{01..N}.svg` plus
+an `index.html` contact sheet for quick visual review in a browser.
+
+Algorithm: pick a ground layout first (recursively splits the tile
+footprint into 1-4 lots — single tower / twin / group-of-three / cluster),
+then build a tower per lot by stacking 2-4 blocks (occasional random
+setback). Each block's right/left/roof faces use the same iso math as
+`bp()`/`box()` in `renderer.js` (2:1 cube, half-width 64 / half-height 32,
+canvas fixed at 128px wide = one tile). Window lines (1-5 per wall, grouped
+at a randomized position/size rather than centered, vertical or
+horizontal, inset from the wall's own edges) share one color/weight/dash
+style per wall — variation happens wall-to-wall and building-to-building,
+not within a single wall. Canvas height is computed from the actual
+generated silhouette (no fixed crop, no clipping).
+
+To promote a draft into the game: move the chosen SVG into
+`assets/buildings/` following the `{zone}_{density}_{variant}.svg` naming
+`assets.js`/`renderer.js` expect (`buildingAssetKey()` only ever picks
+variant `a`/`b`/`c`, so wiring in more than 3 per density needs a matching
+change there too).
