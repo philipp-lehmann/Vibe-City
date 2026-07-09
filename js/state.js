@@ -101,6 +101,11 @@ export const state = {
   revenue: { monthly: 0, lost: 0 },
   // SCENARIOS: city prestige/reputation (modified by contract outcomes)
   prestige: 0,
+  // WILDLIFE: tracks the fading "guilt" window after bulldozing a reserve
+  // tile — prestigeRefund is added back to state.prestige once state.month
+  // reaches untilMonth, so the hit is temporary (see simulation.js
+  // applyWildlifeRemovalPenalty / computeHappiness).
+  wildlifeGuilt: { untilMonth: 0, prestigeRefund: 0 },
   // LOANS: outstanding loans taken from the Admin panel's Credits dialog.
   // Each LOANS entry (see config.js) can only have one active loan at a time.
   loans: { active: [] },
@@ -299,6 +304,7 @@ export function serializeSave(thumb){
       },
       revenue:  { ...state.revenue },
       prestige: state.prestige,
+      wildlifeGuilt: { ...state.wildlifeGuilt },   // WILDLIFE
       loans:    { active: state.loans.active.map(l => ({ ...l })) }   // CREDITS
     },
     meta: { cityName: state.cityName, cityEmoji: state.cityEmoji, ts: Date.now(), thumb: thumb || null,
@@ -386,6 +392,8 @@ export function applySave(blob){
   }
   state.revenue  = s.revenue  ? { ...s.revenue  } : { monthly: 0, lost: 0 };
   state.prestige = s.prestige ?? 0;
+  // WILDLIFE: restore the removal-guilt window (older saves without this key get none active)
+  state.wildlifeGuilt = s.wildlifeGuilt ? { ...s.wildlifeGuilt } : { untilMonth: 0, prestigeRefund: 0 };
   // CREDITS: restore outstanding loans (older saves without this key get none)
   state.loans = { active: Array.isArray(s.loans?.active) ? s.loans.active.map(l => ({ ...l })) : [] };
   state.pendingOffers    = [];   // SCENARIOS: never restore mid-offer/placement state
@@ -419,6 +427,7 @@ export function newGame(name, sizeKey, waterPct, mode, emoji){
   state.scenarios = { active: [], completed: [], jobs: 0, contractBlacklist: {} };
   state.revenue   = { monthly: 0, lost: 0 };
   state.prestige  = 0;
+  state.wildlifeGuilt = { untilMonth: 0, prestigeRefund: 0 };   // WILDLIFE
   state.pendingOffers    = [];
   state.pendingPlacements = [];
   state.placementMode    = null;

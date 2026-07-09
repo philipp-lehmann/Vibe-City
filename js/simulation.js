@@ -170,9 +170,12 @@ export function computeCommute(){
 /* --- DEMAND SYSTEM: Happiness 0-100 from tax band, unemployment and
    pollution exposure of residents. Computed before growth so it can gate it. --- */
 export function computeHappiness(){
-  let rPop=0, rJobs=0, polSum=0, rTiles=0;
+  let rPop=0, rJobs=0, polSum=0, rTiles=0, wildlifeTiles=0;
   for(let y=0;y<state.gridHeight;y++) for(let x=0;x<state.gridWidth;x++){
     const t=state.grid[y][x];
+    // WILDLIFE: standalone tool tile or an original contract-batch reserve
+    // tile (which keeps its underlying tile.type) both count as a reserve
+    if(t.type===T.WILDLIFE || t.contractType==='WILDLIFE_RESERVE') wildlifeTiles++;
     if(t.type!==T.RES) continue;
     rTiles++; rPop+=t.pop; polSum+=t.pollution;
     if(t.jobsNearby) rJobs+=t.pop;
@@ -181,7 +184,26 @@ export function computeHappiness(){
   const taxAdj = tax<5 ? +10 : tax<10 ? 0 : tax<15 ? -10 : -30;   // band modifier
   const jobPenalty = rPop>0 ? (1 - rJobs/rPop)*25 : 0;            // unemployment
   const polPenalty = rTiles>0 ? Math.min(30, (polSum/rTiles)*3) : 0;
-  state.happiness = Math.max(0, Math.min(100, Math.round(72 + taxAdj - jobPenalty - polPenalty)));
+  // WILDLIFE: standing reserves lift city-wide happiness, diminishing returns
+  const wildlifeBonus = Math.min(WILDLIFE_HAPPINESS_CAP, wildlifeTiles*WILDLIFE_HAPPINESS_PER_TILE);
+  // WILDLIFE: fading penalty while a recent removal's guilt window is open
+  const guiltRemaining = state.wildlifeGuilt.untilMonth - state.month;
+  const wildlifeGuiltPenalty = guiltRemaining>0 ? Math.min(WILDLIFE_GUILT_HAPPINESS_CAP, guiltRemaining) : 0;
+  state.happiness = Math.max(0, Math.min(100,
+    Math.round(72 + taxAdj - jobPenalty - polPenalty + wildlifeBonus - wildlifeGuiltPenalty)));
+}
+
+// WILDLIFE: called from input.js whenever a T.WILDLIFE tile or a
+// contractType===WILDLIFE_RESERVE tile is bulldozed (either the standalone
+// tool-placed kind or an original contract-batch tile — both count as "a
+// wildlife area" being removed). Prestige takes an immediate hit that is
+// automatically refunded once the guilt window elapses (see monthlyTick),
+// and computeHappiness() applies a fading penalty for the same window.
+export function applyWildlifeRemovalPenalty(){
+  state.prestige -= WILDLIFE_REMOVAL_PRESTIGE_HIT;
+  state.wildlifeGuilt.prestigeRefund += WILDLIFE_REMOVAL_PRESTIGE_HIT;
+  state.wildlifeGuilt.untilMonth = state.month + WILDLIFE_GUILT_MONTHS;   // refresh the window
+  pushNotice('🦌 Clearing a wildlife area hurt the city\'s reputation.');
 }
 
 // FOREST: proximity to trees does NOT raise nearby land value the way a park
@@ -191,6 +213,26 @@ export function computeHappiness(){
 // for land value in its own way (e.g. only past some density, or split by
 // zone type) rather than reusing the flat park bonus below.
 const FOREST_LANDVALUE_BONUS = 0;
+
+// WILDLIFE: a reserve tile (standalone T.WILDLIFE, or any tile tagged
+// contractType===WILDLIFE_RESERVE) is a bigger draw for housing than a park,
+// but only for housing — commercial/industrial don't care, so this is applied
+// residential-only in computeLandValue() below rather than reusing PARK's
+// blanket R/C/I bonus. computeHappiness() adds a matching ambient, capped
+// city-wide happiness bonus for having reserves standing at all.
+const WILDLIFE_LANDVALUE_BONUS   = 8;
+const WILDLIFE_HAPPINESS_PER_TILE = 0.5;
+const WILDLIFE_HAPPINESS_CAP      = 10;
+
+// WILDLIFE: bulldozing a reserve tile is always allowed (see input.js
+// contractBlocks) but isn't free — applyWildlifeRemovalPenalty() dings
+// prestige immediately and opens a fading happiness penalty window
+// (state.wildlifeGuilt), both automatically reversing after
+// WILDLIFE_GUILT_MONTHS so the consequence is real but temporary, not a
+// permanent scar.
+const WILDLIFE_REMOVAL_PRESTIGE_HIT   = 2;
+const WILDLIFE_GUILT_MONTHS           = 12;
+const WILDLIFE_GUILT_HAPPINESS_CAP    = 15;
 
 /* --- Land value: parks/water/roads raise value; pollution lowers it. --- */
 export function computeLandValue(){
@@ -203,6 +245,11 @@ export function computeLandValue(){
       const w=(3-d); if(w<=0) continue;
       if(n.type===T.PARK)   v+=6*w;                    // parks are landscaped amenity space -> raise nearby R/C/I appeal
       if(n.type===T.FOREST) v+=FOREST_LANDVALUE_BONUS*w;   // FOREST: intentionally no boost (yet) — see constant above
+      // WILDLIFE: residential-only appeal. Covers both the standalone tool
+      // (n.type===T.WILDLIFE) and an original contract-batch reserve tile,
+      // which keeps its underlying tile.type and is only distinguished by
+      // contractType (see ScenarioManager.placeScenario in scenario.js).
+      if((n.type===T.WILDLIFE || n.contractType==='WILDLIFE_RESERVE') && t.type===T.RES) v+=WILDLIFE_LANDVALUE_BONUS*w;
       if(n.type===T.WATER) v+=3*w;
       if(n.type===T.PUMP)  v+=2*w;
       if(n.terrain===TERRAIN.HILL) v+=4*w;   // TERRAIN TOOLS: hills raise nearby value (2-tile)
@@ -222,6 +269,14 @@ export function computeLandValue(){
    growth, leveling and demand. Emits notices, never touches the DOM. --- */
 export function monthlyTick(){
   state.month++;
+
+  // WILDLIFE: once the guilt window from a recent removal elapses, refund
+  // the prestige dip automatically — the penalty is temporary by design.
+  if(state.wildlifeGuilt.untilMonth && state.month>=state.wildlifeGuilt.untilMonth){
+    state.prestige += state.wildlifeGuilt.prestigeRefund;
+    state.wildlifeGuilt.untilMonth = 0;
+    state.wildlifeGuilt.prestigeRefund = 0;
+  }
 
   // DEMAND SYSTEM: derive rate from the tax slider before computing income
   state.taxRate = state.taxPct/100;

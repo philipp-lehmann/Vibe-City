@@ -361,7 +361,7 @@ export function updateInspector() {
     [T.GRASS]: 'Grassland', [T.WATER]: 'Water', [T.ROAD]: 'Road',
     [T.POWERLINE]: 'Power Line', [T.POWERPLANT]: 'Coal Plant', [T.PUMP]: 'Water Pump',
     [T.PARK]: 'Park', [T.RES]: 'Residential', [T.COM]: 'Commercial', [T.IND]: 'Industrial',
-    [T.FOREST]: 'Forest'
+    [T.FOREST]: 'Forest', [T.WILDLIFE]: 'Wildlife Area'
   };
   panel.querySelector('.ttl').textContent = names[t.type] || 'Tile';
   const dens = ['Low', 'Medium', 'High'][t.level] || 'Low';
@@ -370,6 +370,13 @@ export function updateInspector() {
   if (t.type === T.FOREST) {
     // FOREST: own branch — no power/water/road fields, just tree density
     rows += `<span class="k">Density:</span> <span class="v">${t.forestDensity}/10</span>`;
+  } else if (t.type === T.WILDLIFE) {
+    // WILDLIFE: own branch, same reasoning as forest — doesn't conduct power
+    // or need water/road, so those rows would just be noise. Shows instead
+    // whether it's currently counting toward an active Wildlife Reserve
+    // contract (see input.js tagWildlifeTile).
+    rows += `<span class="k">Reserve:</span> <span class="${t.contractLocked ? 'pwr-ok' : 'v'}">` +
+      `${t.contractLocked ? 'counts toward active contract' : 'unassigned'}</span>`;
   } else if (isZone(t.type)) {
     rows += `<span class="k">Density:</span> <span class="v">${dens}</span><br>`;
     rows += `<span class="k">Population:</span> <span class="v">${t.pop}</span><br>`;

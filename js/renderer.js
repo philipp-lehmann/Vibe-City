@@ -472,6 +472,7 @@ function drawTileContent(sx,sy,t,gx,gy){
     case T.PUMP:       drawPumpTile(sx,sy,t); break;                            // ASSET RENDERER
     case T.PARK:       drawPark(sx,sy); break;
     case T.FOREST:     drawForest(sx,sy,t); break;   // FOREST
+    case T.WILDLIFE:   drawWildlife(sx,sy,t,gx,gy); break;   // WILDLIFE
     case T.RES:        drawZoneBuilding(sx,sy,t,gx,gy,'R'); break; // BUILDING SPRITES
     case T.COM:        drawZoneBuilding(sx,sy,t,gx,gy,'C'); break; // BUILDING SPRITES
     case T.IND:        drawZoneBuilding(sx,sy,t,gx,gy,'I'); break; // BUILDING SPRITES
@@ -1289,6 +1290,25 @@ function drawForest(sx,sy,t){
   }
 }
 
+/* ===== WILDLIFE ========================================================
+   Player-designated reserve tiles (input.js placeTool 'wildlife') reuse the
+   wildlife scenario sprite set (scripts/gen-assets/gen-scenario.mjs),
+   always stage1 since a freely-placed tile has no contract stage of its
+   own. If the tile IS also tied to a real active WILDLIFE_RESERVE scenario
+   (tagWildlifeTile() in input.js sets t.contractId), the contract-overlay
+   block at the end of drawTileContent() already draws the correct-stage
+   sprite for it — skip here so it isn't drawn twice.
+   ===================================================================== */
+function drawWildlife(sx,sy,t,gx,gy){
+  if(t.contractId) return;   // scenario overlay below handles this tile instead
+  const z=state.zoom, hh=(TILE_H/2)*z;
+  const variant = String.fromCharCode(97 + tileSeed(gx,gy)%6);   // a-f, same convention as zone buildings
+  const img=getAsset(`wildlife_stage1_${variant}`);
+  if(img){ blitAsset(img, sx, sy+2*hh); return; }
+  // fallback: simple green lodge marker
+  diamond(sx,sy); ctx.fillStyle='#1e6b34'; ctx.fill();
+}
+
 function drawSmoke(sx,sy,riseY=30){
   ctx.fillStyle='rgba(120,120,130,0.5)';
   const t=animClock()/400;
@@ -1457,6 +1477,7 @@ function miniColor(t,x,y){
         case T.POWERLINE:  return '#776';
         case T.PUMP:  return '#2bd';
         case T.PARK:  return '#1e8';
+        case T.WILDLIFE: return '#2f9e52';
         case T.RES:   return t.pop>0?'#7caa6b':'#222a20';
         case T.COM:   return t.pop>0?'#8a5cf6':'#241a3a';
         case T.IND:   return t.pop>0?'#d9a72c':'#3a2e10';
@@ -1516,6 +1537,13 @@ export function drawToolIcon(c,tool){
       c.beginPath(); c.moveTo(7,17); c.lineTo(13,17); c.lineTo(10,9); c.closePath(); c.fill();
       c.beginPath(); c.moveTo(15,19); c.lineTo(21,19); c.lineTo(18,11); c.closePath(); c.fill();
       c.fillStyle='#5a3a1a'; c.fillRect(9,17,2,4); c.fillRect(17,19,2,3); break;
+    case 'wildlife':   // paw print — distinct from park's tree and forest's pines
+      c.fillStyle=tool.color;
+      c.beginPath(); c.ellipse(12,15,5,4,0,0,Math.PI*2); c.fill();
+      c.beginPath(); c.arc(7,9,2,0,Math.PI*2); c.fill();
+      c.beginPath(); c.arc(11,6,2,0,Math.PI*2); c.fill();
+      c.beginPath(); c.arc(15,6,2,0,Math.PI*2); c.fill();
+      c.beginPath(); c.arc(19,9,2,0,Math.PI*2); c.fill(); break;
     case 'bull':
       c.fillStyle='#c33'; c.fillRect(4,12,12,6);
       c.fillStyle='#c33'; c.fillRect(16,8,4,10); break;

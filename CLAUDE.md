@@ -46,7 +46,47 @@ Simulation/input never touch DOM. They emit via:
 
 ### Tile types
 
-Defined in `config.js` as `T.GRASS`, `T.WATER`, `T.ROAD`, `T.POWERLINE`, `T.POWERPLANT`, `T.PUMP`, `T.PARK`, `T.RES`, `T.COM`, `T.IND`.
+Defined in `config.js` as `T.GRASS`, `T.WATER`, `T.ROAD`, `T.POWERLINE`, `T.POWERPLANT`, `T.PUMP`, `T.PARK`, `T.RES`, `T.COM`, `T.IND`, `T.FOREST`, `T.WILDLIFE`.
+
+`T.WILDLIFE` (the "Wildlife" tool) is a freely-placeable natural-land tile,
+like `T.PARK`/`T.FOREST` — no upkeep, doesn't conduct power, and unlike every
+other tool it's placeable on `TERRAIN.HILL` (the renderer already lifts tile
+content correctly for hill/highland via `terrainElev()`, so this needed no
+rendering changes — just bypassing the hill block in `placeTool()`). Placing
+or bulldozing one never flattens terrain to lowland the way every other tool
+does (`preserveTerrain()` in `input.js` copies `terrain`/`elevation`/
+`moisture`/`coast` across the tile swap both ways) — this matches
+`placeScenario()`'s own long-standing exception for `WILDLIFE_RESERVE`
+(natural land is the point of a reserve, not incidental to placing or
+clearing one). Placing one also
+checks `state.scenarios.active` for an `ACTIVE` `WILDLIFE_RESERVE` contract
+(`tagWildlifeTile()` in `input.js`); if found, the tile is tagged with
+`contractId`/`contractType`/`contractLocked` exactly like
+`ScenarioManager.placeScenario()` does, and its `[x,y]` is pushed onto that
+scenario's own `.tiles` array — `js/scenarios/requirements.js`'s validators
+(`checkTiles`, `checkPowerAccess`, etc.) read `contract.tiles`, not a live
+grid scan, so both are required for the tile to actually count. A tile with
+no matching active scenario stays a plain, bulldozable wildlife tile.
+Rendering reuses the wildlife scenario sprites (always `stage1`, since a
+standalone tile has no contract stage) via `drawWildlife()` in
+`renderer.js`, which defers to the existing contract-overlay block whenever
+`t.contractId` is set so a contract-tied tile still reflects the real stage.
+
+**Gameplay effects** (`simulation.js`) — a tile counts as "a wildlife area"
+for all of these if `t.type===T.WILDLIFE` OR `t.contractType==='WILDLIFE_RESERVE'`
+(the latter covers an original contract-acceptance placement batch, which
+keeps its underlying tile type and never becomes `T.WILDLIFE`):
+- `computeLandValue()` — residential-only land value bonus for nearby
+  reserve tiles (`WILDLIFE_LANDVALUE_BONUS`), unlike Park's blanket R/C/I bonus.
+- `computeHappiness()` — a small city-wide, diminishing-returns happiness
+  bonus per standing reserve tile (`WILDLIFE_HAPPINESS_PER_TILE`/`_CAP`).
+- Unlike every other contract type, `contractBlocks()` in `input.js` lets a
+  `WILDLIFE_RESERVE`-locked tile be bulldozed (dozer or right-click) same as
+  terrain tools/road — but doing so calls `applyWildlifeRemovalPenalty()`:
+  an immediate prestige hit plus a fading happiness penalty
+  (`state.wildlifeGuilt = {untilMonth, prestigeRefund}`), both automatically
+  reversed once `state.month` reaches `untilMonth` (`WILDLIFE_GUILT_MONTHS`)
+  — the consequence is real but temporary, not a permanent scar.
 
 ### Road / bridge geometry
 
@@ -95,8 +135,9 @@ In `syncPersistentWarnings()` (ui.js), push a string to `active[]`. It appears a
 ### Adding a new tool
 
 1. Add entry to `TOOLS` in `config.js` with `{ id, label, cost, color }`
-2. Handle placement in `input.js` `commitTile()`
+2. Handle placement in `input.js` `placeTool()` (single-tile commit branch near the bottom)
 3. Add tile type to `T` if needed
+4. Add an icon case to `drawToolIcon()` in `renderer.js` (unmatched ids render blank)
 
 ### Adding a save field
 

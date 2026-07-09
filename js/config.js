@@ -63,7 +63,7 @@ export const ELEV   = 8;    // pixels of "lift" per elevation unit
 // --- tile type ids ---
 export const T = {
   GRASS:0, WATER:1, ROAD:2, POWERLINE:3, POWERPLANT:4, PUMP:5, PARK:6,
-  RES:7, COM:8, IND:9, FOREST:10
+  RES:7, COM:8, IND:9, FOREST:10, WILDLIFE:11
 };
 
 // FOREST: clicking a forest tile stacks tree density instead of replacing the
@@ -93,6 +93,13 @@ export const TOOLS = [
   // No upkeep — trees don't cost anything to maintain once planted. Cost is
   // charged per click, including each density increment (see input.js).
   { id:'forest', tile:T.FOREST,     label:'Forest',     cost:20,  up:0,  color:'#0b5e1e' },
+  // WILDLIFE: player-designated protected/natural land. No upkeep, same as
+  // forest — it isn't a maintained facility. Also appended last for the same
+  // hotkey-stability reason as forest (see above): this is the 11th entry,
+  // also with no digit-key shortcut. See input.js placeTool() for the extra
+  // behaviour where this tile also counts toward an active Wildlife Reserve
+  // scenario contract's tile requirement.
+  { id:'wildlife', tile:T.WILDLIFE, label:'Wildlife',   cost:40,  up:0,  color:'#3fae55' },
 ];
 
 // --- calendar & facing labels ---
