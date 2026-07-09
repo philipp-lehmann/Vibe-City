@@ -20,13 +20,28 @@
 // per-category folders under assets/ (buildings / terrain / roads).
 const BASE = 'assets/';
 
-// build the building key list: zone × density × variant (a/b/c)
+// build the building key list: zone × density × variant. VARIANTS grew from
+// a/b/c to a full a-f (6) when the procedural generator (scripts/gen-assets/)
+// replaced the old hand-authored set — see renderer.js buildingAssetKey(),
+// which picks a variant via tileSeed(gx,gy)%6.
 const ZONES = ['residential', 'commercial', 'industrial'];
 const DENSITIES = ['low', 'mid', 'high'];
-const VARIANTS = ['a', 'b', 'c'];
+const VARIANTS = ['a', 'b', 'c', 'd', 'e', 'f'];
 const BUILDING_KEYS = [];
 for (const z of ZONES) for (const d of DENSITIES) for (const v of VARIANTS)
   BUILDING_KEYS.push(`${z}_${d}_${v}`);
+
+// SCENARIO buildings: contract type × stage × variant, same a-f convention as
+// zone buildings — see renderer.js scenarioAssetKey(). Each locked contract
+// tile picks its own variant the same way a zoned tile does, so a multi-tile
+// contract area reads as a small campus of distinct buildings rather than one
+// repeated sprite. Falls back to the flat contract_* colour marker (below)
+// for any tile whose sprite isn't loaded.
+const SCENARIO_TYPES = ['datacentre', 'shippingcentre', 'wildlife'];
+const SCENARIO_STAGES = ['stage1', 'stage2', 'stage3'];
+const SCENARIO_KEYS = [];
+for (const t of SCENARIO_TYPES) for (const s of SCENARIO_STAGES) for (const v of VARIANTS)
+  SCENARIO_KEYS.push(`${t}_${s}_${v}`);
 
 const TERRAIN_KEYS = ['terrain_lowland', 'terrain_highland', 'terrain_hill',
   'terrain_wetland', 'terrain_water', 'terrain_shallows'];
@@ -39,10 +54,11 @@ ROAD_KEYS.push('road_bridge_span_ns', 'road_bridge_span_ew',
   'road_exit');
 
 // power plant + pump get the same SVG-sprite treatment as zone buildings
-// contract_generic is the overlay marker drawn on all contract-locked tiles
+// contract_generic/contract_* are the flat colour fallback markers, used
+// only when a scenario building sprite fails to load for a contract tile.
 const UTILITY_KEYS = [
   'powerplant', 'pump',
-  'contract_datacentre', 'contract_shippingcentre', 'contract_wildlife'
+  'contract_datacentre', 'contract_shippingcentre', 'contract_wildlife', 'contract_generic'
 ];
 
 // FOREST: 5 density tiers (bucketed from t.forestDensity 1-10, see renderer.js
@@ -53,6 +69,7 @@ const NATURE_KEYS = ['park', 'forest_1', 'forest_2', 'forest_3', 'forest_4', 'fo
 // key -> folder, so getAsset callers only ever deal in bare keys
 const MANIFEST = [
   ...BUILDING_KEYS.map(k => ['buildings', k]),
+  ...SCENARIO_KEYS.map(k => ['scenario', k]),
   ...UTILITY_KEYS.map(k => ['utilities', k]),
   ...TERRAIN_KEYS.map(k => ['terrain', k]),
   ...ROAD_KEYS.map(k => ['roads', k]),

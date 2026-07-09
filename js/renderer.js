@@ -207,8 +207,23 @@ function roadAssetKey(t){
 function buildingAssetKey(t,gx,gy,kind){
   const zone = ZONE_ASSET[kind];
   const dens = DENSITY_ASSET[t.level] || 'low';
-  const variant = String.fromCharCode(97 + tileSeed(gx,gy)%3);   // a/b/c
+  const variant = String.fromCharCode(97 + tileSeed(gx,gy)%6);   // a-f (scripts/gen-assets/)
   return `${zone}_${dens}_${variant}`;
+}
+// SCENARIO BUILDINGS: contract-locked tiles pick a sprite the same way zoned
+// tiles do — zone/stage/variant instead of zone/density/variant. Stage comes
+// from the scenario's currentStageIndex (0-based -> stage1/2/3); falls back
+// to stage1 if the scenario can't be found (e.g. a save from before this).
+const SCENARIO_ZONE = { AI_DATA_CENTRE:'datacentre', SHIPPING_CENTRE:'shippingcentre', WILDLIFE_RESERVE:'wildlife' };
+const SCENARIO_STAGE_NAMES = ['stage1','stage2','stage3'];
+function scenarioAssetKey(t,gx,gy){
+  const zone = SCENARIO_ZONE[t.contractType];
+  if(!zone) return null;
+  const scenario = (state.scenarios.active||[]).find(s=>s.id===t.contractId);
+  const stageIdx = scenario ? clamp(scenario.currentStageIndex,0,2) : 0;
+  const stage = SCENARIO_STAGE_NAMES[stageIdx];
+  const variant = String.fromCharCode(97 + tileSeed(gx,gy)%6);   // a-f, same convention as zone buildings
+  return `${zone}_${stage}_${variant}`;
 }
 // bridge tile -> span vs directional ramp (matches drawBridgeTile's detection)
 function bridgeAssetKey(t,gx,gy){
@@ -449,18 +464,26 @@ function drawTileContent(sx,sy,t,gx,gy){
     drawNeedIcon(sx,sy,t);
   }
   if(t.onFire>0) drawFire(sx,sy);
-  // SCENARIOS: contract zone marker — type-specific sprite, fallback to generic
+  // SCENARIOS: contract-locked tile -> its own procedural building sprite
+  // (scripts/gen-assets/gen-scenario.mjs), picked per-tile exactly like a
+  // zoned building. Falls back to the flat contract-colour diamond marker
+  // for any tile whose sprite isn't loaded (e.g. an unrecognised type, or
+  // assets/scenario/ missing from this build).
   if(t.contractId){
-    const TYPE_SPRITE = {
-      AI_DATA_CENTRE:   'contract_datacentre',
-      SHIPPING_CENTRE:  'contract_shippingcentre',
-      WILDLIFE_RESERVE: 'contract_wildlife'
-    };
-    const key = TYPE_SPRITE[t.contractType] || 'contract_generic';
-    const img = getAsset(key) || getAsset('contract_generic');
-    if(img){
-      const z=state.zoom, hh=(TILE_H/2)*z;
-      blitAsset(img, sx, sy+2*hh);
+    const z=state.zoom, hh=(TILE_H/2)*z;
+    const skey = scenarioAssetKey(t,gx,gy);
+    const simg = skey && getAsset(skey);
+    if(simg){
+      blitAsset(simg, sx, sy+2*hh);
+    } else {
+      const TYPE_SPRITE = {
+        AI_DATA_CENTRE:   'contract_datacentre',
+        SHIPPING_CENTRE:  'contract_shippingcentre',
+        WILDLIFE_RESERVE: 'contract_wildlife'
+      };
+      const key = TYPE_SPRITE[t.contractType] || 'contract_generic';
+      const img = getAsset(key) || getAsset('contract_generic');
+      if(img) blitAsset(img, sx, sy+2*hh);
     }
   }
 }
