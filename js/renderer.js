@@ -281,9 +281,25 @@ function blitAsset(img, sx, groundBottomY, tint, alpha){
 }
 /* ===== end ASSET RENDERER ============================================ */
 
+// PAUSE-AWARE ANIMATION CLOCK: drawSmoke()/drawFire() used to key their
+// animation off performance.now() directly, so plant smoke and fire kept
+// drifting even while the sim was paused (the render loop itself never
+// stops — only simLoop()/fireStep() gate on state.paused). _animMs only
+// advances while unpaused; updated once per render() frame (not per draw
+// call, since a frame can draw several smoking/burning tiles).
+let _animMs = 0, _animLastReal = null;
+function tickAnimClock(){
+  const real = performance.now();
+  if(_animLastReal === null) _animLastReal = real;
+  if(!state.paused) _animMs += real - _animLastReal;
+  _animLastReal = real;
+}
+function animClock(){ return _animMs; }
+
 /* --- Main draw: painter's algorithm in rotated order so depth sort
    stays correct at every facing. --- */
 export function render(){
+  tickAnimClock();
   ctx.clearRect(0,0,view.width,view.height);
   recenter();
 
@@ -1275,7 +1291,7 @@ function drawForest(sx,sy,t){
 
 function drawSmoke(sx,sy,riseY=30){
   ctx.fillStyle='rgba(120,120,130,0.5)';
-  const t=performance.now()/400;
+  const t=animClock()/400;
   for(let i=0;i<3;i++){
     const o=(t+i)%3;
     ctx.beginPath();
@@ -1286,7 +1302,7 @@ function drawSmoke(sx,sy,riseY=30){
 
 function drawFire(sx,sy){
   const z=state.zoom, hh=(TILE_H/2)*z;
-  const t=performance.now()/100;
+  const t=animClock()/100;
   for(let i=0;i<5;i++){
     const fx=sx+Math.sin(t+i*1.7)*5*z;
     const fy=sy+hh - (i%3)*6*z - 4*z;
