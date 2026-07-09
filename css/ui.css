@@ -7,7 +7,7 @@
   /* Colors */
   --bg: #121212;
   --bg-hover: #2a2a2a;
-  --panel: #141414;
+  --panel: rgba(12,12,12,0.8);
   --panel2: #161616;
   --panel3: #333333;
   --input: #080808;
@@ -59,10 +59,14 @@
   --sp-5: 16px;
   --sp-8: 32px;
   --sp-9: 36px;
+  --sp-10: 48px;
 
   /* Border radius */
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
+
+  /* Effect */
+  --blur: blur(10px);
 
   /* Borders */
   --border-panel-selected: 0.75px solid var(--ink);
@@ -119,12 +123,14 @@ body {
 /* --- Status bar (top) --- */
 #statusbar {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 30px;
-  background: var(--panel2);
-  border-bottom: var(--border-panel);
+  top: var(--sp-2);
+  left: var(--sp-2);
+  right: var(--sp-2);
+  height: var(--sp-9);
+  background: var(--panel);
+  backdrop-filter: var(--blur);
+  border: var(--border-panel);
+  border-radius: var(--radius-md);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -133,8 +139,7 @@ body {
   font-size: var(--font-base);
   z-index: 50;
   text-shadow: 0 0 4px rgba(232, 232, 232, 0.5);
-  -webkit-user-select: none;   /* redundant with body, but explicit here since this is the element
-                                   in question (clickable labels/values shouldn't drag-select) */
+  -webkit-user-select: none; 
   user-select: none;
 }
 
@@ -202,7 +207,7 @@ canvas.spark {
 /* --- STATISTICS: dropdown panel — bigger combined chart + toggleable rows --- */
 #stats-panel {
   position: fixed;
-  top: var(--sp-9);
+  top: var(--sp-10);
   left: 50%;
   transform: translateX(-50%);
   display: none;
@@ -210,6 +215,7 @@ canvas.spark {
   width: 448px;
   z-index: 90;
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-panel);
   border-radius: var(--radius-md);
   padding: var(--sp-2);
@@ -312,11 +318,12 @@ canvas.spark {
 /* --- Left panel (tools + terrain + demand accordion) --- */
 #left-panel {
   position: absolute;
-  top: var(--sp-9);
+  top: var(--sp-10);
   left: var(--sp-2);
   width: 152px;
   z-index: 50;
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-panel);
   border-radius: var(--radius-md);
   max-height: calc(100vh - 50px);
@@ -413,6 +420,7 @@ canvas.spark {
   left: var(--sp-2);
   width: 260px;
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-panel);
   padding: var(--sp-3);
   z-index: 50;
@@ -473,6 +481,7 @@ canvas.spark {
   bottom: var(--sp-2);
   right: var(--sp-2);
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-panel);
   padding: var(--sp-2);
   z-index: 50;
@@ -489,6 +498,7 @@ canvas.spark {
   display: block;
   image-rendering: pixelated;
   background: var(--panel);
+  backdrop-filter: var(--blur);
 }
 
 .ministrip {
@@ -506,6 +516,7 @@ canvas.spark {
   gap: var(--sp-1);
   width: 180px;
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-panel);
   border-radius: var(--radius-md);
   padding: var(--sp-2);
@@ -533,11 +544,12 @@ canvas.spark {
 /* --- Admin panel (top-right under status) --- */
 #admin-panel {
   position: absolute;
-  top: var(--sp-9);
+  top: var(--sp-10);
   right: var(--sp-2);
   width: 160px;
   z-index: 50;
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-panel);
   border-radius: var(--radius-md);
 }
@@ -636,11 +648,12 @@ button:disabled:hover {
 /* --- Notification centre --- */
 #notif-center {
   position: absolute;
-  top: var(--sp-9);
+  top: var(--sp-10);
   left: 164px;
   width: 260px;
   z-index: 60;
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-panel);
   border-radius: var(--radius-md);
 }
@@ -719,6 +732,7 @@ button:disabled:hover {
 
 .modal-panel {
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-dim);
   padding: var(--sp-5);
   width: 440px;
@@ -1020,6 +1034,7 @@ button:disabled:hover {
 
 .contract-modal-panel {
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: var(--border-dim);
   padding: var(--sp-5);
   width: 420px;
@@ -1117,6 +1132,7 @@ button:disabled:hover {
   transform: translateX(-50%);
   z-index: 205;
   background: var(--panel);
+  backdrop-filter: var(--blur);
   border: 2px solid #ff8c00;
   border-radius: var(--radius-md);
   padding: var(--sp-3) var(--sp-5);
