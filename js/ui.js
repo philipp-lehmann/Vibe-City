@@ -6,8 +6,8 @@
    status flash, and per-frame syncUI() that applies state -> DOM.
    ================================================================ */
 import { MAP_SIZES, WATER_LEVELS, DEFAULT_WATER, GAME_MODES, DEFAULT_MODE, SCENARIO_DEMAND_CAP_POP,
-         T, TOOLS, FACES, SHORT_MONTHS, isZone, LOANS,
-         POWERPLANT_CAPACITY, PUMP_CAPACITY } from './config.js';   // MAP SIZE / WATER AMOUNT / GAME MODE / CREDITS / UTILITIES
+         T, TOOLS, FACES, SHORT_MONTHS, isZone, LOANS, CITY_EMOJIS, DEFAULT_CITY_EMOJI,
+         POWERPLANT_CAPACITY, PUMP_CAPACITY } from './config.js';   // MAP SIZE / WATER AMOUNT / GAME MODE / CREDITS / UTILITIES / CITY IDENTITY
 import {
   state, tileAt, setTool, togglePause, rotateView,
   listSaves, saveGame, loadGame, deleteSave, importSave, serializeSave, newGame, takeLoan
@@ -55,8 +55,19 @@ export function buildToolbar() {
 const barColor = k => k === 'R' ? '#7caa6b' : k === 'C' ? '#8a5cf6' : '#d9a72c';
 
 /* --- status bar / budget / population / demand / facing --- */
+// CITY IDENTITY: keep the browser tab title in sync with the current city,
+// but only touch the DOM when it actually changes
+let _lastTitleKey = null;
+function syncPageTitle() {
+  const key = state.cityEmoji + state.cityName;
+  if (key === _lastTitleKey) return;
+  _lastTitleKey = key;
+  document.title = `${state.cityEmoji} ${state.cityName} — Vibe City`;
+}
+
 export function refreshHUD() {
-  $('s-name').textContent = state.cityName;
+  $('s-name').textContent = `${state.cityEmoji} ${state.cityName}`;
+  syncPageTitle();   // CITY IDENTITY
   // DATE FORMAT: fixed-width "Mmm YYYY" (3-char month, 4-digit year, single space)
   const yr = 1900 + Math.floor(state.month / 12);
   $('s-date').textContent = `${SHORT_MONTHS[state.month % 12]} ${yr}`;
@@ -349,13 +360,24 @@ export function updateInspector() {
   const names = {
     [T.GRASS]: 'Grassland', [T.WATER]: 'Water', [T.ROAD]: 'Road',
     [T.POWERLINE]: 'Power Line', [T.POWERPLANT]: 'Coal Plant', [T.PUMP]: 'Water Pump',
-    [T.PARK]: 'Park', [T.RES]: 'Residential', [T.COM]: 'Commercial', [T.IND]: 'Industrial'
+    [T.PARK]: 'Park', [T.RES]: 'Residential', [T.COM]: 'Commercial', [T.IND]: 'Industrial',
+    [T.FOREST]: 'Forest', [T.WILDLIFE]: 'Wildlife Area'
   };
   panel.querySelector('.ttl').textContent = names[t.type] || 'Tile';
   const dens = ['Low', 'Medium', 'High'][t.level] || 'Low';
   let rows = `<span class="k">Coords:</span> <span class="v">${x},${y}</span><br>`;
   rows += `<span class="k">Type:</span> <span class="v">${names[t.type]}</span><br>`;
-  if (isZone(t.type)) {
+  if (t.type === T.FOREST) {
+    // FOREST: own branch — no power/water/road fields, just tree density
+    rows += `<span class="k">Density:</span> <span class="v">${t.forestDensity}/10</span>`;
+  } else if (t.type === T.WILDLIFE) {
+    // WILDLIFE: own branch, same reasoning as forest — doesn't conduct power
+    // or need water/road, so those rows would just be noise. Shows instead
+    // whether it's currently counting toward an active Wildlife Reserve
+    // contract (see input.js tagWildlifeTile).
+    rows += `<span class="k">Reserve:</span> <span class="${t.contractLocked ? 'pwr-ok' : 'v'}">` +
+      `${t.contractLocked ? 'counts toward active contract' : 'unassigned'}</span>`;
+  } else if (isZone(t.type)) {
     rows += `<span class="k">Density:</span> <span class="v">${dens}</span><br>`;
     rows += `<span class="k">Population:</span> <span class="v">${t.pop}</span><br>`;
     rows += `<span class="k">Power:</span> <span class="${t.powered ? 'pwr-ok' : 'pwr-no'}">${t.powered ? 'YES' : 'NO'}</span>`;
@@ -453,6 +475,8 @@ function flashStatus(msg)      { addTransientNotif(msg, 'action'); }
 /* --- control-button wiring: buttons mutate state; labels synced below --- */
 export function wireControls() {
   $('btn-pause').onclick = () => togglePause();
+  $('s-date').onclick = () => togglePause();   // statusbar date doubles as a play/pause toggle
+  $('s-name').onclick = showRenameCityModal;   // CITY IDENTITY: statusbar name opens the rename dialog
   $('btn-speed').onclick = () => { state.speedIdx = (state.speedIdx + 1) % state.speeds.length; };
   $('btn-zoom').onclick = () => cycleZoom();   // ZOOM LEVELS: fit -> 1x -> 2x
   $('btn-rot-l').onclick = () => rotateView(-1);
@@ -658,6 +682,52 @@ function confirmOverwriteImport(slot, entry) {
   _contractModal.querySelector('#cm-confirm').onclick = () => { closeContractModal(); finishImport(slot); };
 }
 
+// CITY IDENTITY: statusbar city name -> rename + emoji picker
+function showRenameCityModal() {
+  let pickedRenameEmoji = state.cityEmoji;
+  openContractModal(`
+    <div class="contract-modal-panel">
+      <div class="contract-modal-title">Rename City</div>
+
+      <div class="modal-field">
+        <label>City Name</label>
+        <input id="rename-input" class="modal-input row" type="text" maxlength="48" value="${escapeHtml(state.cityName)}">
+      </div>
+      <div class="modal-field">
+        <div id="rename-emoji-row"></div>
+      </div>
+      <div class="contract-modal-footer">
+        <button class="btn-confirm-action" id="cm-cancel">Cancel</button>
+        <button class="btn-confirm-action" id="cm-confirm">Save</button>
+      </div>
+    </div>
+  `);
+  const emojiRow = _contractModal.querySelector('#rename-emoji-row');
+  const highlightRenameEmoji = () => {
+    emojiRow.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.emoji === pickedRenameEmoji);
+    });
+  };
+  CITY_EMOJIS.forEach(e => {
+    const b = document.createElement('button');
+    b.dataset.emoji = e; b.className = 'size-card emoji-card';
+    b.textContent = e;
+    b.onclick = () => { pickedRenameEmoji = e; highlightRenameEmoji(); };
+    emojiRow.appendChild(b);
+  });
+  highlightRenameEmoji();
+
+  const input = _contractModal.querySelector('#rename-input');
+  _contractModal.querySelector('#cm-cancel').onclick  = closeContractModal;
+  _contractModal.querySelector('#cm-confirm').onclick = () => {
+    const name = (input.value || '').trim();
+    if (name) state.cityName = name;
+    state.cityEmoji = pickedRenameEmoji;
+    closeContractModal();
+  };
+  setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+
 function slotThumbHtml(thumb) {
   return thumb ? `<img class="slot-thumb" src="${thumb}">` : `<div class="slot-thumb"></div>`;
 }
@@ -690,7 +760,7 @@ function slotCard(slot, entry) {
   info.title = picking
     ? `Overwrite ${escapeHtml(entry.cityName || 'City')} with the imported save`
     : `Load this ${escapeHtml(entry.cityName || 'City')}`;
-  info.innerHTML = `<span class="slot-name">${escapeHtml(entry.cityName || 'City')}</span>
+  info.innerHTML = `<span class="slot-name">${entry.cityEmoji || DEFAULT_CITY_EMOJI}<br>${escapeHtml(entry.cityName || 'City')}</span>
     <span class="slot-meta">${fmtDate(entry.month || 0)}<br>Pop. ${(entry.pop || 0).toLocaleString()}</span>
     ${slotThumbHtml(entry.thumb)}`;
   info.onclick = picking ? () => confirmOverwriteImport(slot, entry) : () => doLoadSlot(slot, entry);
@@ -738,7 +808,7 @@ function renderSlots() {
     info.className = 'slot-load';
     info.title = 'Load autosave';
     info.innerHTML = `${slotThumbHtml(a.thumb)}
-      <span class="slot-meta"><span class="slot-name">Autosave</span> ${escapeHtml(a.cityName || '')} · ${fmtDate(a.month || 0)} · pop ${(a.pop || 0).toLocaleString()}</span>`;
+      <span class="slot-meta"><span class="slot-name">Autosave ${a.cityEmoji || DEFAULT_CITY_EMOJI} ${escapeHtml(a.cityName || '')} </span><br> ${fmtDate(a.month || 0)} · Pop. ${(a.pop || 0).toLocaleString()}</span>`;
     info.onclick = () => doLoadSlot('autosave', a);
     row.appendChild(info);
     box.appendChild(row);
@@ -775,7 +845,8 @@ function randomCityName() {
   const s = _CITY_SUFFIXES[Math.random() * _CITY_SUFFIXES.length | 0];
   return f + s;
 }
-let sizeModal = null, pickedSize = 'medium', pickedWater = DEFAULT_WATER, pickedMode = DEFAULT_MODE;   // WATER AMOUNT / GAME MODE
+let sizeModal = null, pickedSize = 'medium', pickedWater = DEFAULT_WATER, pickedMode = DEFAULT_MODE,
+    pickedEmoji = DEFAULT_CITY_EMOJI;   // WATER AMOUNT / GAME MODE / CITY IDENTITY
 function buildSizeModal() {
   sizeModal = document.createElement('div');
   sizeModal.id = 'size-modal';
@@ -789,6 +860,10 @@ function buildSizeModal() {
         <input id="city-name-input" class="modal-input" type="text" maxlength="48">
         <button id="city-name-shuffle" class="btn-shuffle" title="Shuffle name">Random</button>
       </div>
+    </div>
+    <div class="modal-field">
+      <label>Emoji</label>
+      <div id="emoji-row"></div>
     </div>
     <div class="modal-field">
       <label>Mode</label>
@@ -808,6 +883,16 @@ function buildSizeModal() {
     </div>`;
   sizeModal.appendChild(panel);
   document.body.appendChild(sizeModal);
+  // CITY IDENTITY: emoji cards, same styling as size/water/mode pickers
+  const emojiRow = $('emoji-row');
+  CITY_EMOJIS.forEach(e => {
+    const card = document.createElement('button');
+    card.dataset.emoji = e;
+    card.className = 'size-card emoji-card';
+    card.textContent = e;
+    card.onclick = () => { pickedEmoji = e; highlightEmoji(); };
+    emojiRow.appendChild(card);
+  });
   // GAME MODE: two cards, same styling as size/water pickers
   const modeRow = $('mode-row');
   Object.entries(GAME_MODES).forEach(([key, m]) => {
@@ -847,13 +932,13 @@ function buildSizeModal() {
   $('size-confirm').onclick = () => {
     sizeModal.style.display = 'none';
     const name = ($('city-name-input').value || '').trim() || randomCityName();
-    newGame(name, pickedSize, WATER_LEVELS[pickedWater].pct, pickedMode);  // MAP SIZE / WATER AMOUNT / GAME MODE
+    newGame(name, pickedSize, WATER_LEVELS[pickedWater].pct, pickedMode, pickedEmoji);  // MAP SIZE / WATER AMOUNT / GAME MODE / CITY IDENTITY
     syncMinimapSize();
     resetStatsHistoryGuards();
     resetGameUI();
     startGame();                                       // STARTUP
     closeSaves();
-    flashStatus(`New ${MAP_SIZES[pickedSize].label} City: ${state.cityName}`);
+    flashStatus(`New ${MAP_SIZES[pickedSize].label} City: ${state.cityEmoji} ${state.cityName}`);
   };
 }
 function highlightSize() {
@@ -875,14 +960,22 @@ function highlightMode() {
     c.classList = on ? 'size-card active' : 'size-card';
   });
 }
+function highlightEmoji() {
+  sizeModal.querySelectorAll('[data-emoji]').forEach(c => {
+    const on = c.dataset.emoji === pickedEmoji;
+    c.classList = on ? 'size-card emoji-card active' : 'size-card emoji-card';
+  });
+}
 function doNewGame() {
   if (!sizeModal) buildSizeModal();
   pickedSize = Object.values(MAP_SIZES).find(p => p.w === state.gridWidth) ?
     Object.keys(MAP_SIZES).find(k => MAP_SIZES[k].w === state.gridWidth) : 'medium';
   pickedMode = DEFAULT_MODE;   // GAME MODE: never leak a previous new-game flow's selection
+  pickedEmoji = CITY_EMOJIS[Math.random() * CITY_EMOJIS.length | 0];   // CITY IDENTITY: a little variety by default
   highlightSize();
   highlightWater();
   highlightMode();
+  highlightEmoji();
   $('city-name-input').value = randomCityName();
   sizeModal.style.display = 'flex';
   setTimeout(() => $('city-name-input').select(), 50);

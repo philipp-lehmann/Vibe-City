@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="128" height="136"><defs/><g>
+<ellipse cx="44.00" cy="122.00" rx="14.40" ry="4.50" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="41.30" y="105.60" width="5.40" height="14.40" fill="#4a3218"/>
+<polygon points="24.20,107.40 63.80,107.40 44.00,89.40" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.08"/>
+<polygon points="28.70,96.60 59.30,96.60 44.00,76.80" fill="#154d1f" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.08"/>
+<polygon points="34.10,85.80 53.90,85.80 44.00,66.00" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.08"/>
+<ellipse cx="72.00" cy="118.00" rx="16.00" ry="5.00" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="69.00" y="100.00" width="6.00" height="16.00" fill="#4a3218"/>
+<polygon points="50.00,102.00 94.00,102.00 72.00,82.00" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.2"/>
+<polygon points="55.00,90.00 89.00,90.00 72.00,68.00" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.2"/>
+<polygon points="61.00,78.00 83.00,78.00 72.00,56.00" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.2"/>
+<ellipse cx="58.00" cy="102.00" rx="13.60" ry="4.25" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="55.45" y="86.40" width="5.10" height="13.60" fill="#4a3218"/>
+<polygon points="39.30,88.10 76.70,88.10 58.00,71.10" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.02"/>
+<polygon points="43.55,77.90 72.45,77.90 58.00,59.20" fill="#154d1f" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.02"/>
+<polygon points="48.65,67.70 67.35,67.70 58.00,49.00" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="1.02"/>
+<ellipse cx="88.00" cy="106.00" rx="12.80" ry="4.00" fill="rgb(0,0,0)" fill-opacity="0.18"/>
+<rect x="85.60" y="91.20" width="4.80" height="12.80" fill="#4a3218"/>
+<polygon points="70.40,92.80 105.60,92.80 88.00,76.80" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.96"/>
+<polygon points="74.40,83.20 101.60,83.20 88.00,65.60" fill="#1f6b2b" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.96"/>
+<polygon points="79.20,73.60 96.80,73.60 88.00,56.00" fill="#2f8a3c" stroke="#0a2a0f" stroke-opacity="0.35" stroke-width="0.96"/>
+</g></svg>

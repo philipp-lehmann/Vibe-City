@@ -7,7 +7,7 @@
    factory, grid init, bounds helpers, pure state mutators, and the
    drag-geometry selector (shared by renderer preview + input commit).
    ================================================================ */
-import { MAP_SIZES, DEFAULT_MAP, DEFAULT_MODE, T, LOANS } from './config.js';   // CREDITS
+import { MAP_SIZES, DEFAULT_MAP, DEFAULT_MODE, T, LOANS, DEFAULT_CITY_EMOJI } from './config.js';   // CREDITS / CITY IDENTITY
 import { generateTerrain, TERRAIN, isWaterTerrain, coastPass } from './terrain.js'; // TERRAIN / TERRAIN TOOLS
 
 // --- tile factory: keeps every tile's shape consistent ---
@@ -26,6 +26,10 @@ export function makeTile(type){
     elev: 0,         // elevation units for rendering
     pollution: 0,    // DEMAND SYSTEM: industrial pollution at this tile
     jobsNearby: true,// DEMAND SYSTEM: road-reachable C/I within commute radius
+    // FOREST: tree density 0-10, only meaningful when type===T.FOREST. Kept
+    // separate from `level` (which feeds generic zone/land-value math) so
+    // planting trees never accidentally affects unrelated systems.
+    forestDensity: 0,
     // TERRAIN: procedural base layer (set by applyTerrain on new game)
     terrain: TERRAIN.LOWLAND,
     elevation: 0.5,  // 0..1 simplex elevation
@@ -56,6 +60,7 @@ export const state = {
   pop: 0,
   month: 0,                       // months since start
   cityName: 'New Terminus',
+  cityEmoji: DEFAULT_CITY_EMOJI,   // CITY IDENTITY
   mode: DEFAULT_MODE,             // GAME MODE: 'freeplay' | 'scenario' — fixed at city creation
   demand: { R: 0.5, C: 0.2, I: 0.3 },
   tool: 'road',                   // current tool id
@@ -96,6 +101,11 @@ export const state = {
   revenue: { monthly: 0, lost: 0 },
   // SCENARIOS: city prestige/reputation (modified by contract outcomes)
   prestige: 0,
+  // WILDLIFE: tracks the fading "guilt" window after bulldozing a reserve
+  // tile — prestigeRefund is added back to state.prestige once state.month
+  // reaches untilMonth, so the hit is temporary (see simulation.js
+  // applyWildlifeRemovalPenalty / computeHappiness).
+  wildlifeGuilt: { untilMonth: 0, prestigeRefund: 0 },
   // LOANS: outstanding loans taken from the Admin panel's Credits dialog.
   // Each LOANS entry (see config.js) can only have one active loan at a time.
   loans: { active: [] },
@@ -270,6 +280,7 @@ export function serializeSave(thumb){
       funds: state.funds, pop: state.pop, month: state.month,
       taxPct: state.taxPct, taxRate: state.taxRate, happiness: state.happiness,
       speedIdx: state.speedIdx, demand: { ...state.demand }, cityName: state.cityName,
+      cityEmoji: state.cityEmoji,   // CITY IDENTITY
       mode: state.mode,   // GAME MODE
       gridWidth: state.gridWidth, gridHeight: state.gridHeight,   // MAP SIZE
       bridges: state.bridges,   // BRIDGES: persist bridge entities
@@ -293,9 +304,10 @@ export function serializeSave(thumb){
       },
       revenue:  { ...state.revenue },
       prestige: state.prestige,
+      wildlifeGuilt: { ...state.wildlifeGuilt },   // WILDLIFE
       loans:    { active: state.loans.active.map(l => ({ ...l })) }   // CREDITS
     },
-    meta: { cityName: state.cityName, ts: Date.now(), thumb: thumb || null,
+    meta: { cityName: state.cityName, cityEmoji: state.cityEmoji, ts: Date.now(), thumb: thumb || null,
             month: state.month, pop: state.pop }
   };
 }
@@ -305,7 +317,7 @@ export function saveGame(slot, thumb){
   const blob = serializeSave(thumb);
   localStorage.setItem(SAVE_PREFIX+slot, JSON.stringify(blob));
   const idx = _readIndex().filter(e=>e.slot!==slot);
-  idx.push({ slot, cityName: state.cityName, month: state.month,
+  idx.push({ slot, cityName: state.cityName, cityEmoji: state.cityEmoji, month: state.month,
              pop: state.pop, ts: blob.meta.ts, thumb: thumb || null });
   _writeIndex(idx);
   return true;
@@ -328,7 +340,8 @@ export function importSave(slot, blob){
   const meta = blob.meta || {};
   idx.push({
     slot,
-    cityName: meta.cityName || blob.state?.cityName || 'Imported City',
+    cityName:  meta.cityName  || blob.state?.cityName  || 'Imported City',
+    cityEmoji: meta.cityEmoji || blob.state?.cityEmoji || DEFAULT_CITY_EMOJI,
     month:    meta.month    ?? blob.state?.month    ?? 0,
     pop:      meta.pop      ?? blob.state?.pop      ?? 0,
     ts: Date.now(),
@@ -353,7 +366,8 @@ export function applySave(blob){
   state.taxRate  = s.taxRate  ?? (state.taxPct/100);
   state.happiness= s.happiness?? 70;
   state.speedIdx = s.speedIdx ?? state.speedIdx;
-  state.cityName = s.cityName || blob.meta?.cityName || 'New Terminus';
+  state.cityName  = s.cityName  || blob.meta?.cityName  || 'New Terminus';
+  state.cityEmoji = s.cityEmoji || blob.meta?.cityEmoji || DEFAULT_CITY_EMOJI;   // CITY IDENTITY
   // GAME MODE: default old saves without this field to Free Play so nothing
   // retroactively locks demand behind a contract system that wasn't there before.
   state.mode = s.mode === 'scenario' ? 'scenario' : DEFAULT_MODE;
@@ -378,6 +392,8 @@ export function applySave(blob){
   }
   state.revenue  = s.revenue  ? { ...s.revenue  } : { monthly: 0, lost: 0 };
   state.prestige = s.prestige ?? 0;
+  // WILDLIFE: restore the removal-guilt window (older saves without this key get none active)
+  state.wildlifeGuilt = s.wildlifeGuilt ? { ...s.wildlifeGuilt } : { untilMonth: 0, prestigeRefund: 0 };
   // CREDITS: restore outstanding loans (older saves without this key get none)
   state.loans = { active: Array.isArray(s.loans?.active) ? s.loans.active.map(l => ({ ...l })) : [] };
   state.pendingOffers    = [];   // SCENARIOS: never restore mid-offer/placement state
@@ -391,14 +407,15 @@ export function loadGame(slot){ return applySave(readSave(slot)); }
 // reset to a fresh city (clears grid, reseeds a coal plant like first boot)
 // MAP SIZE: optional sizeKey selects grid dimensions before init
 // WATER AMOUNT: optional waterPct (0..1) targets that fraction of the map as water
-export function newGame(name, sizeKey, waterPct, mode){
+export function newGame(name, sizeKey, waterPct, mode, emoji){
   if(sizeKey) setMapSize(sizeKey);
   initGrid();
   // TERRAIN: generate once per new game from a fresh random seed
   applyTerrain(generateTerrain(state.gridWidth, state.gridHeight, (Math.random()*1e9)>>>0, waterPct));
   state.funds=50000; state.pop=0; state.month=0;
   state.taxPct=8; state.taxRate=0.08; state.happiness=70;
-  state.cityName = name || 'New Terminus';
+  state.cityName  = name  || 'New Terminus';
+  state.cityEmoji = emoji || DEFAULT_CITY_EMOJI;   // CITY IDENTITY
   state.mode = mode === 'scenario' ? 'scenario' : DEFAULT_MODE;   // GAME MODE: fixed for the life of this city
   state.demand = { R:0.5, C:0.2, I:0.3 };
   state.outsideConnections = 0;
@@ -410,6 +427,7 @@ export function newGame(name, sizeKey, waterPct, mode){
   state.scenarios = { active: [], completed: [], jobs: 0, contractBlacklist: {} };
   state.revenue   = { monthly: 0, lost: 0 };
   state.prestige  = 0;
+  state.wildlifeGuilt = { untilMonth: 0, prestigeRefund: 0 };   // WILDLIFE
   state.pendingOffers    = [];
   state.pendingPlacements = [];
   state.placementMode    = null;

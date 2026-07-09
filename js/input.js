@@ -5,14 +5,14 @@
    commit, and screen->grid picking. Mutates state and emits notices/
    flash; it does not update HUD/panel DOM (ui.js does that each frame).
    ================================================================ */
-import { T, TOOLS } from './config.js';
+import { T, TOOLS, FOREST_MAX_DENSITY } from './config.js';
 import { state, makeTile, inBounds, setTool, togglePause, rotateView,
          pushNotice, requestFlash, dragTiles,
          updateRoadsAround, recomputeAllRoads, isEdge,
          genBridgeId, findBridge, bulldozeCost } from './state.js';   // ROAD CONNECTORS / EXIT FIX / BRIDGES
 import { view, screenToIso, stepZoom } from './renderer.js';   // ZOOM LEVELS
 import { isWaterTerrain, TERRAIN, coastPass } from './terrain.js';   // ROAD CONNECTORS / WATER TOOL / TERRAIN TOOLS
-import { propagatePower, propagateWater, computeRoadAccess } from './simulation.js';   // WATER TOOL: live propagation
+import { propagatePower, propagateWater, computeRoadAccess, applyWildlifeRemovalPenalty } from './simulation.js';   // WATER TOOL: live propagation / WILDLIFE
 
 // TERRAIN TOOLS: paintable terrain types -> {terrain id, landscaping cost, swatch}
 export const TERRAIN_TOOLS = {
@@ -32,10 +32,21 @@ let dragging=false, dragBtn=0, lastPaint='';
 function contractBlocks(t, toolId){
   if(!t.contractLocked) return false;
   if(t.contractType==='WILDLIFE_RESERVE'){
-    return !(isTerrainTool(toolId) || toolId==='road');
+    // WILDLIFE: unlike every other contract type, reserve tiles are never
+    // permanently locked — the player can always remove one (dozer or
+    // right-click), same as terrain tools/road. It isn't free: see
+    // applyWildlifeRemovalPenalty() (simulation.js), hooked in at both
+    // bulldoze call sites below.
+    return !(isTerrainTool(toolId) || toolId==='road' || toolId==='bull');
   }
   return true;  // all other contract types block everything
 }
+
+// WILDLIFE: true for any tile that counts as "a wildlife area" for the
+// removal-penalty hook — either the standalone tool-placed kind (t.type)
+// or a tile from an original contract-acceptance placement batch, which
+// keeps its underlying tile.type and is only distinguished by contractType.
+const isWildlifeArea = t => t.type===T.WILDLIFE || t.contractType==='WILDLIFE_RESERVE';
 
 // --- single-tile placement (used by non-drag tools and per-tile paint) ---
 function placeTool(gx,gy){
@@ -87,8 +98,11 @@ function placeTool(gx,gy){
     }
     if(t.type!==T.GRASS && t.type!==T.WATER){
       const wasRoad=t.type===T.ROAD;
+      const wasWildlife=isWildlifeArea(t);   // WILDLIFE: capture before the tile object is replaced
       if(spend(bulldozeCost(t))){ state.grid[gy][gx]=makeTile(T.GRASS);   // wetland costs 2x
-        if(wasRoad) updateRoadsAround(gx,gy); }   // ROAD CONNECTORS: recompute on bulldoze
+        if(wasWildlife) preserveTerrain(state.grid[gy][gx], t);   // WILDLIFE: never flatten, even on removal
+        if(wasRoad) updateRoadsAround(gx,gy);   // ROAD CONNECTORS: recompute on bulldoze
+        if(wasWildlife) applyWildlifeRemovalPenalty(); }   // WILDLIFE
     }
     return;
   }
@@ -101,13 +115,68 @@ function placeTool(gx,gy){
   if(t.type===T.WATER){ return; }
   const key=gx+','+gy+':'+tool.id;
   if(key===lastPaint) return;
-  // TERRAIN TOOLS: hills (and water) are non-buildable / non-routable
-  if(t.type!==T.GRASS || t.terrain===TERRAIN.HILL){ return; }
+
+  // FOREST: unlike every other tool, clicking an already-forested tile grows
+  // it in place (density 1..FOREST_MAX_DENSITY) instead of being rejected by
+  // the "must be bare grass" rule below. Each click — including each density
+  // increment — costs tool.cost, same as planting fresh.
+  if(tool.id==='forest' && t.type===T.FOREST){
+    if(t.forestDensity>=FOREST_MAX_DENSITY){ requestFlash('Forest already fully grown here.'); return; }
+    if(spend(tool.cost)){ t.forestDensity=Math.min(FOREST_MAX_DENSITY, t.forestDensity+1); lastPaint=key; }
+    return;
+  }
+
+  // TERRAIN TOOLS: hills (and water) are non-buildable / non-routable — except
+  // WILDLIFE, which is allowed on hills too: a reserve doesn't need flat,
+  // buildable land the way a zoned building does.
+  if(t.type!==T.GRASS || (t.terrain===TERRAIN.HILL && tool.id!=='wildlife')){ return; }
 
   if(spend(tool.cost)){
-    state.grid[gy][gx]=makeTile(tool.tile); lastPaint=key;
+    // WILDLIFE: never flatten terrain — capture the tile's natural fields
+    // before makeTile() resets them to its LOWLAND/flat default, then
+    // restore. Mirrors placeScenario()'s own exception for WILDLIFE_RESERVE
+    // (scenario.js): the whole point of a reserve is preserving natural
+    // land — hills, wetlands, etc. — not replacing it with buildable flatland.
+    const prevTerrain=t.terrain, prevElevation=t.elevation, prevMoisture=t.moisture, prevCoast=t.coast;
+    state.grid[gy][gx]=makeTile(tool.tile);
+    if(tool.id==='forest') state.grid[gy][gx].forestDensity=1;   // FOREST: seed as a single tree
+    if(tool.id==='wildlife'){
+      preserveTerrain(state.grid[gy][gx], {terrain:prevTerrain, elevation:prevElevation, moisture:prevMoisture, coast:prevCoast});
+      tagWildlifeTile(gx,gy);   // WILDLIFE: count toward an active reserve contract
+    }
+    lastPaint=key;
     if(tool.tile===T.ROAD) updateRoadsAround(gx,gy);   // ROAD CONNECTORS
   }
+}
+
+// WILDLIFE: copy natural-terrain fields from one tile onto another. Used both
+// when placing (never flatten what's already there) and when bulldozing
+// (removing the tile shouldn't erase its hill/wetland/etc. either, see the
+// two bulldoze sites below) — the natural land IS the point of a reserve,
+// not an incidental side effect of clearing one.
+function preserveTerrain(dst, src){
+  dst.terrain=src.terrain; dst.elevation=src.elevation; dst.moisture=src.moisture; dst.coast=src.coast;
+}
+
+// WILDLIFE: freely-placed wildlife tiles double as fulfillment for an active
+// WILDLIFE_RESERVE contract. If one is currently ACTIVE (already accepted and
+// running — not still awaiting its initial PLACEMENT batch, which goes through
+// state.placementMode above), tag the tile exactly like ScenarioManager.
+// placeScenario() does and append its coords to the scenario's own .tiles
+// array, since that's what requirements.js's checkTiles()/checkPowerAccess()/
+// etc. actually read (a live contractId grid-scan alone would not satisfy
+// them). A tile with no matching active scenario just stays a plain,
+// freely-bulldozable wildlife tile (see contractBlocks: only contractLocked
+// tiles are protected).
+function tagWildlifeTile(gx,gy){
+  const scenario = (state.scenarios.active||[]).find(s=>s.type==='WILDLIFE_RESERVE' && s.status==='ACTIVE');
+  if(!scenario) return;
+  const tile = state.grid[gy][gx];
+  tile.contractId = scenario.id;
+  tile.contractType = scenario.type;
+  tile.contractLocked = true;
+  if(!scenario.tiles) scenario.tiles = [];
+  if(!scenario.tiles.some(([x,y]) => x===gx && y===gy)) scenario.tiles.push([gx,gy]);
 }
 
 function spend(n){
@@ -268,8 +337,11 @@ function bulldoze(gx,gy){
   }
   if(t.type!==T.GRASS && t.type!==T.WATER){
     const wasRoad=t.type===T.ROAD;
+    const wasWildlife=isWildlifeArea(t);   // WILDLIFE: capture before the tile object is replaced
     if(spend(bulldozeCost(t))){ state.grid[gy][gx]=makeTile(T.GRASS);   // wetland costs 2x
-      if(wasRoad) updateRoadsAround(gx,gy); }   // ROAD CONNECTORS
+      if(wasWildlife) preserveTerrain(state.grid[gy][gx], t);   // WILDLIFE: never flatten, even on removal
+      if(wasRoad) updateRoadsAround(gx,gy);   // ROAD CONNECTORS
+      if(wasWildlife) applyWildlifeRemovalPenalty(); }   // WILDLIFE
   }
 }
 

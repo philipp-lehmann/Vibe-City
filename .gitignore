@@ -9,3 +9,6 @@
 # Spotlight
 .Spotlight-V100
 .Trashes
+
+# Generated draft assets (see scripts/gen-assets/)
+assets/drafts/
