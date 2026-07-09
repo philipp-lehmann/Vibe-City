@@ -49,7 +49,7 @@ jobs:
           $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" -File | Select-Object -First 1
           $zipDir = "src-tauri/target/release/bundle/zip"
           New-Item -ItemType Directory -Force -Path $zipDir | Out-Null
-          Compress-Archive -Path $exe.FullName -DestinationPath "$zipDir/$($exe.BaseName)-portable.zip"
+          Compress-Archive -Path $exe.FullName -DestinationPath "$zipDir/$($exe.BaseName)-portable.zip" -Force
           # Note: Tauri's bundler has no native "zip" target, so the portable
           # build is just the raw signed/unsigned .exe zipped up by hand.
 
