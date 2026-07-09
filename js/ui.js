@@ -65,21 +65,48 @@ function syncPageTitle() {
   document.title = `${state.cityEmoji} ${state.cityName} — Vibe City`;
 }
 
+// CLICK-THROUGH FIX (Tauri/WKWebView): textContent assignment always tears
+// down and recreates the child text node, even when the string is unchanged.
+// refreshHUD() runs every animation frame, so unconditional assignment here
+// was recreating the text node under the user's mouse ~60x/sec — WKWebView
+// (the Tauri desktop build's webview) drops the pending click gesture when
+// its target node is replaced mid-click, so clicks landing on the rendered
+// glyphs (rather than the surrounding element background) silently did
+// nothing. Chromium-based browsers tolerate this, which is why it only
+// showed up in the packaged app. Guard with a last-value cache (same
+// pattern as _lastTitleKey/_lastMode/lastTool below) so the DOM is only
+// touched when the displayed value actually changes.
+let _lastStatusName = null;
+let _lastStatusDate = null;
+// s-pop/s-funds/s-happy sit inside a .grp whose *ancestor* owns the click
+// listener (opens the Statistics panel — see initStatsPanel()), not the <b>
+// itself. Recreating their text node every frame broke that click the same
+// way — WKWebView still drops the gesture if the node under the mousedown
+// is gone by mouseup, even though the listener lives higher up the tree.
+let _lastStatusPop = null;
+let _lastStatusFunds = null;
+let _lastStatusHappy = null;
 export function refreshHUD() {
-  $('s-name').textContent = `${state.cityEmoji} ${state.cityName}`;
+  const nameStr = `${state.cityEmoji} ${state.cityName}`;
+  if (nameStr !== _lastStatusName) { _lastStatusName = nameStr; $('s-name').textContent = nameStr; }
   syncPageTitle();   // CITY IDENTITY
   // DATE FORMAT: fixed-width "Mmm YYYY" (3-char month, 4-digit year, single space)
   const yr = 1900 + Math.floor(state.month / 12);
-  $('s-date').textContent = `${SHORT_MONTHS[state.month % 12]} ${yr}`;
+  const dateStr = `${SHORT_MONTHS[state.month % 12]} ${yr}`;
+  if (dateStr !== _lastStatusDate) { _lastStatusDate = dateStr; $('s-date').textContent = dateStr; }
   $('s-face').textContent = FACES[state.rot];
-  $('s-pop').textContent = state.pop.toLocaleString();
+
+  const popStr = state.pop.toLocaleString();
+  if (popStr !== _lastStatusPop) { _lastStatusPop = popStr; $('s-pop').textContent = popStr; }
+
   const f = $('s-funds');
-  f.textContent = (state.funds < 0 ? '-$' : '$') + Math.abs(state.funds).toLocaleString();
+  const fundsStr = (state.funds < 0 ? '-$' : '$') + Math.abs(state.funds).toLocaleString();
+  if (fundsStr !== _lastStatusFunds) { _lastStatusFunds = fundsStr; f.textContent = fundsStr; }
   f.style.color = state.funds < 0 ? 'var(--warn)' : 'var(--ink)';
 
   // DEMAND SYSTEM: happiness readout, coloured by band
   const hp = $('s-happy');
-  hp.textContent = state.happiness;
+  if (state.happiness !== _lastStatusHappy) { _lastStatusHappy = state.happiness; hp.textContent = state.happiness; }
   hp.style.color = state.happiness >= 60 ? 'var(--ink)' : state.happiness >= 35 ? 'var(--gold)' : 'var(--warn)';
 
   for (const k of ['R', 'C', 'I']) {
@@ -503,13 +530,25 @@ function expandAdminSection() {
 
 /* --- per-frame DOM sync: control labels, tool highlight, indicators --- */
 let _lastMode = null;
+// CLICK-THROUGH FIX (Tauri/WKWebView) — see refreshHUD()'s _lastStatusName
+// comment. btn-pause/btn-zoom labels are plain textContent driven straight
+// by a click handler on the same element, so recreating their text node
+// every frame ate clicks that landed on the glyphs in the packaged app.
+// btn-speed is unaffected: its spans are pointer-events:none, so hit-testing
+// always resolves to the button itself, not a child being replaced.
+let _lastPaused = null;
+let _lastZoomLabel = null;
 function syncControls() {
   const pb = $('btn-pause');
-  pb.textContent = state.paused ? '▶ Paused' : '⏸ Running';
-  pb.style.color = state.paused ? 'var(--warn)' : 'var(--gold)';
+  if (state.paused !== _lastPaused) {
+    _lastPaused = state.paused;
+    pb.textContent = state.paused ? '▶ Paused' : '⏸ Running';
+    pb.style.color = state.paused ? 'var(--warn)' : 'var(--gold)';
+  }
   $('btn-speed').innerHTML = [0,1,2].map(i =>
     `<span style="opacity:${i <= state.speedIdx ? 1 : 0.25};pointer-events:none">▶</span>`).join('');
-  $('btn-zoom').textContent = zoomLabel();
+  const zl = zoomLabel();
+  if (zl !== _lastZoomLabel) { _lastZoomLabel = zl; $('btn-zoom').textContent = zl; }
   // GAME MODE: Contracts button (in the Admin accordion) only exists in Scenario Mode
   if (state.mode !== _lastMode) {
     _lastMode = state.mode;

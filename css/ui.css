@@ -89,6 +89,7 @@ body {
   font-family: "JetBrains Mono", "Courier New", "Lucida Console", monospace;
   -webkit-font-smoothing: none;
   image-rendering: pixelated;
+  -webkit-user-select: none;   /* Safari/WKWebView (Tauri) needs the prefixed form too */
   user-select: none;
 }
 
@@ -132,6 +133,9 @@ body {
   font-size: var(--font-base);
   z-index: 50;
   text-shadow: 0 0 4px rgba(232, 232, 232, 0.5);
+  -webkit-user-select: none;   /* redundant with body, but explicit here since this is the element
+                                   in question (clickable labels/values shouldn't drag-select) */
+  user-select: none;
 }
 
 #statusbar .lbl {
