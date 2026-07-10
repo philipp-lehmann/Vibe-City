@@ -1,6 +1,6 @@
 [package]
 name = "vibe-city"
-version = "0.1.4"
+version = "0.1.5"
 description = "Vibe City — a isometric city builder"
 authors = ["Redefine Studio"]
 edition = "2021"

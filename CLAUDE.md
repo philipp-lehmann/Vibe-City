@@ -165,7 +165,14 @@ In `syncPersistentWarnings()` (ui.js), push a string to `active[]`. It appears a
 - Screen origin at canvas center + cam offset
 - Grid → screen: `sx = (gx - gy) * 64`, `sy = (gx + gy) * 52`
 - Rotation applied by remapping grid delta: `rdx = rot===0?dx : rot===1?-dy : rot===2?-dx : dy`
-- Two zoom levels via `cycleZoom()` (renderer.js): Fit → 1× → 2×
+- `state.zoom` is a continuous float (clamped to `[fitScale(), ZOOM_MAX]` via `clampZoom()`
+  in renderer.js), used as a plain multiplier everywhere (`isoToScreen`, `blitAsset`, `box()`,
+  ...). The mouse wheel drives it continuously and cursor-anchored via `zoomAt(mx, my, factor)`
+  (input.js's wheel handler — normalizes trackpad vs wheel-notch deltas and ctrlKey pinch
+  gestures into a factor, see the handler's own comment). The playback panel's zoom button
+  still cycles three named presets (Fit → 1× → 2×) via `cycleZoom()`; `zoomLevel` (renderer.js)
+  is bookkeeping for that button only and is re-synced to the nearest preset after every wheel
+  zoom (`syncZoomLevel()`) so the button continues sensibly from wherever the user scrolled to.
 
 ## Procedural building asset generation
 

@@ -31,24 +31,68 @@ export function resize(){
 }
 window.addEventListener('resize', resize);
 
-/* ===== ZOOM LEVELS ====================================================
-   Three levels: 0 = fully zoomed out ("0.5x" — scales so the whole map
-   fits the viewport, for planning/overlays), 1 = 1x, 2 = 2x. The fit
-   scale is recomputed from viewport + map size. state.zoom holds the
-   actual pixel scale used everywhere; zoomLevel tracks which level.
+/* ===== ZOOM ============================================================
+   state.zoom is a continuous pixel scale (any float in [zoomMin, ZOOM_MAX])
+   — it's already used as a plain multiplier everywhere in the renderer
+   (isoToScreen, blitAsset, box(), etc.), so continuous zoom needed no
+   rendering changes, only a different input->state.zoom mapping.
+   zoomLevel/ZOOM_LABELS survive as bookkeeping for the playback panel's
+   Fit/1x/2x button only: it cycles through three named presets, but the
+   mouse wheel (see zoomAt(), driven from input.js) free-zooms state.zoom
+   continuously and anchored to the cursor. zoomLevel is re-synced to
+   whichever preset is nearest after every wheel zoom (syncZoomLevel), so
+   the button's next press always continues sensibly from wherever the
+   user scrolled to, instead of jumping from a stale index.
    ===================================================================== */
-let zoomLevel = 1;                      // 0=fit, 1=1x, 2=2x
-const ZOOM_LABELS = ['0.5x','1x','2x'];
+let zoomLevel = 1;                      // 0=fit, 1=1x, 2=2x — button bookkeeping only
+const ZOOM_LABELS = ['Fit','1x','2x'];
+const ZOOM_MAX = 3;                     // continuous-zoom upper clamp (presets top out at 2x)
 function fitScale(){
   const gw=state.gridWidth, gh=state.gridHeight;
   const sx = view.width  / ((gw+gh) * (TILE_W/2));
   const sy = view.height / ((gw+gh) * (TILE_H/2));
   return Math.max(0.04, Math.min(sx, sy) * 0.94);   // 0.94 = small margin
 }
-export function applyZoomLevel(){ state.zoom = zoomLevel===0 ? fitScale() : (zoomLevel===1?1:2); }
+function presets(){ return [fitScale(), 1, 2]; }
+// lower clamp tracks fitScale() (never zoom out past "see the whole map",
+// same floor the old Fit preset gave you) even though fitScale() itself
+// varies with viewport/map size.
+function clampZoom(z){ return Math.min(ZOOM_MAX, Math.max(fitScale(), z)); }
+function syncZoomLevel(){
+  const p=presets(); let best=0, bd=Infinity;
+  for(let i=0;i<p.length;i++){ const d=Math.abs(p[i]-state.zoom); if(d<bd){ bd=d; best=i; } }
+  zoomLevel=best;
+}
+export function applyZoomLevel(){ state.zoom = presets()[zoomLevel]; }
 export function cycleZoom(){ zoomLevel=(zoomLevel+1)%3; applyZoomLevel(); }   // fit->1x->2x
 export function stepZoom(dir){ zoomLevel=Math.max(0,Math.min(2,zoomLevel+dir)); applyZoomLevel(); }
-export function zoomLabel(){ return ZOOM_LABELS[zoomLevel]; }
+export function zoomLabel(){
+  const p=presets();
+  const i=p.findIndex(v=>Math.abs(v-state.zoom)<0.01);
+  return i>=0 ? ZOOM_LABELS[i] : Math.round(state.zoom*100)+'%';   // free-scrolled: live percentage
+}
+
+// SEAMLESS ZOOM: zoom continuously by `factor` (>1 = in, <1 = out), keeping
+// the world point under canvas-local point (mx,my) fixed on screen — so
+// zooming doesn't recentre on the map's middle and disorient you. Every
+// screen position in this renderer has the form
+//   screenPos(z) = fixedOrigin + cam + K*z
+// (K a point-specific constant — see isoToScreen/recenter: originX is a
+// flat view.width/2, and originY's only z-dependent term is linear in z,
+// same as the hw/hh projection terms), so holding a point fixed while
+// z0->z1 is a single closed-form camera update, independent of which grid
+// tile is actually under the cursor:
+//   cam' = (P - fixedOrigin)*(1 - z1/z0) + cam*(z1/z0)
+export function zoomAt(mx, my, factor){
+  const z0 = state.zoom;
+  const z1 = clampZoom(z0 * factor);
+  if(z1 === z0) return;
+  const r = z1 / z0;
+  state.cam.x = (mx - view.width/2)  * (1 - r) + state.cam.x * r;
+  state.cam.y = (my - view.height/2) * (1 - r) + state.cam.y * r;
+  state.zoom = z1;
+  syncZoomLevel();
+}
 
 /* --- View rotation. Logical (gx,gy) -> rotated render coords (rx,ry)
    before projecting; inverted when picking. rot: 0=N 1=E 2=S 3=W. --- */

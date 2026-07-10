@@ -10,7 +10,7 @@ import { state, makeTile, inBounds, setTool, togglePause, rotateView,
          pushNotice, requestFlash, dragTiles,
          updateRoadsAround, recomputeAllRoads, isEdge,
          genBridgeId, findBridge, bulldozeCost } from './state.js';   // ROAD CONNECTORS / EXIT FIX / BRIDGES
-import { view, screenToIso, stepZoom } from './renderer.js';   // ZOOM LEVELS
+import { view, screenToIso, zoomAt } from './renderer.js';   // SEAMLESS ZOOM
 import { isWaterTerrain, TERRAIN, coastPass } from './terrain.js';   // ROAD CONNECTORS / WATER TOOL / TERRAIN TOOLS
 import { propagatePower, propagateWater, computeRoadAccess, applyWildlifeRemovalPenalty } from './simulation.js';   // WATER TOOL: live propagation / WILDLIFE
 
@@ -515,10 +515,28 @@ export function initInput(){
     dragging=false; lastPaint='';
   });
 
-  // ZOOM LEVELS: scroll wheel steps through 0.5x / 1x / 2x (ui syncs label)
+  // SEAMLESS ZOOM: continuous, cursor-anchored zoom (see zoomAt in renderer.js).
+  // Trackpads fire a burst of small deltaY events per gesture (deltaMode=0,
+  // pixel deltas) while physical wheel notches send fewer, larger deltaY
+  // jumps — treating every wheel *event* as one whole preset step (the old
+  // behaviour) made a trackpad flick blow through all 3 zoom levels almost
+  // instantly. Instead deltaY drives a continuous zoom-speed factor via
+  // exp(), so a burst of small trackpad deltas composes into the same
+  // smooth curve one big wheel notch would produce, and it's clamped per
+  // event so no single delta spike (some mice report huge deltaY) causes a
+  // jarring jump. ctrlKey marks a trackpad pinch gesture (Chrome/Safari/
+  // Firefox all synthesize wheel events with ctrlKey=true for pinch), which
+  // reports on a much finer delta scale, so it gets its own sensitivity.
   view.addEventListener('wheel',e=>{
     e.preventDefault();
-    stepZoom(e.deltaY<0 ? +1 : -1);
+    const r=view.getBoundingClientRect();
+    const mx=e.clientX-r.left, my=e.clientY-r.top;
+    let dy=e.deltaY;
+    if(e.deltaMode===1) dy*=16;        // line mode -> approx pixels
+    else if(e.deltaMode===2) dy*=view.height;  // page mode -> viewport height
+    const sensitivity = e.ctrlKey ? 0.02 : 0.0015;
+    const exponent = Math.max(-0.6, Math.min(0.6, -dy*sensitivity));
+    zoomAt(mx, my, Math.exp(exponent));
   },{passive:false});
 
   // keyboard
