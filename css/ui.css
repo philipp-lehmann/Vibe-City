@@ -110,6 +110,9 @@ body {
   display: block;
   cursor: crosshair;
 }
+/* SPACE PAN: Space-held/panning cursor states, toggled by input.js */
+#view.pan-ready { cursor: grab; }
+#view.panning   { cursor: grabbing; }
 
 /* Panel icon */
 .panel-icon {

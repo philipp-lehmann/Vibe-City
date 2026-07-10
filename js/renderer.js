@@ -45,7 +45,7 @@ window.addEventListener('resize', resize);
    user scrolled to, instead of jumping from a stale index.
    ===================================================================== */
 let zoomLevel = 1;                      // 0=fit, 1=1x, 2=2x — button bookkeeping only
-const ZOOM_LABELS = ['Fit','1x','2x'];
+const ZOOM_LABELS = ['Fit','100%','200%'];
 const ZOOM_MAX = 3;                     // continuous-zoom upper clamp (presets top out at 2x)
 function fitScale(){
   const gw=state.gridWidth, gh=state.gridHeight;
@@ -63,7 +63,15 @@ function syncZoomLevel(){
   for(let i=0;i<p.length;i++){ const d=Math.abs(p[i]-state.zoom); if(d<bd){ bd=d; best=i; } }
   zoomLevel=best;
 }
-export function applyZoomLevel(){ state.zoom = presets()[zoomLevel]; }
+// ZOOM FIT CENTER: entering the Fit preset always recentres the camera too —
+// otherwise zooming out from a panned/corner view can land you on a fitted
+// scale that still has the old off-center cam offset, leaving the map
+// floating off-screen instead of fully visible. 1x/2x keep whatever pan the
+// player already had (only Fit implies "see the whole map").
+export function applyZoomLevel(){
+  state.zoom = presets()[zoomLevel];
+  if(zoomLevel===0){ state.cam.x=0; state.cam.y=0; }
+}
 export function cycleZoom(){ zoomLevel=(zoomLevel+1)%3; applyZoomLevel(); }   // fit->1x->2x
 export function stepZoom(dir){ zoomLevel=Math.max(0,Math.min(2,zoomLevel+dir)); applyZoomLevel(); }
 export function zoomLabel(){
@@ -369,6 +377,25 @@ function tickAnimClock(){
 }
 function animClock(){ return _animMs; }
 
+// RIGHTCLICK DELETE INDICATOR: mirrors input.js's rightClear()/bulldoze()/
+// contractBlocks() logic for the 'bull' case (kept duplicated rather than
+// imported — input.js imports view/screenToIso/zoomAt from this module, so
+// importing back from input.js would create a circular dependency). Terrain
+// tools are excluded: with one selected, right-click reverts the tile to
+// lowland (a terraform, not a delete), so it doesn't get the red treatment.
+const TERRAIN_TOOL_IDS = new Set(['tlowland','thighland','thill','twetland','tshallows','twater']);
+function isRightClickDelete(t){
+  if(state.placementMode) return false;
+  if(TERRAIN_TOOL_IDS.has(state.tool)) return false;
+  // contractBlocks(t,'bull'): every contract type blocks bulldoze except an
+  // active WILDLIFE_RESERVE tile, which is always removable (at a penalty).
+  if(t.contractLocked && t.contractType!=='WILDLIFE_RESERVE') return false;
+  if(t.bridge && t.bridgeId!=null) return true;                 // whole span
+  if(t.type===T.GRASS && (t.terrain===TERRAIN.HILL || t.terrain===TERRAIN.HIGHLAND)) return true;
+  if(t.type===T.WATER) return true;                              // water/shallows -> grass
+  return t.type!==T.GRASS && t.type!==T.WATER;                   // any built tile
+}
+
 /* --- Main draw: painter's algorithm in rotated order so depth sort
    stays correct at every facing. --- */
 export function render(){
@@ -417,12 +444,21 @@ export function render(){
 
       drawTileContent(sx,sy,t,gx,gy);
 
-      // hover highlight
+      // hover highlight — RIGHTCLICK DELETE INDICATOR: red instead of the
+      // default light frame when a right-click here would actually bulldoze
+      // something (see isRightClickDelete() below), so the destructive action
+      // is visible before the player commits to it.
       if(state.hover.x===gx && state.hover.y===gy){
         diamond(sx,sy);
-        ctx.fillStyle='rgba(232,232,232,0.18)';
-        ctx.fill();
-        ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1.5; ctx.stroke();
+        if(isRightClickDelete(t)){
+          ctx.fillStyle='rgba(255,91,59,0.22)';
+          ctx.fill();
+          ctx.strokeStyle='#ff5b3b'; ctx.lineWidth=1.5; ctx.stroke();
+        } else {
+          ctx.fillStyle='rgba(232,232,232,0.18)';
+          ctx.fill();
+          ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1.5; ctx.stroke();
+        }
       }
 
       // TILE FOCUS: pinned tile — whole contract area in gold, or just the
@@ -1473,7 +1509,12 @@ function drawDragPreview(){
   if(!state.drag) return;
   const tool=state.drag.tool;
   let fill, stroke;
-  if(tool==='res')      { fill='rgba(124,170,107,0.30)'; stroke='#7caa6b'; }
+  // RIGHTCLICK DELETE INDICATOR: an erase drag (right-click-drag over road/
+  // res/com/ind) always reads as red, regardless of which tool it's erasing —
+  // it previously reused the same tool-colored preview as a *build* drag,
+  // which made a delete look identical to a place.
+  if(state.drag.erase)  { fill='rgba(255,91,59,0.30)';   stroke='#ff5b3b'; }
+  else if(tool==='res') { fill='rgba(124,170,107,0.30)'; stroke='#7caa6b'; }
   else if(tool==='com') { fill='rgba(138,92,246,0.30)';  stroke='#8a5cf6'; }
   else if(tool==='ind') { fill='rgba(217,167,44,0.30)';  stroke='#d9a72c'; }
   else                  { fill='rgba(232,232,232,0.32)'; stroke='#e8e8e8'; }

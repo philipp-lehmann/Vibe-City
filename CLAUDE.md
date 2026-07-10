@@ -173,6 +173,26 @@ In `syncPersistentWarnings()` (ui.js), push a string to `active[]`. It appears a
   still cycles three named presets (Fit → 1× → 2×) via `cycleZoom()`; `zoomLevel` (renderer.js)
   is bookkeeping for that button only and is re-synced to the nearest preset after every wheel
   zoom (`syncZoomLevel()`) so the button continues sensibly from wherever the user scrolled to.
+- `applyZoomLevel()` (renderer.js) always resets `state.cam` to `{0,0}` when landing on the Fit
+  preset (`zoomLevel===0`) — Fit is the one preset that means "see the whole map," so it recenters
+  regardless of how panned/off-corner the camera was beforehand. 1×/2× don't touch `state.cam`.
+
+## Input / camera controls
+
+- **Space-to-pan**: holding Space turns any mouse drag into a camera pan instead of whatever the
+  selected tool would normally do (`input.js`'s `mousedown`/`mousemove`/`mouseup` short-circuit on
+  a module-level `spaceDown`/`panning` flag pair before touching `dragging`/`state.drag`). Cursor
+  swaps via CSS classes toggled on `#view` (`ui.css`): `.pan-ready` (grab) while Space is held,
+  `.panning` (grabbing) while a pan drag is in flight. Pause was moved off Space (now **P**) to
+  free the key up as a pure modifier.
+- **Right-click delete indicator**: the single-tile hover frame and the erase-drag preview (right-
+  click-drag over road/res/com/ind, `state.drag.erase`) both render red (`isRightClickDelete()` /
+  the `state.drag.erase` branch in `drawDragPreview()`, renderer.js) whenever a right-click there
+  would actually bulldoze something. `isRightClickDelete()` deliberately duplicates
+  `bulldoze()`/`contractBlocks()`'s logic from `input.js` rather than importing it — `input.js`
+  already imports from `renderer.js` (`view`/`screenToIso`/`zoomAt`), so the reverse import would
+  be circular. Excludes terrain tools (right-click reverts those to lowland, not a delete) and
+  placement mode.
 
 ## Procedural building asset generation
 

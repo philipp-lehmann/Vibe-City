@@ -27,6 +27,18 @@ const isTerrainTool = id => Object.prototype.hasOwnProperty.call(TERRAIN_TOOLS, 
 
 let dragging=false, dragBtn=0, lastPaint='';
 
+// SPACE PAN: holding Space turns the grid into a grab-pannable surface —
+// cursor becomes a hand (CSS classes toggled on #view, see ui.css), and a
+// mouse drag while held moves the camera instead of placing/dragging
+// whatever tool is currently selected. `panning` is only true while a drag
+// is actually in flight; `spaceDown` tracks the modifier key itself so the
+// cursor can show "ready to pan" (grab) vs "actively panning" (grabbing).
+let spaceDown=false, panning=false, panOrigin={x:0,y:0}, camOrigin={x:0,y:0};
+function updatePanCursor(){
+  view.classList.toggle('pan-ready', spaceDown && !panning);
+  view.classList.toggle('panning', panning);
+}
+
 // SCENARIOS: returns true if placing toolId on tile t should be blocked.
 // WILDLIFE_RESERVE tiles permit terrain tools and road placement only.
 function contractBlocks(t, toolId){
@@ -448,6 +460,16 @@ export function initInput(){
   view.addEventListener('contextmenu',e=>e.preventDefault());
 
   view.addEventListener('mousedown',e=>{
+    // SPACE PAN: while the modifier is held, any button-drag pans instead of
+    // acting on the current tool. Short-circuits before dragging/tool state
+    // is touched, so releasing Space mid-gesture can't leak into a placement.
+    if(spaceDown){
+      panning=true;
+      panOrigin={x:e.clientX,y:e.clientY};
+      camOrigin={x:state.cam.x,y:state.cam.y};
+      updatePanCursor();
+      return;
+    }
     const [gx,gy]=pickFromEvent(e);
     dragging=true; dragBtn=e.button; lastPaint='';
 
@@ -489,6 +511,13 @@ export function initInput(){
   });
 
   view.addEventListener('mousemove',e=>{
+    // SPACE PAN: dragging while panning moves the camera only — no hover/tool
+    // updates while the hand is active.
+    if(panning){
+      state.cam.x=camOrigin.x+(e.clientX-panOrigin.x);
+      state.cam.y=camOrigin.y+(e.clientY-panOrigin.y);
+      return;
+    }
     const [gx,gy]=pickFromEvent(e);
     state.hover.x=gx; state.hover.y=gy;                 // ui reads this each frame
     if(dragging){
@@ -503,6 +532,9 @@ export function initInput(){
   });
 
   window.addEventListener('mouseup',()=>{
+    // SPACE PAN: end the pan gesture; cursor drops back to grab (still held)
+    // or the default crosshair (released).
+    if(panning){ panning=false; updatePanCursor(); return; }
     if(state.drag){
       if(state.drag.erase) eraseDrag(); else commitDrag();   // RIGHTCLICK DRAG vs build
       state.drag=null;
@@ -541,7 +573,15 @@ export function initInput(){
 
   // keyboard
   window.addEventListener('keydown',e=>{
-    if(e.code==='Space'){ e.preventDefault(); togglePause(); }
+    // SPACE PAN: Space is now the pan modifier (see mousedown/mousemove
+    // above); Pause moved to P so the two don't collide. e.repeat guards
+    // against the held-key auto-repeat re-triggering the cursor swap.
+    if(e.code==='Space'){
+      e.preventDefault();
+      if(!e.repeat && !spaceDown){ spaceDown=true; updatePanCursor(); }
+      return;
+    }
+    if(e.key==='p'||e.key==='P'){ togglePause(); }
     if(e.key==='Escape'){ state.pinnedTile = null; }   // TILE FOCUS: unpin inspector
     if(e.key==='q'||e.key==='Q') rotateView(-1);
     if(e.key==='e'||e.key==='E') rotateView(1);
@@ -552,5 +592,14 @@ export function initInput(){
     if(e.key==='ArrowRight') state.cam.x-=PAN;
     if(e.key==='ArrowUp')    state.cam.y+=PAN;
     if(e.key==='ArrowDown')  state.cam.y-=PAN;
+  });
+
+  // SPACE PAN: release the modifier — also ends any in-flight pan drag so
+  // the hand doesn't get stuck grabbing if focus/visibility changes.
+  window.addEventListener('keyup',e=>{
+    if(e.code==='Space'){ spaceDown=false; panning=false; updatePanCursor(); }
+  });
+  window.addEventListener('blur',()=>{
+    spaceDown=false; panning=false; updatePanCursor();
   });
 }
