@@ -40,7 +40,18 @@ export function makeTile(type){
     // SCENARIOS: contract that owns this tile (set by ScenarioManager.placeScenario)
     contractId:     null,
     contractType:   null,
-    contractLocked: false   // locked tiles cannot be bulldozed or built over
+    contractLocked: false,  // locked tiles cannot be bulldozed or built over
+    // ABANDONMENT: true once this tile has ever had level>0 or pop>0 (set in
+    // simulation.js's monthly tick). Survives de-leveling all the way back to
+    // 0/0 so renderer.js's drawZoneBuilding can tell "never developed" (show
+    // the dashed vacant-lot placeholder) from "developed, now empty" (show
+    // the building sprite with an abandoned tint) — these look identical
+    // otherwise. Whole tile objects round-trip through serializeSave()/
+    // applySave() generically (grid is saved/restored as-is via
+    // Object.assign(makeTile(o.type), o)), so this field needs no special
+    // handling there — only resets when the tile object itself is replaced
+    // (bulldoze/fire), same as the buildAge WeakMap in renderer.js.
+    everBuilt: false
   };
 }
 

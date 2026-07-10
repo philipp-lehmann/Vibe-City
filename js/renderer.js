@@ -187,6 +187,7 @@ const TERRAIN_ASSET = {
 const ZONE_ASSET = { R:'residential', C:'commercial', I:'industrial' };
 const DENSITY_ASSET = ['low','mid','high'];
 const POWER_OUT_TINT = '#ff3b30';   // red multiply for unpowered (power-outage) tiles
+const ABANDONED_TINT = '#3c3c38';   // dark gray 'darken' clamp for abandoned (built, now empty) tiles — see drawTinted
 
 function terrainAssetKey(t){
   const name = TERRAIN_ASSET[t.terrain];
@@ -260,23 +261,51 @@ function bridgeAssetKey(t,gx,gy){
   return 'road_bridge_span';
 }
 
-// spec-provided tint helper: draw image, then multiply a colour over its box
-function drawTinted(ctx, img, x, y, w, h, color, alpha){
-  ctx.drawImage(img, x, y, w, h);
-  ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = color;
-  ctx.globalAlpha = alpha;
-  ctx.fillRect(x, y, w, h);
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = 1;
+// scratch canvas for tint blends: any blend mode ('multiply', 'darken', ...)
+// composites via source-over and will bleed solid colour into the sprite's
+// transparent background if the fillRect is drawn straight onto the main
+// canvas (that's the "box"/halo artifact, and 'source-atop' alone can't fix
+// it once we need a real blend mode rather than a flat alpha wash). Instead
+// we blend on an offscreen buffer, then use 'destination-in' with the same
+// sprite to punch the blend back down to exactly the sprite's own alpha
+// before compositing onto the main canvas. Reused across calls; resized on
+// demand rather than allocated per draw.
+let _tintCanvas = null, _tintCtx = null;
+function _tintScratch(w, h){
+  w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
+  if(!_tintCanvas){ _tintCanvas = document.createElement('canvas'); _tintCtx = _tintCanvas.getContext('2d'); }
+  if(_tintCanvas.width !== w || _tintCanvas.height !== h){ _tintCanvas.width = w; _tintCanvas.height = h; }
+  else _tintCtx.clearRect(0, 0, w, h);
+  return _tintCtx;
+}
+// tint helper: blend `color` over the sprite using `mode`, masked to the
+// sprite's own silhouette (see _tintScratch). 'multiply' (POWER_OUT_TINT)
+// darkens+tints every pixel evenly — a uniform alarm-red wash. 'darken'
+// (ABANDONED_TINT) instead clamps each pixel to be no lighter than `color`:
+// the sprite's already-dark walls/roof (see PAL — right/left/top are dark by
+// design) are barely touched, while the bright ~15% lit-window stripes get
+// pulled down to a dead/boarded gray — reads as "windows gone dark" rather
+// than an even gray wash over the whole building (which just looked like smog).
+function drawTinted(ctx, img, x, y, w, h, color, alpha, mode='multiply'){
+  const tctx = _tintScratch(w, h);
+  tctx.globalCompositeOperation = 'source-over';
+  tctx.drawImage(img, 0, 0, w, h);
+  tctx.globalCompositeOperation = mode;
+  tctx.globalAlpha = alpha;
+  tctx.fillStyle = color;
+  tctx.fillRect(0, 0, w, h);
+  tctx.globalCompositeOperation = 'destination-in';
+  tctx.globalAlpha = 1;
+  tctx.drawImage(img, 0, 0, w, h);
+  ctx.drawImage(_tintCanvas, x, y, w, h);
 }
 // place a tile sprite, bottom-aligned to a ground vertex. scale = zoom/2 maps
 // the 2x sprite to the current zoom (img.width 128 -> TILE_W*zoom on screen).
-function blitAsset(img, sx, groundBottomY, tint, alpha){
+function blitAsset(img, sx, groundBottomY, tint, alpha, mode){
   const scale = state.zoom/2;
   const w = img.width*scale, h = img.height*scale;
   const x = sx - w/2, y = groundBottomY - h;
-  if(tint) drawTinted(ctx, img, x, y, w, h, tint, alpha);
+  if(tint) drawTinted(ctx, img, x, y, w, h, tint, alpha, mode);
   else     ctx.drawImage(img, x, y, w, h);
 }
 /* ===== end ASSET RENDERER ============================================ */
@@ -956,23 +985,38 @@ function drawZoneBuilding(sx,sy,t,gx,gy,kind,seedOverride){
   if(!buildAge.has(t)) buildAge.set(t, (t.pop>0||t.level>0) ? state.month-2 : state.month);
   const elapsed = state.month - buildAge.get(t);
   if(elapsed < 2){ drawScaffold(sx,sy); return; }        // 2-month construction
-  if(t.pop===0 && t.level===0){ drawVacantLot(sx,sy,kind); return; }
+  // ABANDONMENT: a tile that has ever been built (t.everBuilt) keeps its
+  // building identity even after de-leveling all the way to 0 pop/0 level —
+  // only a tile that was *never* developed falls through to the vacant-lot
+  // placeholder. t.pop===0 alone (on an everBuilt tile) is the "abandoned"
+  // signal, independent of t.level (a de-leveled-but-still->0 building still
+  // reads as abandoned, not vacant) and independent of power (unpowered
+  // doesn't imply abandoned and vice versa — both tints can apply, abandoned
+  // wins since an empty building's power state isn't interesting).
+  if(t.pop===0 && t.level===0 && !t.everBuilt){ drawVacantLot(sx,sy,kind); return; }
+  const abandoned = t.pop===0;
   // ASSET RENDERER: finished building -> SVG variant. Unpowered tiles get a red
-  // multiply tint (power-outage overlay state). Missing sprite -> path fallback.
+  // multiply tint (power-outage overlay state); abandoned tiles get a 'darken'
+  // clamp toward near-black instead (dims the lit windows, leaves the
+  // already-dark walls alone — see drawTinted) — same tint-overlay idiom,
+  // applied to the same sprite, not a new building. Missing sprite -> path fallback.
   const aimg = getAsset(buildingAssetKey(t,gx,gy,kind));
   if(aimg){
     const hh=(TILE_H/2)*state.zoom;
-    if(!t.powered) blitAsset(aimg, sx, sy + 2*hh, POWER_OUT_TINT, 0.45);
-    else           blitAsset(aimg, sx, sy + 2*hh);
+    if(abandoned)        blitAsset(aimg, sx, sy + 2*hh, ABANDONED_TINT, 0.85, 'darken');
+    else if(!t.powered)  blitAsset(aimg, sx, sy + 2*hh, POWER_OUT_TINT, 0.45);
+    else                 blitAsset(aimg, sx, sy + 2*hh);
+    if(abandoned) drawAbandonedDetail(sx, sy, gx, gy);
     return;
   }
   const seed = seedOverride !== undefined ? seedOverride : tileSeed(gx,gy); // deterministic variant (city-seeded)
   _stripeSeed = seed;                                    // LIT STRIPES: drives dir + jitter
   const P = PAL[kind];
-  const lit = t.powered ? P.win : DARK_WIN;
+  const lit = abandoned ? DARK_WIN : (t.powered ? P.win : DARK_WIN);
   if(kind==='R') drawRes(sx,sy,t.level,seed,P,lit);
   else if(kind==='C') drawCom(sx,sy,t.level,seed,P,lit);
   else drawInd(sx,sy,t.level,seed,P,lit);
+  if(abandoned) drawAbandonedDetail(sx, sy, gx, gy);
 }
 
 // scaffold: bare frame with diagonal cross-bracing
@@ -997,6 +1041,43 @@ function drawVacantLot(sx,sy,kind){
   ctx.fillStyle=hexA(col,0.12); ctx.fill();
   ctx.setLineDash([3*z,2*z]); ctx.strokeStyle=hexA(col,0.6);
   ctx.stroke(); ctx.setLineDash([]);
+}
+
+// ABANDONMENT (polish): derelict details drawn on top of an already-built
+// sprite/procedural building once it reads as abandoned (see drawZoneBuilding).
+// Same idiom as antenna()/stack()/awning() above — small seeded canvas
+// primitives layered on the existing building, not a new asset. Seeded off
+// tileSeed() so the boards/weeds are stable frame-to-frame and reproducible.
+function drawAbandonedDetail(sx,sy,gx,gy){
+  const z=state.zoom, seed=(tileSeed(gx,gy) ^ 0x9e3779b9) >>> 0;
+  ctx.setLineDash([]);
+  // boarded-window crosses standing in for the sprite's own lit windows
+  const n = 2 + (seed%2);
+  ctx.strokeStyle='rgba(58,46,34,0.85)'; ctx.lineWidth=1.4*z;
+  for(let i=0;i<n;i++){
+    const sd=(seed+i*53)>>>0;
+    const u=0.30+srand(sd)*0.35, v=0.30+srand(sd+11)*0.35;
+    const h0=(8+srand(sd+23)*20)*z, s=0.055;
+    const p0=bp(sx,sy,u-s,v-s,h0), p1=bp(sx,sy,u+s,v+s,h0);
+    const p2=bp(sx,sy,u-s,v+s,h0), p3=bp(sx,sy,u+s,v-s,h0);
+    ctx.beginPath(); ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p2[0],p2[1]); ctx.lineTo(p3[0],p3[1]); ctx.stroke();
+  }
+  // weed tufts sprouting near the tile's front base corner
+  const wn = 1 + (seed>>>5)%2;
+  ctx.strokeStyle='#5c7a3f'; ctx.lineWidth=1*z;
+  for(let i=0;i<wn;i++){
+    const sd=(seed+i*91+7)>>>0;
+    const u=0.16+srand(sd)*0.16, v=0.68+srand(sd+5)*0.18;
+    const base=bp(sx,sy,u,v,0);
+    for(let k=0;k<3;k++){
+      const ang=-Math.PI/2+(srand(sd+k*13)-0.5)*1.1;
+      const len=(4+srand(sd+k*17)*4)*z;
+      ctx.beginPath(); ctx.moveTo(base[0],base[1]);
+      ctx.lineTo(base[0]+Math.cos(ang)*len, base[1]+Math.sin(ang)*len);
+      ctx.stroke();
+    }
+  }
 }
 
 // ---- RESIDENTIAL ------------------------------------------------------

@@ -354,6 +354,12 @@ export function monthlyTick(){
       if(t.pop===0 && t.level>0 && Math.random()<0.2) t.level--;
     }
 
+    // ABANDONMENT: bookkeeping only (not growth/decline math) — once a zoned
+    // tile has ever been occupied/leveled, remember it so renderer.js can
+    // render a later delevel-to-zero as an abandoned building instead of the
+    // "never developed" vacant lot. See t.everBuilt in state.js.
+    if(t.level>0 || t.pop>0) t.everBuilt = true;
+
     // aggregates
     if(isRes){ resPop+=t.pop; if(t.jobsNearby) resJobPop+=t.pop; }
     if(isCom)  comCap+=cap;
