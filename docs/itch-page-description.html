@@ -1,0 +1,54 @@
+<p><strong>Boot up a city on a green-phosphor grid.</strong></p>
+
+<p>Vibe City is an isometric city builder with a CRT terminal soul — scanlines, amber warnings, a monospace HUD, and a simulation underneath that actually pushes back. Zone residential, commercial, and industrial land, thread power lines out from your plant, keep the water pumps fed, and watch the RCI demand meters tell you what your city actually wants next.</p>
+
+<p>It's not just paint-by-numbers zoning. Power has to physically propagate down the grid. Water coverage depends on road access. Fires happen. Land value responds to what you build near it. Contracts roll in for AI data centres, shipping hubs, and wildlife reserves — each with its own multi-stage buildout and its own consequences if you tear one down early. Terrain is procedurally generated per city, with hills, wetlands, and coastline that actually shapes where you can build and how.</p>
+
+<p><strong>This is early access.</strong> Vibe City is under active development — expect rough edges, missing polish, and features still being tuned. Save format may change between versions (see Known Issues below for how to protect your saves).</p>
+
+<h3>Features</h3>
+<ul>
+<li>Isometric rendering with 4-direction rotation and smooth zoom</li>
+<li>RCI demand simulation (Residential / Commercial / Industrial) with a tax rate you control</li>
+<li>Power grid propagation from plant to power line to zone — no power line, no power</li>
+<li>Water pump coverage gated on road access</li>
+<li>Procedural terrain per city — elevation, moisture, wetlands, coasts, hills</li>
+<li>Bridges with proper ramp/span geometry over water</li>
+<li>Scenario contracts: AI Data Centre, Shipping Centre, Wildlife Reserve — each with staged buildouts and real consequences for bulldozing early</li>
+<li>Fire disaster tool, population milestones, land value &amp; pollution modeling</li>
+<li>Minimap with power / water / land value / fire overlay modes</li>
+<li>Autosave plus 6 manual save slots, with Export/Import City to back up a save as a portable file</li>
+</ul>
+
+<h3>Controls</h3>
+<table>
+<tr><th>Input</th><th>Action</th></tr>
+<tr><td>Left-click / drag</td><td>Place selected tile</td></tr>
+<tr><td>Right-click / drag</td><td>Bulldoze</td></tr>
+<tr><td>Scroll wheel</td><td>Zoom in/out</td></tr>
+<tr><td>Q / E</td><td>Rotate view</td></tr>
+<tr><td>P</td><td>Pause / resume</td></tr>
+<tr><td>Space (hold) + drag</td><td>Pan camera</td></tr>
+<tr><td>Fullscreen icon (top-right)</td><td>Toggle fullscreen</td></tr>
+</table>
+
+<h3>System requirements</h3>
+<ul>
+<li><strong>Windows</strong> — Windows 10 or 11, 64-bit</li>
+<li><strong>macOS</strong> — macOS 12 (Monterey) or later. Universal binary, runs natively on Apple Silicon and Intel.</li>
+<li><strong>Linux</strong> — .deb or .AppImage; requires webkit2gtk (already present on most desktop distros)</li>
+</ul>
+<p>No account and no internet connection required to play — fonts are self-hosted in the build, not pulled from a CDN.</p>
+
+<h3>Known issues / disclaimers</h3>
+<p><strong>Unsigned builds — your OS will warn you on first launch.</strong> Code signing isn't set up yet for Windows or macOS, so:</p>
+<ul>
+<li><strong>Windows:</strong> SmartScreen will say "Windows protected your PC." Click <strong>More info → Run anyway</strong>.</li>
+<li><strong>macOS:</strong> Gatekeeper will refuse to open the app the normal way. Right-click (or Control-click) the app → <strong>Open</strong> → confirm. If that doesn't work, go to <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong> next to the Vibe City block.</li>
+</ul>
+<p>This is expected for an unsigned indie build, not a sign anything's wrong.</p>
+
+<p><strong>Saves are local and may not survive version updates.</strong> Vibe City stores saves on your machine. Because this is an early-access build with the save format still evolving, use the in-game <strong>Export City</strong> button periodically to back up a save as a portable file, and <strong>Import City</strong> to restore it if a future update isn't backward-compatible.</p>
+
+<h3>Credits</h3>
+<p>Built by Philipp / Redefine Studio. Claude Code assisted with implementation — simulation logic, the procedural building/asset generators, and the desktop packaging.</p>

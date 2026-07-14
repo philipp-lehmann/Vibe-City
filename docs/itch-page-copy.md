@@ -2,6 +2,13 @@
 
 Paste these into the itch page editor. Sections map to itch's own fields (title / short description / description body / etc).
 
+itch's Description field is a rich-text (HTML) editor, not markdown — click the
+`<>` button in the Details section of the edit page to switch to raw HTML, then
+paste the ready-to-go markup from `docs/itch-page-description.html` (everything
+from "Description" through "Credits" below, already converted). Title / short
+description / genre / tags / pricing / platforms are separate plain-text
+fields elsewhere on the same edit page — copy those directly from below.
+
 ---
 
 ## Title
@@ -65,7 +72,7 @@ It's not just paint-by-numbers zoning. Power has to physically propagate down th
 - **macOS** — macOS 12 (Monterey) or later. Universal binary, runs natively on Apple Silicon and Intel.
 - **Linux** — `.deb` or `.AppImage`; requires `webkit2gtk` (already present on most desktop distros)
 
-No account, no internet connection required to play. (First launch briefly reaches out for a web font — see Known Issues.)
+No account or internet connection required to play — fonts are self-hosted in the build, not pulled from a CDN.
 
 ---
 
@@ -79,8 +86,6 @@ No account, no internet connection required to play. (First launch briefly reach
 This is expected for an unsigned indie build, not a sign anything's wrong.
 
 **Saves are local and may not survive version updates.** Vibe City stores saves on your machine. Because this is an early-access build with the save format still evolving, use the in-game **Export City** button periodically to back up a save as a portable file, and **Import City** to restore it if a future update isn't backward-compatible.
-
-**Requires an internet connection on first launch** to load a web font (JetBrains Mono via Google Fonts). If you're fully offline, the UI will fall back to a system monospace font — everything still works.
 
 ---
 
