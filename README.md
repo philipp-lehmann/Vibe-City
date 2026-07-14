@@ -28,6 +28,7 @@ Opening `index.html` directly as a `file://` URL will not work due to module COR
 | Scroll wheel | Zoom in/out |
 | Q / E | Rotate view |
 | Space | Pause / resume |
+| Fullscreen icon (top-right) | Toggle fullscreen |
 
 
 ## Project structure
@@ -169,3 +170,33 @@ clearly marked `TODO` placeholders for the required secrets. Unsigned builds
 work fine locally and for distributing to testers, but macOS will show a
 Gatekeeper warning and Windows will show an "unknown publisher" SmartScreen
 prompt until signing is set up.
+
+## Web build (itch.io)
+
+The same static `index.html` / `css/` / `js/` / `assets/` also runs as-is in
+a browser — no build step, same as running it locally with `npx serve .`.
+`scripts/build-itch.mjs` packages a clean copy into a zip ready to upload to
+itch as an HTML5 embed:
+
+```bash
+node scripts/build-itch.mjs
+```
+
+Output lands at `build/vibe-city-web-vX.Y.Z.zip` (version read from
+`src-tauri/Cargo.toml`, `build/` is git-ignored). It stages `index.html`,
+`css/`, `js/`, and `assets/` into a temp folder first — leaving out
+`assets/drafts/` (gitignored review art, see "Building assets" above) and
+everything Node/Tauri-only (`src-tauri/`, `scripts/`, `docs/`, this
+README) — then zips it with `index.html` at the archive root, which itch's
+HTML5 embed requires (a zip with everything nested one folder down won't
+launch).
+
+On the itch page, set the embed to fullscreen-capable ("automatically
+calculate frame size" / mobile-unfriendly is fine) — the game already
+handles arbitrary viewport sizes via a `window.resize` listener, and has
+its own in-game fullscreen toggle (top-right of the statusbar, uses the
+standard Fullscreen API) independent of itch's own fullscreen button.
+
+Fonts are self-hosted (`assets/fonts/`, JetBrains Mono, SIL OFL license
+included) rather than pulled from the Google Fonts CDN, so the web build
+has no external network dependency at load time.

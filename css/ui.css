@@ -3,6 +3,37 @@
    dark charcoal #1a1a2e canvas, neutral white-gray monochrome
    accents, monospace throughout. No modern gradients.
    ============================================================ */
+
+/* Self-hosted JetBrains Mono (assets/fonts/, SIL OFL — see
+   assets/fonts/LICENSE-OFL.txt) — replaces the old Google Fonts CDN
+   <link> in index.html so the game has no external network dependency
+   at load time (matters for the itch.io web build, whose sandboxed
+   iframe shouldn't need to reach fonts.gstatic.com to render correctly,
+   and for the Tauri desktop build, which should work fully offline).
+   Falls back to the system monospace stack in the body font-family
+   below if a woff2 fails to load for any reason. */
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../assets/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../assets/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../assets/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Colors */
   --bg: #121212;
@@ -121,6 +152,12 @@ body {
   font-size: var(--font-lg);
   line-height: var(--font-md);
   padding: var(--sp-1);
+}
+
+/* FULLSCREEN: #btn-fullscreen reuses .panel-icon, just recolors gold while
+   #app is actually in fullscreen (see initFullscreen() in ui.js). */
+#btn-fullscreen.active {
+  color: var(--gold);
 }
 
 /* --- Status bar (top) --- */

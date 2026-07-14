@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🌃 Vibe City</title>
   <!-- 🌃 🌆 🏙️ 🌉 🌁 -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- JetBrains Mono is self-hosted (assets/fonts/, @font-face in ui.css) —
+       no Google Fonts CDN call, so the game has no external network
+       dependency at load time. -->
   <link rel="stylesheet" href="css/ui.css">
 </head>
 
@@ -34,7 +34,13 @@
             id="s-happy">70</b><canvas class="spark" id="spark-happy" width="36"
             height="16"></canvas></span><!-- DEMAND SYSTEM -->
       </div>
-      <div id="statusbar-right"> </div>
+      <div id="statusbar-right">
+        <!-- FULLSCREEN: uses the Fullscreen API on #app; glyph + title synced
+             by initFullscreen() in ui.js. Placed in the top-right corner of
+             the statusbar so it matches itch.io's own convention (and works
+             just as well in the Tauri desktop build). -->
+        <span id="btn-fullscreen" class="panel-icon" title="Enter fullscreen">⛶</span>
+      </div>
     </div>
 
     <!-- ===== NOTIFICATION CENTRE ===== -->

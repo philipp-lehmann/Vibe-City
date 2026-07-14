@@ -496,6 +496,25 @@ function initNotifCenter() {
   };
 }
 
+/* --- FULLSCREEN: top-right statusbar toggle, standard Fullscreen API on
+   #app (not just the canvas, so the HUD stays visible/interactive) — works
+   in a browser tab, itch.io's embedded iframe, and the Tauri webview alike.
+   Hidden entirely if the API isn't available (e.g. iOS Safari) rather than
+   showing a control that would just silently fail. */
+function toggleFullscreen() {
+  if (!document.fullscreenElement) document.getElementById('app').requestFullscreen?.().catch(() => {});
+  else document.exitFullscreen?.();
+}
+function initFullscreen() {
+  const btn = $('btn-fullscreen');
+  if (!document.fullscreenEnabled) { btn.style.display = 'none'; return; }
+  document.addEventListener('fullscreenchange', () => {
+    const active = !!document.fullscreenElement;
+    btn.classList.toggle('active', active);   // CSS just recolors the glyph; ⛶ reads fine both ways
+    btn.title = active ? 'Exit fullscreen' : 'Enter fullscreen';
+  });
+}
+
 export function toast(msg)     { addTransientNotif(msg, 'city'); }
 function flashStatus(msg)      { addTransientNotif(msg, 'action'); }
 
@@ -514,6 +533,7 @@ export function wireControls() {
   $('btn-newgame').onclick = doNewGame;
   $('btn-contracts').onclick = openContractsDialog;   // SCENARIOS: Admin accordion button, Scenario Mode only
   $('btn-loans').onclick = openCreditsDialog;         // CREDITS: Admin accordion button, any mode
+  $('btn-fullscreen').onclick = toggleFullscreen;     // FULLSCREEN: top-right statusbar toggle
 }
 
 // GAME MODE: force the Admin accordion section open (used once when a Scenario
@@ -1612,6 +1632,7 @@ export function initUI() {
   initAdminPanel();                                  /* ADMIN PANEL */
   initNotifCenter();                                 /* NOTIFICATION CENTRE */
   initStatsPanel();                                  /* STATISTICS */
+  initFullscreen();                                  /* FULLSCREEN */
 }
 
 export function syncUI() {

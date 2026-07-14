@@ -12,3 +12,6 @@
 
 # Generated draft assets (see scripts/gen-assets/)
 assets/drafts/
+
+# itch.io web build output (see scripts/build-itch.mjs)
+build/
