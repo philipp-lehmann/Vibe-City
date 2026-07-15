@@ -1,8 +1,8 @@
-# Vibe city
-A browser-based isometric city builder with a retro CRT aesthetic. Built with vanilla JavaScript ES modules — no build step required.
+# Vibe City
+A browser-based isometric city builder with a retro CRT aesthetic. Built with vanilla JavaScript ES modules, no build step required.
 
 ## Play it on itch.io
-[Vibe City Web Version](https://phlehmann.itch.io/vibe-city),
+[Vibe City Web Version](https://phlehmann.itch.io/vibe-city)
 
 ## 🌃 🌆 🏙️ 🌉 🌁
 ![Screenshot](docs/image-2.png)
