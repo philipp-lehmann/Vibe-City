@@ -35,10 +35,12 @@
             height="16"></canvas></span><!-- DEMAND SYSTEM -->
       </div>
       <div id="statusbar-right">
-        <!-- FULLSCREEN: uses the Fullscreen API on #app; glyph + title synced
-             by initFullscreen() in ui.js. Placed in the top-right corner of
-             the statusbar so it matches itch.io's own convention (and works
-             just as well in the Tauri desktop build). -->
+        <!-- FULLSCREEN: uses the Fullscreen API on document.documentElement
+             (not #app — modals live outside it, see ui.js's toggleFullscreen
+             comment); glyph + title synced by initFullscreen() in ui.js.
+             Placed in the top-right corner of the statusbar so it matches
+             itch.io's own convention (and works just as well in the Tauri
+             desktop build). -->
         <span id="btn-fullscreen" class="panel-icon" title="Enter fullscreen">⛶</span>
       </div>
     </div>

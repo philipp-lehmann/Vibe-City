@@ -496,13 +496,20 @@ function initNotifCenter() {
   };
 }
 
-/* --- FULLSCREEN: top-right statusbar toggle, standard Fullscreen API on
-   #app (not just the canvas, so the HUD stays visible/interactive) — works
-   in a browser tab, itch.io's embedded iframe, and the Tauri webview alike.
-   Hidden entirely if the API isn't available (e.g. iOS Safari) rather than
-   showing a control that would just silently fail. */
+/* --- FULLSCREEN: top-right statusbar toggle, standard Fullscreen API —
+   works in a browser tab, itch.io's embedded iframe, and the Tauri webview
+   alike. Hidden entirely if the API isn't available (e.g. iOS Safari)
+   rather than showing a control that would just silently fail.
+   Targets document.documentElement, NOT #app: buildSavesModal() and every
+   other dialog (size picker, contracts, credits, contract detail,
+   placement banner) append themselves straight to document.body rather
+   than into #app, so fullscreening #app specifically would leave all of
+   them outside the fullscreen element's subtree — invisible and unclickable
+   the moment fullscreen engages, since the Fullscreen API only paints the
+   fullscreen element's own descendants. Fullscreening <html> covers
+   everything under <body> instead, modals included. */
 function toggleFullscreen() {
-  if (!document.fullscreenElement) document.getElementById('app').requestFullscreen?.().catch(() => {});
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
   else document.exitFullscreen?.();
 }
 function initFullscreen() {
@@ -632,16 +639,31 @@ function buildSavesModal() {
   const panel = document.createElement('div');
   panel.className = 'modal-panel saves-modal-panel';
   panel.innerHTML = `<div class="saves-modal-head">
-      <h2 class="modal-title">Vibe City</h2>
+      <h2 id="saves-title" class="modal-title">Vibe City</h2>
       <button id="saves-new" class="border" style="margin-left:auto;">New City</button>
       <button id="saves-close">✕ Close</button>
     </div>
-    <div id="saves-import-banner" class="import-banner" style="display:none;"></div>
-    <div id="saves-grid"></div>
-    <div id="saves-auto"></div>
-    <div class="saves-io-row">
-      <button id="saves-export" class="border">Export City</button>
-      <button id="saves-import" class="border">Import City</button>
+
+    <!-- FIRST LAUNCH: shown instead of #saves-normal below when no save
+         exists anywhere yet (see renderSlots()) — a self-contained welcome
+         screen rather than a pile of individually toggled bits inside the
+         normal layout. -->
+    <div id="saves-welcome" class="saves-welcome" style="display:none;">
+      <img class="saves-banner" src="assets/img/Banner.png" alt="Vibe City">
+      <div class="saves-welcome-actions">
+        <button id="saves-welcome-import" class="border">Import City</button>
+        <button id="saves-welcome-new" class="btn-confirm-action">New City</button>
+      </div>
+    </div>
+
+    <div id="saves-normal">
+      <div id="saves-import-banner" class="import-banner" style="display:none;"></div>
+      <div id="saves-grid"></div>
+      <div id="saves-auto"></div>
+      <div class="saves-io-row">
+        <button id="saves-export" class="border">Export City</button>
+        <button id="saves-import" class="border">Import City</button>
+      </div>
     </div>
     <input type="file" id="saves-import-file" accept="application/json,.json" style="display:none;">`;
   modal.appendChild(panel);
@@ -651,6 +673,10 @@ function buildSavesModal() {
   $('saves-export').onclick = downloadLiveSave;
   $('saves-import').onclick = () => $('saves-import-file').click();
   $('saves-import-file').onchange = handleImportFile;
+  // FIRST LAUNCH: welcome screen's own Import/New City buttons — same
+  // handlers as the normal-state ones, just a second entry point into them.
+  $('saves-welcome-import').onclick = () => $('saves-import-file').click();
+  $('saves-welcome-new').onclick = doNewGame;
 }
 function openSaves() {
   if (!modal) buildSavesModal();
@@ -844,6 +870,22 @@ function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;
 function renderSlots() {
   const idx = listSaves();
   const bySlot = {}; idx.forEach(e => bySlot[e.slot] = e);
+  // FIRST LAUNCH: no saves anywhere yet AND no city currently live —
+  // swap in the #saves-welcome block wholesale instead of #saves-normal
+  // (title + grid + autosave row + export/import row), rather than
+  // toggling each of those individually. Reverts the moment any save
+  // exists, including the autosave that lands the first time a city is
+  // started. The header's own "New City" button is redundant with the
+  // welcome screen's — hide it there too.
+  // gameStarted is required alongside idx.length: opening Menu mid-game,
+  // before the first autosave has landed, must still show the normal
+  // dialog (with a working "Save Here") rather than the welcome screen —
+  // there IS a city to save, it just hasn't hit a slot yet.
+  const firstLaunch = idx.length === 0 && !gameStarted;
+  $('saves-welcome').style.display = firstLaunch ? 'flex' : 'none';
+  $('saves-normal').style.display = firstLaunch ? 'none' : '';
+  $('saves-title').style.display = firstLaunch ? 'none' : '';
+  $('saves-new').style.display = firstLaunch ? 'none' : '';
   // EXPORT/IMPORT: banner + Cancel while a loaded file is waiting for a slot
   const banner = $('saves-import-banner');
   if (pendingImport) {

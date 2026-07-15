@@ -857,6 +857,33 @@ button:disabled:hover {
   gap: var(--sp-2);
 }
 
+/* FIRST LAUNCH: self-contained welcome screen swapped in for #saves-normal
+   (title/grid/autosave/export-import row) when no save exists anywhere yet
+   — see renderSlots() in ui.js. display is set to 'flex' from JS, so this
+   base rule only needs the column layout, not the show/hide itself. */
+.saves-welcome {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: var(--sp-5) 0 var(--sp-2);
+}
+
+.saves-welcome-actions {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+/* assets/img/Banner.png is a flat white 630x500 logo card, so it's sized
+   down and centered rather than stretched to the panel's full width —
+   filling the width would force object-fit letterboxing since the panel
+   is much wider than the banner is tall. */
+.saves-banner {
+  display: block;
+  max-width: 100%;
+  max-height: 140px;
+  border-radius: var(--radius-sm);
+}
+
 #saves-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
